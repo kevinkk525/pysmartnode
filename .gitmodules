@@ -1,3 +1,6 @@
 [submodule "libraries"]
 	path = libraries
 	url = https://github.com/kevinkk525/micropython-device-libraries
+[submodule "external_modules/micropython_mqtt_as"]
+	path = external_modules/micropython_mqtt_as
+	url = https://github.com/kevinkk525/micropython-mqtt
