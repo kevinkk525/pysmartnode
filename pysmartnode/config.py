@@ -129,6 +129,7 @@ async def registerComponentsAsync(data):
         registerComponents(tmp)
         del tmp
         gc.collect()
+        await asyncio.sleep_ms(750 if platform == "esp8266" else 200)
         st = time.ticks_ms()
         while len(loop.runq) > LEN_ASYNC_QUEUE - 6 and time.ticks_ms() - st < 8000:
             if platform == "esp8266":

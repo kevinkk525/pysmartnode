@@ -2,6 +2,7 @@
 
 #### Version 3.8.1
 * first version published to github
+* smaller bugfixes
 * [mqtt] "last_boot" was not published as retained
 * [templates] finished template "easy_sensor.py" for creating a new sensor supporting the sensor-API and automatically publishes readings with minimal effort
 * [templates] finished template "sensor_template.py" for creating a new sensor with a little more effort but ~1.5kB less RAM

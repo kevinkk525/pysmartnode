@@ -23,12 +23,12 @@ The project is compatible with ESP32 and ESP8266 microcontrollers.
 
 ### ESP8266
 
-This works pretty well, version >3.0 has even more stable code but sadly also a huge RAM requirement. 
-This leaves the ESP8266 on version 3.4. with only ~5kB RAM without any active modules apart from the base modules like mqtt. This is obviously not much and I would be happy about every pull request making the base code more RAM efficient.
-However this is still enough to run the components I2C, HTU21D, easyGPIO and still have ~3kB of RAM left which is enough for a few additional small components.
-An even better solution is to disable the filesystem if you don't need it, as this gives ~4kB of RAM. 
-*These numbers have to be updated*
-Update 2018-06-22: With a little tweaking I am able to run I2C, HTU21D, Buzzer, LED, RAM publishing, a debug component without a filesystem and still have 5kB of RAM available. 
+This works pretty well, version >3.0 has even more stable code but sadly also a huge RAM requirement.
+With version 3.4 it was still possible to run this project with an activated filesystem and have a few components. 
+Sadly version 3.8. is unusable if the filesystem is activated. I will work on a solution and clean up the code to free more RAM.
+
+However if you disable the filesystem, this frees up more than 4kB of RAM. 
+With this I am able to run I2C, HTU21D, Buzzer, LED, RAM publishing, a debug component and still have 5kB of RAM available, which is enough for a few more components. 
 
 ### ESP32
 
@@ -66,6 +66,8 @@ Required external modules are:
 
 All required modules are in this repository and don't need to be aquired manually. 
 Just put the directories `micropython_mqtt_as` and `uasyncio` from `external_modules` into your `modules` directory before building the firmware or run the correct script in section `Tools`.
+The *micropython_mqtt_as* dierectory is a submodule to my repository so this will be updated automatically.
+Uasyncio is copied from the official repository and I will update the file as soon as a new version is published.
 
 ## 3. Components
 The included components can be found in the directory "pysmartnode/components".
@@ -99,6 +101,38 @@ To run the pysmartnode on boot, just use the included "main.py".
 The environment specific configuration is done within the "config.py" file that has to be put in the root directory of your microcontroller (or if frozen in "modules"). Copy the "config_example.py" to "config.py" and change it according to your needs.
 In this file you have to specify the WIFI and MQTT details of your home environment.
 There are also some optional parameters to configure base modules and behaviour.
+
+### Project configuration
+The project configuration is done in the file *config.py* which should be created by copying the [config_example.py](./config_example.py).
+If you have a filesystem, copy it to there or put it as frozen bytecode in your modules directory.
+
+The basic configuration options are:
+* WIFI: SSID and PASSPHRASE
+* MQTT: HOST, USER and PASSWORD
+
+Optional configurations for the network are:
+* MQTT_KEEPALIVE: the keepalive interval, if the device does not send a ping within this interval, it will be considered offline
+* MQTT_HOME: the mqtt root topic
+* MQTT_RECEIVE_CONFIG: states if the device should receive its configuration using mqtt subscription. This only works when using [SmartServer](https://github.com/kevinkk525/SmartServer) in your network
+
+Platform dependend options are
+- for esp8266:
+    * LIGHTWEIGHT_LOG: if a logging module with less RAM demands should be used (saves ~500B)
+    * MQTT_MINIMAL_VERSION: if a mqtt module should be used that is stripped to only the needed things (saves ~200B)
+    * RTC_SYNC_ACTIVE: if and RTC time sync should be done (saves ~600B)
+    * USE_SOFTWARE_WATCHDOG: As some of my esp8266 occasionally get stuck for 1h 10minutes but not the interrupts, this makes using a software watchdog possible to reset hanging units (uses ~600B)
+- for esp32_LoBo:
+    * MDNS_ACTIVE, MDNS_HOSTNAME, MDNS_DESCRIPTION: mdns options
+    * FTP_ACTIVE: enable the built-in ftp server, very nice to have
+    * TELNET_ACTIVE: enable the built-in telnet server to access the repl over wifi
+    * RTC_SYNC_ACTIVE, RTC_TIMEZONE: enable RTC time sync and set the time server
+
+A few additional options define some constants:
+* INTERVAL_SEND_SENSOR: defines an interval, in which sensors are publishing their value if no interval is provided in the component configuration
+* DEBUG: Will display additional information, useful for development only
+* DEBUG_STOP_AFTER_EXECUTION: normally if an uncatched exception occurs and the loop exits, it will send a log and reset the device. This disables it and will stop at the repl after the exception.
+* GC_INTERVAL: if the component ".machine.RAM" is active, this is the interval in which the garbage collection will be run
+* INTERVAL_SEND_RAM: if the component ".machine.RAM" is active, the free RAM will be published in this interval
 
 ### Component configuration
 The configuration of all components used on a microcontroller can be configured in different ways:

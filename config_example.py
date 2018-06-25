@@ -16,18 +16,19 @@ MQTT_RECEIVE_CONFIG = True
 # sends the configuration of a device over mqtt
 # If you do not run it, you have to configure the components locally on each microcontroller
 
-RTC_SYNC_ACTIVE = True  # uses ~600B additional RAM on esp8266, copy to platform part if using different settings
 if platform == "esp32_LoBo":
     MDNS_ACTIVE = True
     MDNS_HOSTNAME = "esp32"
     MDNS_DESCRIPTION = "esp32_mdns"
     FTP_ACTIVE = True
     TELNET_ACTIVE = True
+    RTC_SYNC_ACTIVE = True  # uses ~600B additional RAM on esp8266
     RTC_TIMEZONE = "de.pool.ntp.org"
 elif platform == "esp8266":
     LIGTWEIGHT_LOG = True  # uses a smaller class for logging on esp8266 omitting module names, saves ~500Bytes
     MQTT_MINIMAL_VERSION = True  # saves ~200B if used as frozen bytecode
     USE_SOFTWARE_WATCHDOG = True  # uses ~700B of RAM, started with timeout=2xMQTT_KEEPALIVE
+    RTC_SYNC_ACTIVE = False  # uses ~600B additional RAM on esp8266
 
 # 10min, Interval sensors send a new value if not specified by specific configuration
 INTERVAL_SEND_SENSOR = const(600)
