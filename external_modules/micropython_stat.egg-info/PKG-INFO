@@ -1,0 +1,16 @@
+Metadata-Version: 1.0
+Name: micropython-stat
+Version: 0.5.1
+Summary: CPython stat module ported to MicroPython
+Home-page: https://github.com/micropython/micropython-lib
+Author: MicroPython Developers
+Author-email: micro-python@googlegroups.com
+License: Python
+Description: This is a module ported from CPython standard library to be compatible with
+        MicroPython interpreter. Usually, this means applying small patches for
+        features not supported (yet, or at all) in MicroPython. Sometimes, heavier
+        changes are required. Note that CPython modules are written with availability
+        of vast resources in mind, and may not work for MicroPython ports with
+        limited heap. If you are affected by such a case, please help reimplement
+        the module from scratch.
+Platform: UNKNOWN

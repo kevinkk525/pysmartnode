@@ -1,0 +1,14 @@
+Metadata-Version: 1.0
+Name: micropython-uasyncio.synchro
+Version: 0.1.1
+Summary: Synchronization primitives for uasyncio.
+Home-page: https://github.com/micropython/micropython-lib
+Author: MicroPython Developers
+Author-email: micro-python@googlegroups.com
+License: MIT
+Description: This is a module reimplemented specifically for MicroPython standard library,
+        with efficient and lean design in mind. Note that this module is likely work
+        in progress and likely supports just a subset of CPython's corresponding
+        module. Please help with the development if you are interested in this
+        module.
+Platform: UNKNOWN

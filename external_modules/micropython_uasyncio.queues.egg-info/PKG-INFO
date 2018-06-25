@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: micropython-uasyncio.queues
+Version: 0.1.2
+Summary: uasyncio.queues module for MicroPython
+Home-page: https://github.com/micropython/micropython-lib
+Author: MicroPython Developers
+Author-email: micro-python@googlegroups.com
+License: MIT
+Description: Port of asyncio.queues to uasyncio.
+Platform: UNKNOWN

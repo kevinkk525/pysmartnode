@@ -1,0 +1,4 @@
+cd ~/MicroPython_ESP32_psRAM_LoBo/
+rsync -av "/home/kevin/ws_cloud/Programme Python/WNodePython/pysmartnode/" ./MicroPython_BUILD/components/micropython/esp32/modules/pysmartnode/ --delete --exclude=__pycache__ --exclude=.git --exclude=.gitignore --exclude=.project --exclude=.pydevproject --exclude=*.mpy --exclude=*.md --exclude=*.bin
+rsync -av "/home/kevin/ws_cloud/Programme Python/WNodePython/_testing/" ./MicroPython_BUILD/components/micropython/esp32/modules/_testing/ --delete --exclude=__pycache__ --exclude=.git --exclude=.gitignore --exclude=.project --exclude=.pydevproject --exclude=*.mpy --exclude=*.md --exclude=*.bin
+rsync -av "/home/kevin/ws_cloud/Programme Python/WNodePython/external_modules/" ./MicroPython_BUILD/components/micropython/esp32/modules/ --exclude=*.egg-info --exclude=.git --exclude=.gitignore --exclude=.project --exclude=.pydevproject --exclude=*.mpy --exclude=*.md --exclude=*.bin

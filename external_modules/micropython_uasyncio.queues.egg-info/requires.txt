@@ -1,0 +1,2 @@
+micropython-uasyncio.core
+micropython-collections.deque

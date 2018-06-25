@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: micropython-uasyncio.core
+Version: 2.0
+Summary: Lightweight asyncio-like library for MicroPython, built around native Python coroutines. (Core event loop).
+Home-page: https://github.com/micropython/micropython-lib
+Author: micropython-lib Developers
+Author-email: micro-python@googlegroups.com
+License: MIT
+Description: Lightweight asyncio-like library for MicroPython, built around native Python coroutines. (Core event loop).
+Platform: UNKNOWN

@@ -1,0 +1,41 @@
+from sys import platform
+from micropython import const
+
+# Required custom configuration
+WIFI_SSID = "SSID"
+WIFI_PASSPHRASE = "PASSPHRASE"
+MQTT_HOST = "BROKER-IP"
+MQTT_USER = ""
+MQTT_PASSWORD = ""
+
+# Optional configuration
+MQTT_KEEPALIVE = 60
+MQTT_HOME = "home"
+MQTT_RECEIVE_CONFIG = True
+# RECEIVE_CONFIG: Only use if you run the "SmartServer" in your environment which
+# sends the configuration of a device over mqtt
+# If you do not run it, you have to configure the components locally on each microcontroller
+
+RTC_SYNC_ACTIVE = True  # uses ~600B additional RAM on esp8266, copy to platform part if using different settings
+if platform == "esp32_LoBo":
+    MDNS_ACTIVE = True
+    MDNS_HOSTNAME = "esp32"
+    MDNS_DESCRIPTION = "esp32_mdns"
+    FTP_ACTIVE = True
+    TELNET_ACTIVE = True
+    RTC_TIMEZONE = "de.pool.ntp.org"
+elif platform == "esp8266":
+    LIGTWEIGHT_LOG = True  # uses a smaller class for logging on esp8266 omitting module names, saves ~500Bytes
+    MQTT_MINIMAL_VERSION = True  # saves ~200B if used as frozen bytecode
+    USE_SOFTWARE_WATCHDOG = True  # uses ~700B of RAM, started with timeout=2xMQTT_KEEPALIVE
+
+# 10min, Interval sensors send a new value if not specified by specific configuration
+INTERVAL_SEND_SENSOR = const(600)
+
+# Does not need to be changed normally
+DEBUG = False
+DEBUG_STOP_AFTER_EXCEPTION = False
+
+# only active if component "RAM" activated
+GC_INTERVAL = const(10)
+INTERVAL_SEND_RAM = const(3600)  # 1h
