@@ -221,6 +221,26 @@ Addionally the following configuration can be given:
 The additional configuration options make it possible to run any library, even not designed specially for usage with pysmartnode.
 Of course these libraries won't be able to use the mqtt component but the possiblity is there if it helps someone.
 
+#### 4.4. Example component configuration
+
+To quickly test this project I'd like to give an example.
+Create a file "components.py" and put the following dictionary into it.
+´´´
+COMPONENTS = {
+    "_order": ["ram"],
+    "ram": {
+        "package": ".machine.ram",
+        "component": "ram",
+        "constructor_args": {
+            "interval": 60
+        }
+    }
+}
+´´´
+
+This will load the component "ram" which will now publish the current free ram every 60s to the mqtt topic *<mqtt home>/<controller id>/ram_free*
+
+Alternatively you can put the dictionary directly into a file with the name "components.json".
 
 ## 5. Tools
 
