@@ -260,10 +260,10 @@ def _importComponents():
         log.ciritcal("components.py: {!s}".format(e))
         return False
     if hasattr(components, "COMPONENTS"):
-        log.info("Trying to register COMPONENTS of components.py")
+        log.info("Trying to register COMPONENTS of components.py", local_only=True)
         return registerComponents(components.COMPONENTS)
     else:
-        log.info("No COMPONENTS in components.py, maybe user code executed")
+        log.info("No COMPONENTS in components.py, maybe user code executed", local_only=True)
         return True
 
 
