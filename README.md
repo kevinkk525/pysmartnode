@@ -225,7 +225,8 @@ Of course these libraries won't be able to use the mqtt component but the possib
 
 To quickly test this project I'd like to give an example.
 Create a file "components.py" and put the following dictionary into it.
-´´´
+
+```
 COMPONENTS = {
     "_order": ["ram"],
     "ram": {
@@ -236,7 +237,7 @@ COMPONENTS = {
         }
     }
 }
-´´´
+```
 
 This will load the component "ram" which will now publish the current free ram every 60s to the mqtt topic *<mqtt home>/<controller id>/ram_free*
 
