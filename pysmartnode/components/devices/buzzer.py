@@ -11,7 +11,7 @@ example config:
     component: Buzzer,
     constructor_args: {
         pin: D5,
-        pwm_values: [512,819,1020,786]  #list of pwm dutys
+        pwm_values: [512,819,1020,786]  #list of pwm dutys, on esp32 use percentage, max is 1024 on esp8266
         #on_time: 500                #optional, defaults to 500ms, time buzzer stays at one pwm duty
         #iters: 1                   #optional, iterations done, defaults to 1
         #freq: 1000                 #optional, defaults to 1000
@@ -20,8 +20,8 @@ example config:
 }
 """
 
-__updated__ = "2018-03-25"
-__version__ = "2.4"
+__updated__ = "2018-07-13"
+__version__ = "2.5"
 
 import gc
 
@@ -48,15 +48,18 @@ class Buzzer:
         self.pin.duty(0)
         mqtt.scheduleSubscribe(mqtt_topic, self.notification, check_retained=False)
         # not checking retained as buzzer only activates single-shot
+        self.mqtt_topic = mqtt_topic
 
     async def notification(self, topic, msg, retain):
         if self.lock.locked():
             return False
         async with self.lock:
             if msg in mqtt.payload_on:
+                mqtt.schedulePublish(self.mqtt_topic, "ON")
                 for i in range(0, self.iters):
                     for duty in self.values:
                         self.pin.duty(duty)
                         await asyncio.sleep_ms(self.on_time)
                 self.pin.duty(0)
+                await mqtt.publish(self.mqtt_topic, "OFF")
         return False  # will not publish the state "ON" to mqtt

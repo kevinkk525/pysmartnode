@@ -19,8 +19,8 @@ example config:
 }
 """
 
-__updated__ = "2018-03-25"
-__version__ = "2.3"
+__updated__ = "2018-07-13"
+__version__ = "2.4"
 
 import gc
 
@@ -45,16 +45,19 @@ class LEDNotification:
         self.lock = config.Lock()
         Pin(self.pin, Pin.OUT, value=0)
         mqtt.scheduleSubscribe(mqtt_topic, self.notification, check_retained=False)
-        # not checking retained as buzzer only activates single-shot
+        # not checking retained as led only activates single-shot
+        self.mqtt_topic = mqtt_topic
 
     async def notification(self, topic, msg, retain):
         if self.lock.locked():
             return False
         async with self.lock:
             if msg in mqtt.payload_on:
+                mqtt.schedulePublish(self.mqtt_topic, "ON")
                 for i in range(0, self.iters):
                     Pin(self.pin, Pin.OUT).value(1)
                     await asyncio.sleep_ms(self.on_time)
                     Pin(self.pin, Pin.OUT).value(0)
                     await asyncio.sleep_ms(self.off_time)
+                await mqtt.publish(self.mqtt_topic, "OFF")
         return False  # will not publish the state "ON" to mqtt
