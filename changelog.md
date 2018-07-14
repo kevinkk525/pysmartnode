@@ -1,5 +1,9 @@
 # Changelog
 
+#### Version 3.8.2
+* RAM optimizations (400B freed)
+
+---------------------------------------------------
 #### Version 3.8.1
 * first version published to github
 * smaller bugfixes

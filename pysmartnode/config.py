@@ -4,15 +4,15 @@ Created on 09.03.2018
 @author: Kevin Köck
 '''
 ##
-# Config file
+# Configuration management file
 ##
 
-__updated__ = "2018-05-26"
+__updated__ = "2018-07-14"
 
 from config import *
 
 # General
-VERSION = 381
+VERSION = const(382)
 print("PySmartNode version {!s} started".format(VERSION))
 
 import gc
@@ -48,47 +48,36 @@ from pysmartnode import logging
 
 gc.collect()
 log = logging.getLogger("config")
-log.setLoop(loop)
 
 gc.collect()
 __printRAM(_mem, "Imported logging")
 
-from pysmartnode.networking.mqtt import MQTTHandler, Lock  # Lock possibly needed by other code
+from pysmartnode.networking.mqtt import MQTTHandler, Lock  # Lock possibly needed by other modules
 
 gc.collect()
 __printRAM(_mem, "Imported MQTTHandler")
 
 COMPONENTS = {}
 COMPONENTS["mqtt"] = MQTTHandler(MQTT_RECEIVE_CONFIG, True)
-log.setMQTT(COMPONENTS["mqtt"])
 gc.collect()
 __printRAM(_mem, "Created MQTT")
 
 from sys import platform
 
 if platform == "esp8266":
-    pins = {"D0": 16, "D1": 5, "D2": 4, "D3": 0, "D4": 2,
-            "D5": 14, "D6": 12, "D7": 13, "D8": 15, "D9": 3, "D10": 1}
+    pins = {"D0": const(16), "D1": const(5), "D2": const(4), "D3": const(0), "D4": const(2),
+            "D5": const(14), "D6": const(12), "D7": const(13), "D8": const(15), "D9": const(3),
+            "D10": const(1)}
 else:
     pins = {}
 
 
 def _checkArgs(d):
-    required = ["package", "component"]
-    optional = {
-        "constructor_args": None,
-        "init_function": None,
-        "init_args": None,
-        "call_function_regularly": None,
-        "call_interval": None
-    }
+    required = ("package", "component")
     for r in required:
         if r not in d:
             log.error("Missing required value {!r} in component".format(r))
             return False
-    for o in optional:
-        if o not in d:
-            d[o] = optional[o]
     return True
 
 
@@ -118,11 +107,11 @@ def _checkPackage(data):
         data["package"] = "pysmartnode.components" + data["package"]
 
 
-queue_overflow = False
+_queue_overflow = False
 
 
 async def registerComponentsAsync(data):
-    global queue_overflow
+    global _queue_overflow
     for component in data["_order"]:
         tmp = {"_order": [component]}
         tmp[component] = data[component]
@@ -139,9 +128,9 @@ async def registerComponentsAsync(data):
                 await asyncio.sleep_ms(200)
         if time.ticks_ms() - st > 8000 and len(loop.runq) > LEN_ASYNC_QUEUE - 6:
             log.critical("Runq > {!s} ({!s}) for more than 8s".format(LEN_ASYNC_QUEUE - 6, len(loop.runq)),
-                         local_only=queue_overflow)
-            if queue_overflow is False:
-                queue_overflow = True  # to prevent multiple loggings only log locally after first log
+                         local_only=_queue_overflow)
+            if _queue_overflow is False:
+                _queue_overflow = True  # to prevent multiple loggings only log locally after first log
         gc.collect()
 
 
@@ -181,9 +170,11 @@ def registerComponents(data):
                         if hasattr(tmp, "__version__"):
                             version = getattr(tmp, "__version__")
                         if hasattr(tmp, component["component"]):
-                            kwargs = _getKwargs(component["constructor_args"]) if type(
+                            kwargs = _getKwargs(
+                                component["constructor_args"]) if "constructor_args" in component and type(
                                 component["constructor_args"]) == dict else {}
-                            args = _getArgs(component["constructor_args"]) if type(
+                            args = _getArgs(
+                                component["constructor_args"]) if "constructor_args" in component and type(
                                 component["constructor_args"]) == list else []
                             try:
                                 obj = getattr(tmp, component["component"])(*args, **kwargs)
@@ -195,12 +186,12 @@ def registerComponents(data):
                                 err = True
                             if obj is not None:
                                 err = False
-                                if component["init_function"] is not None:
-                                    kwargs = _getKwargs(component["init_args"]) if type(
+                                if "init_function" in component and component["init_function"] is not None:
+                                    kwargs = _getKwargs(component["init_args"]) if "init_args" in component and type(
                                         component["init_args"]) == dict else {}
-                                    args = _getArgs(component["init_args"]) if type(
+                                    args = _getArgs(component["init_args"]) if "init_args" in component and type(
                                         component["init_args"]) == list else []
-                                    if hasattr(obj, component["init_function"]):
+                                    if "init_function" in component and hasattr(obj, component["init_function"]):
                                         init = getattr(obj, component["init_function"])
                                         if type(init) == type(registerComponentsAsync):
                                             from pysmartnode.utils.wrappers.callAsyncSafe import \
@@ -222,14 +213,16 @@ def registerComponents(data):
                                             "init function {!r} does not exist for object {!r}, version {!s}".format(
                                                 component["init_function"], componentname, version))
                                         err = True
-                                if err is False and component["call_function_regularly"] is not None:
+                                if err is False and "call_function_regularly" in component and component[
+                                    "call_function_regularly"] is not None:
                                     if hasattr(obj, component["call_function_regularly"]) is False:
                                         log.critical("obj has no function {!r}".format(
                                             component["call_function_regularly"]))
                                     else:
                                         func = getattr(obj, component["call_function_regularly"])
                                         from pysmartnode.utils.wrappers.callRegular import callRegular
-                                        loop.create_task(callRegular(func, component["call_interval"]))
+                                        loop.create_task(callRegular(func, component[
+                                            "call_interval"] if "call_interval" in component else None))
                                 if err is False:
                                     COMPONENTS[componentname] = obj
                                     log.info("Added component {!r}, version {!s}".format(
@@ -372,4 +365,6 @@ def addComponent(name, obj):
 
 
 def getMQTT():
-    return COMPONENTS["mqtt"]
+    if "mqtt" in COMPONENTS:
+        return COMPONENTS["mqtt"]
+    return None

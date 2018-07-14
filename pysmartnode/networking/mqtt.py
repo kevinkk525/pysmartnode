@@ -55,6 +55,7 @@ class MQTTHandler(MQTTClient):
             """ 
             esp32 has a lot of RAM but if wildcards are not needed then
             the subscription module is faster and saves ram but does not support wildcards.
+            For wildcard support the module tree is used.
             Also used for esp8266 with no filesystem (which saves ~6kB)
             """
             if allow_wildcards:
@@ -68,7 +69,6 @@ class MQTTHandler(MQTTClient):
         self._allow_wildcards = allow_wildcards
         self.payload_on = ("ON", True, "True")
         self.payload_off = ("OFF", False, "False")
-        self.loop = asyncio.get_event_loop()
         self._retained = []
         self.id = config.id
         self.mqtt_home = config.MQTT_HOME
@@ -84,10 +84,9 @@ class MQTTHandler(MQTTClient):
                          clean=False,
                          ssid=config.WIFI_SSID,
                          wifi_pw=config.WIFI_PASSPHRASE)
-        self.loop.create_task(self.connect())
+        asyncio.get_event_loop().create_task(self.connect())
         self.__receive_config = receive_config
         # True=receive config, None=config received
-        log.setMQTT(self)
 
     async def _wifiChanged(self, state):
         if config.DEBUG:
@@ -110,28 +109,22 @@ class MQTTHandler(MQTTClient):
                     break
             if self.__receive_config is not None:
                 log.error("No configuration received, falling back to local config")
-                await self._buildComponents()
+                asyncio.get_event_loop().create_task(config.loadComponentsFile())
         elif self.__receive_config is not None:
             self.__receive_config = None  # None says that first run is complete
             log.info("Using local components.json/py", local_only=True)
-            # if (await config.loadComponentsFile()) == False:
-            #    log.critical("Can't load local components.json, device not configured.")
-            #    return False
-            self.loop.create_task(config.loadComponentsFile())
+            asyncio.get_event_loop().create_task(config.loadComponentsFile())
 
     async def _buildComponents(self, topic=None, msg=None, retain=None):
         log.debug("Building components", local_only=True)
+        loop = asyncio.get_event_loop()
         await self.unsubscribe("{!s}/login/".format(self.mqtt_home) + self.id)
         if type(msg) != dict:
             log.critical("Received config is no dict")
             msg = None
         if msg is None:
             log.error("No configuration received, falling back to last saved config")
-            # msg = await config.loadComponentsFile()
-            # if msg == False:
-            #    log.critical("No local configuration possible, device not configured")
-            #    return False
-            self.loop.create_task(config.loadComponentsFile())
+            loop.create_task(config.loadComponentsFile())
         else:
             log.info("received config: {!s}".format(msg), local_only=True)
             # saving components
@@ -140,13 +133,12 @@ class MQTTHandler(MQTTClient):
                 # on esp8266 components are split in small files and loaded after each other
                 # to keep RAM requirements low, only if filesystem is enabled
                 if sys_vars.hasFilesystem():
-                    self.loop.create_task(config.loadComponentsFile())
+                    loop.create_task(config.loadComponentsFile())
                 else:
-                    self.loop.create_task(config.registerComponentsAsync(msg))
+                    loop.create_task(config.registerComponentsAsync(msg))
             else:
                 # on esp32 components are registered directly but async to let logs run between registrations
-                self.loop.create_task(config.registerComponentsAsync(msg))
-                # config.registerComponents(msg)
+                loop.create_task(config.registerComponentsAsync(msg))
         self.__receive_config = None
 
     async def _subscribeTopics(self):
@@ -179,13 +171,13 @@ class MQTTHandler(MQTTClient):
                 log.warn("Topic {!s} does not exist".format(topic))
 
     def scheduleSubscribe(self, topic, callback_coro, qos=0, check_retained=True):
-        self.loop.create_task(self.subscribe(topic, callback_coro, qos, check_retained))
+        asyncio.get_event_loop().create_task(self.subscribe(topic, callback_coro, qos, check_retained))
 
     async def subscribe(self, topic, callback_coro, qos=0, check_retained=True):
         if self._isDeviceTopic(topic):
             topic = self.getRealTopic(topic)
         log.debug("Subscribing to topic {}".format(topic), local_only=True)
-        loop = self.loop
+        loop = asyncio.get_event_loop()
         if not self._allow_wildcards and topic[-2:] == "/#":
             log.error("Wildcard subscriptions are not allowed, ignoring {!s}".format(topic))
             return False
@@ -252,7 +244,7 @@ class MQTTHandler(MQTTClient):
 
     def _execute_sync(self, topic, msg):
         """mqtt library only handles sync callbacks so add it to async loop"""
-        self.loop.create_task(self._execute(topic, msg))
+        asyncio.get_event_loop().create_task(self._execute(topic, msg))
 
     async def _execute(self, topic, msg):
         log.debug("mqtt execution: {!s} {!s}".format(topic, msg), local_only=True)
@@ -323,4 +315,4 @@ class MQTTHandler(MQTTClient):
         await super().publish(topic.encode(), msg.encode(), retain, qos)
 
     def schedulePublish(self, topic, msg, retain=False, qos=0):
-        self.loop.create_task(self.publish(topic, msg, retain, qos))
+        asyncio.get_event_loop().create_task(self.publish(topic, msg, retain, qos))

@@ -4,14 +4,15 @@ Created on 19.07.2017
 @author: Kevin Köck
 '''
 
-__updated__ = "2018-05-22"
-__version__ = "2.2"
+__updated__ = "2018-07-14"
+__version__ = "2.3"
 
 # TODO: Add possibility to use real logging module on esp32_lobo and save logs locally or to sdcard
 
 import gc
 from pysmartnode.utils import sys_vars
 from pysmartnode import config
+import uasyncio as asyncio
 
 gc.collect()
 import time
@@ -19,22 +20,14 @@ import time
 
 class Logging:
     def __init__(self):
-        self.loop = None
-        self.mqtt = None
         self.base_topic = "{!s}/log/{!s}/{!s}".format(config.MQTT_HOME, "{!s}", sys_vars.getDeviceID())
         # if level is before id other clients can subscribe to e.g. all critical logs
 
-    def setLoop(self, loop):
-        self.loop = loop
-
     async def log(self, name, message, level):
-        if self.mqtt is not None:
-            await self.mqtt.publish(self.base_topic.format(level), "[{!s}] {}".format(name, message))
+        if config.getMQTT() is not None:
+            await config.getMQTT().publish(self.base_topic.format(level), "[{!s}] {}".format(name, message))
         else:
             print(level, message)
-
-    def setMQTT(self, mqtt):
-        self.mqtt = mqtt
 
 
 log = Logging()
@@ -44,12 +37,6 @@ class Logger:
     def __init__(self, name):
         self.name = name
         self.parent = log
-
-    def setLoop(self, loop):
-        self.parent.setLoop(loop)
-
-    def setMQTT(self, mqtt):
-        self.parent.setMQTT(mqtt)
 
     def _log(self, message, level, local_only):
         if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE:
@@ -64,8 +51,8 @@ class Logger:
                                                                                            message))
         else:
             print("[{!s}] [{!s}] {}".format(self.name, level, message))
-        if local_only is False and self.parent.loop is not None:
-            self.parent.loop.create_task(self.parent.log(self.name, message, level))
+        if local_only is False:
+            asyncio.get_event_loop().create_task(self.parent.log(self.name, message, level))
 
     def critical(self, message, local_only=False):
         self._log(message, "critical", local_only)

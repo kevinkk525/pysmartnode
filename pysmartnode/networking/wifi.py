@@ -20,7 +20,6 @@ gc.collect()
 def connect():
     ap_if = network.WLAN(network.AP_IF)
     ap_if.active(False)
-    global wifi
     wifi = network.WLAN(network.STA_IF)
     wifi.active(True)
     wifi.connect(config.WIFI_SSID, config.WIFI_PASSPHRASE)  # Connect to an AP
@@ -37,12 +36,12 @@ def connect():
             time.sleep(2)
             machine.reset()
     loop = asyncio.get_event_loop()
-    loop.create_task(start_services())
+    loop.create_task(start_services(wifi))
     gc.collect()
     return wifi.isconnected()
 
 
-async def start_services():
+async def start_services(wifi):
     while wifi.isconnected() is False:  # Check for successful connection
         await asyncio.sleep_ms(250)
     if sys.platform == "esp32_LoBo":

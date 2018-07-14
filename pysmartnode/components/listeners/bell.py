@@ -19,13 +19,14 @@ example config:
 }
 """
 
-__updated__ = "2018-06-01"
-__version__ = "0.4"
+__updated__ = "2018-07-14"
+__version__ = "0.5"
 
 import gc
 from pysmartnode import config
 from pysmartnode import logging
 from pysmartnode.utils.event import Event
+from pysmartnode.utils.locksync import Lock
 import machine
 import time
 import uasyncio as asyncio
@@ -54,7 +55,7 @@ class Bell:
         else:
             self.pin_bell = machine.Pin(self.pin_bell, machine.Pin.IN)
         self.eventBell = Event()
-        self.timerLock = Event(onTrue=False)
+        self.timerLock = Lock()
         irq = self.pin_bell.irq(trigger=self.PIN_BELL_IRQ_DIRECTION, handler=self.__irqBell)
         self.eventBell.clear()
         self.loop.create_task(self.__bell())
@@ -88,10 +89,10 @@ class Bell:
     def __irqBell(self, p):
         # print("BELL",p)
         # print("BELL",time.ticks_ms())
-        if self.timerLock.is_set() == True or self.eventBell.is_set() == True:
+        if self.timerLock.locked() is True or self.eventBell.is_set() is True:
             return
         else:
-            self.timerLock.set()
+            self.timerLock.acquire()  # not checking return value as we checked locked state above
             self.timer_bell.init(period=self.debounce_time,
                                  mode=machine.Timer.ONE_SHOT, callback=self.__irqTime)
 
@@ -104,4 +105,4 @@ class Bell:
             self.last_activation = time.ticks_ms()
             self.eventBell.set()
         self.timer_bell.deinit()
-        self.timerLock.clear()
+        self.timerLock.release()
