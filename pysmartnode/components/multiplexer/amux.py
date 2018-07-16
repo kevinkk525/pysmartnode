@@ -21,7 +21,7 @@ example config:
 """
 
 __updated__ = "2018-05-20"
-__version__ = "2.0"
+__version__ = "2.1"
 
 # Version 2.0 should support an Amux connected to an Amux, not tested though, only have one amux
 
@@ -155,7 +155,7 @@ class ADC:
         return self.__amux.readRaw(self.__pin)
 
     def readVoltage(self):
-        return self.__amux.readVoltage(self.__Pin)
+        return self.__amux.readVoltage(self.__pin)
 
     def readRaw(self):
         return self.__amux.readRaw(self.__pin)
