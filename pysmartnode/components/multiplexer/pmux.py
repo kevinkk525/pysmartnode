@@ -24,8 +24,8 @@ If timings are a problem, use the Pmux.pin object directly, which is a normal Pi
 
 """
 
-__updated__ = "2018-06-20"
-__version__ = "2.0"
+__updated__ = "2018-07-16"
+__version__ = "2.1"
 
 # Version 2.0 should support an pmux connected to an pmux, not tested though, only have one amux
 
@@ -56,7 +56,7 @@ class Pmux:
             self.s3 = s3
             self.mux = mux
         else:
-            if type(s0) == int:
+            if type(s0) in (int, str):
                 self.s0 = machine.Pin(s0 if type(s0) != str else config.pins[s0], machine.Pin.OUT)
                 self.s1 = machine.Pin(s1 if type(s1) != str else config.pins[s1], machine.Pin.OUT)
                 self.s2 = machine.Pin(s2 if type(s2) != str else config.pins[s2], machine.Pin.OUT)

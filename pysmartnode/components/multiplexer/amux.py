@@ -20,12 +20,12 @@ example config:
 }
 """
 
-__updated__ = "2018-05-20"
-__version__ = "2.1"
+__updated__ = "2018-07-16"
+__version__ = "3.0"
 
 # Version 2.0 should support an Amux connected to an Amux, not tested though, only have one amux
 
-from machine import ADC as uADC
+from pysmartnode.components.machine.adc import ADC
 from machine import Pin
 from pysmartnode import config
 from sys import platform
@@ -55,7 +55,7 @@ class Amux:
             self.s3 = s3
             self.mux = mux
         else:
-            if type(s0) == int:
+            if type(s0) in (int, str):
                 self.s0 = Pin(s0 if type(s0) != str else config.pins[s0], Pin.OUT)
                 self.s1 = Pin(s1 if type(s1) != str else config.pins[s1], Pin.OUT)
                 self.s2 = Pin(s2 if type(s2) != str else config.pins[s2], Pin.OUT)
@@ -72,34 +72,7 @@ class Amux:
         else:
             self.__size = 8
         self._return_voltages = return_voltages
-        if type(sig) == str:
-            raise TypeError("ADC pin can't be string")
-
-        if type(sig) == ADC:  # amux pin
-            self.sig = sig
-            self._read_sig = self.sig.readVoltage
-            self._read_raw = self.sig.readRaw
-        elif platform == "esp8266":
-            self.sig = uADC(sig) if sig is not None else uADC(0)
-
-            def read_voltage():
-                return self.sig.read() / 1023 * 3.3
-
-            self._read_voltage = read_voltage
-            self._read_raw = self.sig.read
-        elif platform == "esp32_LoBo":
-            if sig is None:
-                raise TypeError("ADC pin can't be None")
-            self.sig = uADC(sig)
-            self.sig.atten(self.sig.ATTN_11DB)
-
-            def read_voltage():
-                return self.sig.read() / 1000
-
-            self._read_sig = read_voltage
-            self._read_raw = self.sig.readraw
-        else:
-            raise NotImplementedError("Platform {!s} not implemented, please report".format(platform))
+        self.sig = ADC(0 if sig is None and platform == "esp8266" else sig)  # unified ADC interface
 
     def setReturnVoltages(self, vol):
         self._return_voltages = vol
@@ -128,9 +101,9 @@ class Amux:
             self.s1.value(1 if a & 2 else 0)
             self.s0.value(1 if a & 1 else 0)
         if return_voltage is True or return_voltage is None and self._return_voltages is True:
-            return self._read_sig()
+            return self.sig.readVoltage()
         else:
-            return self._read_raw()
+            return self.sig.readRaw()
 
     def readVoltage(self, a):
         return self.read(a, return_voltage=True)
