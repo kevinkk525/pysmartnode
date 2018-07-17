@@ -51,7 +51,7 @@ git submodule update --init --recursive
 To update run inside the repository directory
 ```
 git pull
-git submodule update --recursive
+git submodule update --recursive --remote
 ```
 You should have the latest micropython firmware and include the directory "pysmartnode" as frozen bytecode into your firmware. (Put it in the "module" directory before building the firmware)
 On ESP32 frozen bytecode is not neccessary but should be considered if not using psram.
