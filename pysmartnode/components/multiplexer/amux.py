@@ -20,14 +20,14 @@ example config:
 }
 """
 
-__updated__ = "2018-07-16"
-__version__ = "3.0"
+__updated__ = "2018-08-18"
+__version__ = "3.1"
 
 # Version 2.0 should support an Amux connected to an Amux, not tested though, only have one amux
 
 from pysmartnode.components.machine.adc import ADC
-from machine import Pin
-from pysmartnode import config
+import machine
+from pysmartnode.components.machine.pin import Pin
 from sys import platform
 import gc
 
@@ -56,11 +56,11 @@ class Amux:
             self.mux = mux
         else:
             if type(s0) in (int, str):
-                self.s0 = Pin(s0 if type(s0) != str else config.pins[s0], Pin.OUT)
-                self.s1 = Pin(s1 if type(s1) != str else config.pins[s1], Pin.OUT)
-                self.s2 = Pin(s2 if type(s2) != str else config.pins[s2], Pin.OUT)
+                self.s0 = Pin(s0, machine.Pin.OUT)
+                self.s1 = Pin(s1, machine.Pin.OUT)
+                self.s2 = Pin(s2, machine.Pin.OUT)
                 if s3:
-                    self.s3 = Pin(s3 if type(s3) != str else config.pins[s3], Pin.OUT)
+                    self.s3 = Pin(s3, machine.Pin.OUT)
             else:
                 self.s0 = s0
                 self.s1 = s1

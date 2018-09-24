@@ -28,7 +28,7 @@ def creating():
     gc.collect()
     printMemory("After import")
     global handler
-    handler = SubscriptionHandler(["Function"])
+    handler = SubscriptionHandler()
     gc.collect()
     printMemory("After handler creation")
 
@@ -42,7 +42,7 @@ def addObjects():
 
 @timeit
 def getObject():
-    return handler.getFunction("home/235j094s4eg/device2/htu9")
+    return handler.getFunctions("home/235j094s4eg/device2/htu9")
 
 
 @timeit
@@ -97,25 +97,25 @@ print("Functional test")
 
 def test():
     from pysmartnode.utils.subscriptionHandlers.subscription import SubscriptionHandler
-    handler = SubscriptionHandler(["Function"])
+    handler = SubscriptionHandler()
     handler.addObject("home/test/htu", "func1")
     handler.addObject("home/test2/htu", "func2")
     handler.addObject("home/test3/htu2", "func3")
-    print(handler.getFunction("home/test/htu"))
-    print(handler.getFunction("home/test2/htu"))
-    print(handler.getFunction("home/test3/htu2"))
-    handler.setFunction("home/test3/htu2", "func_test")
-    print(handler.getFunction("home/test3/htu2"))
+    print(handler.getFunctions("home/test/htu"))
+    print(handler.getFunctions("home/test2/htu"))
+    print(handler.getFunctions("home/test3/htu2"))
+    handler.setFunctions("home/test3/htu2", "func_test")
+    print(handler.getFunctions("home/test3/htu2"))
     try:
-        print(handler.getFunction("home/test5/htu2"))
+        print(handler.getFunctions("home/test5/htu2"))
     except Exception as e:
         print(e)
     handler.removeObject("home/test2/htu")
     try:
-        print(handler.getFunction("home/test2/htu"))
+        print(handler.getFunctions("home/test2/htu"))
     except Exception as e:
         print(e)
-    print(handler.getFunction("home/test3/htu2"))
+    print(handler.getFunctions("home/test3/htu2"))
     handler.addObject("home/1325/ds18", "funcDS")
     print("Multiple subscriptions test")
     handler.addObject("home/1325/ds18", "funcDS2")
@@ -127,25 +127,24 @@ test()
 
 print("Test finished")
 
-
 """
 >>> from _testing.utils import subscription
-[RAM] [Start] -176
-[RAM] [After import] -592
-[RAM] [After handler creation] -192
-[RAM] [after creation with no Objects] -64
-[Time][addObjects] 947976
+[RAM] [Start] -336
+[RAM] [After import] -992
+[RAM] [After handler creation] -32
+[RAM] [after creation with no Objects] 0
+[Time] Function addObjects: 612.455ms
 [RAM] [30 Objects] -3552
-[Time][getObject] 1476
+[Time] Function getObject:  5.920ms
 func9
-[Time][getObjectDirectly] 1390
+[Time] Function getObjectDirectly:  5.813ms
 func9
-[RAM] [Subscription test done] -48
+[RAM] [Subscription test done] 0
 Comparison to list
-[RAM] [List created] -176
-[Time][addObjectsList] 901992
-[RAM] [Added 30 objects to list] -2688
-[Time][getObjectList] 1007
+[RAM] [List created] -32
+[Time] Function addObjectsList: 496.705ms
+[RAM] [Added 30 objects to list] -2704
+[Time] Function getObjectList:  2.223ms
 None
 [RAM] [List comparison done] 0
 Functional test
@@ -156,5 +155,7 @@ func_test
 Object home/test5/htu2 does not exist
 Object home/test2/htu does not exist
 func_test
+Multiple subscriptions test
+ds18 ['funcDS', 'funcDS2']
 Test finished
 """

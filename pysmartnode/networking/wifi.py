@@ -4,8 +4,8 @@ Created on 28.10.2017
 @author: Kevin Köck
 '''
 
-__updated__ = "2018-05-29"
-__version__ = "1.2"
+__updated__ = "2018-09-18"
+__version__ = "1.3"
 
 import time
 import gc
@@ -45,7 +45,11 @@ async def start_services(wifi):
     while wifi.isconnected() is False:  # Check for successful connection
         await asyncio.sleep_ms(250)
     if sys.platform == "esp32_LoBo":
-        from . import wifi_esp32_lobo
+        import pysmartnode.networking.wifi_esp32_lobo
+        del pysmartnode.networking.wifi_esp32_lobo
+        del sys.modules["pysmartnode.networking.wifi_esp32_lobo"]
     elif sys.platform == "esp8266":
-        from . import wifi_esp8266
+        import pysmartnode.networking.wifi_esp8266
+        del pysmartnode.networking.wifi_esp8266
+        del sys.modules["pysmartnode.networking.wifi_esp8266"]
     print("Connected, local ip {!r}".format(wifi.ifconfig()[0]))

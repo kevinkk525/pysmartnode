@@ -19,20 +19,20 @@ for handler in [Tree, SubscriptionHandler, SubscriptionHandler_File]:
     if handler == Tree:
         t = Tree("home", ["Functions"])
     elif handler == SubscriptionHandler:
-        t = SubscriptionHandler(["Functions"])
+        t = SubscriptionHandler()
     else:
         t = SubscriptionHandler_File()
 
-    if handler != SubscriptionHandler:
-        # does not support wildcard
-        topic = "home/login/#"
-        t.addObject(topic, "sendConfig")
-        wrapResult(handler, "sendConfig", t.getFunctions("home/login/test"))
-        wrapResult(handler, "sendConfig", t.getFunctions("home/login"))
+    topic = "home/login/#"
+    t.addObject(topic, "sendConfig")
+    wrapResult(handler, "sendConfig", t.getFunctions("home/login/test"))
+    wrapResult(handler, "sendConfig", t.getFunctions("home/login"))
 
-        topic = "home/login"
-        t.addObject(topic, "nothing")
-        wrapResult(handler, "sendConfig", t.getFunctions("home/login/test"))
-        wrapResult(handler, "nothing", t.getFunctions("home/login"))
+    topic = "home/login"
+    t.addObject(topic, "nothing")
+    wrapResult(handler, "sendConfig", t.getFunctions("home/login/test"))
+    wrapResult(handler, "nothing", t.getFunctions("home/login"))
+    if handler == SubscriptionHandler:
+        print("This test fails because the wildcard was subscribed first and will be found first")
 
 print("\nTests done\n")

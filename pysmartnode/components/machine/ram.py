@@ -17,26 +17,22 @@ example config:
 }
 """
 
-__updated__ = "2018-04-21"
-__version__ = "0.3"
+__updated__ = "2018-08-31"
+__version__ = "0.4"
 
 import gc
 
 from pysmartnode import config
-
-mqtt = config.getMQTT()
 import uasyncio as asyncio
 
 gc.collect()
 from pysmartnode import logging
 
-log = logging.getLogger("RAM")
-
 
 async def __gc(interval):
     while True:
         gc.collect()
-        log.info(gc.mem_free(), local_only=True)
+        logging.getLogger("RAM").info(gc.mem_free(), local_only=True)
         await asyncio.sleep(interval)
 
 
@@ -45,10 +41,10 @@ async def __ram(topic, interval, interval_gc=10):
     await asyncio.sleep(12)
     while True:
         gc.collect()
-        await mqtt.publish(topic, gc.mem_free())
+        await config.getMQTT().publish(topic, gc.mem_free())
         await asyncio.sleep(interval)
 
 
 def ram(mqtt_topic=None, interval=600):
-    mqtt_topic = mqtt_topic or mqtt.getDeviceTopic("ram_free")
+    mqtt_topic = mqtt_topic or config.getMQTT().getDeviceTopic("ram_free")
     asyncio.get_event_loop().create_task(__ram(mqtt_topic, interval))

@@ -16,42 +16,39 @@ example config:
 }
 """
 
-__updated__ = "2018-03-25"
-__version__ = "0.1"
+__updated__ = "2018-08-18"
+__version__ = "0.3"
 
 import gc
-
-from machine import Pin
+import machine
+from pysmartnode.components.machine.pin import Pin
 from pysmartnode import config
 from pysmartnode import logging
 
-mqtt = config.getMQTT()
+_mqtt = config.getMQTT()
 
-log = logging.getLogger("gpio")
 gc.collect()
 
 
 class GPIO:
     def __init__(self, pin, mqtt_topic=None):
-        if type(pin) == str:
-            pin = config.pins[pin]
-        mqtt_topic = mqtt_topic or mqtt.getDeviceTopic("GPIO/" + str(pin), is_request=True)
-        self.pin = pin
-        Pin(self.pin, Pin.OUT, value=0)
-        mqtt.scheduleSubscribe(mqtt_topic, self.setValue)
+        mqtt_topic = mqtt_topic or _mqtt.getDeviceTopic("GPIO/" + str(pin), is_request=True)
+        self.pin = Pin(pin, machine.Pin.OUT, value=0)
+        _mqtt.scheduleSubscribe(mqtt_topic, self.setValue)
 
     # publishing is done by mqtt class as long as topic has "/set" at the end
     async def setValue(self, topic, msg, retain):
+        _log = logging.getLogger("gpio")
         if msg != "":
-            if msg in mqtt.payload_on:
-                Pin(self.pin, Pin.OUT).value(1)
+            if msg in _mqtt.payload_on:
+                self.pin.value(1)
                 return True
-            elif msg in mqtt.payload_off:
-                Pin(self.pin, Pin.OUT).value(0)
+            elif msg in _mqtt.payload_off:
+                self.pin.value(0)
                 return True
             else:
-                log.error("Unknown payload {!r}, GPIO {!s}".format(msg, self.pin))
+                _log.error("Unknown payload {!r}, GPIO {!s}".format(msg, self.pin))
                 return False
         else:
-            log.error("No message for GPIO {!s}".format(self.pin))
+            _log.error("No message for GPIO {!s}".format(self.pin))
             return False

@@ -21,8 +21,8 @@ example config:
 }
 """
 
-__updated__ = "2018-06-22"
-__version__ = "0.5"
+__updated__ = "2018-08-31"
+__version__ = "0.6"
 
 from pysmartnode import config
 from pysmartnode.utils.wrappers.async_wrapper import async_wrapper as _async_wrapper
@@ -36,11 +36,11 @@ from htu21d import HTU21D as Sensor
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-component_name = "HTU"
+_component_name = "HTU"
 ####################
 
-log = logging.getLogger(component_name)
-mqtt = config.getMQTT()
+_log = logging.getLogger(_component_name)
+_mqtt = config.getMQTT()
 gc.collect()
 
 
@@ -49,7 +49,7 @@ class MySensor:
                  offset_temp=0, offset_humid=0,  # also here
                  interval=None, mqtt_topic=None):
         interval = interval or config.INTERVAL_SEND_SENSOR
-        self.topic = mqtt_topic or mqtt.getDeviceTopic(component_name)
+        self.topic = mqtt_topic or _mqtt.getDeviceTopic(_component_name)
 
         ##############################
         # adapt to your sensor by extending/removing unneeded values like in the constructor arguments
@@ -85,15 +85,15 @@ class MySensor:
         try:
             value = await coro()
         except Exception as e:
-            log.error("Error reading sensor {!s}: {!s}".format(component_name, e))
+            _log.error("Error reading sensor {!s}: {!s}".format(_component_name, e))
             return None
         if value is not None:
             value = round(value, prec)
             value += offs
         if value is None:
-            log.warn("Sensor {!s} got no value".format(component_name))
+            _log.warn("Sensor {!s} got no value".format(_component_name))
         elif publish:
-            await mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(value))
+            await _mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(value))
         return value
 
     ##############################
@@ -109,7 +109,7 @@ class MySensor:
         temp = await self.temperature(publish=False)
         humid = await self.humidity(publish=False)
         if temp is not None and humid is not None and publish:
-            await mqtt.publish(self.topic, {
+            await _mqtt.publish(self.topic, {
                 "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),
                 "humidity": ("{0:." + str(self._prec_humid) + "f}").format(humid)})
             # formating prevents values like 51.500000000001 on esp32_lobo

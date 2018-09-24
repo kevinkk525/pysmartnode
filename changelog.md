@@ -1,7 +1,11 @@
 # Changelog
 
-#### Version 3.8.2
-* RAM optimizations (400B freed)
+#### Version 4.0.0
+* [config, mqtt] If no local configuration is available and no configuration is received, it will now ask for configuration periodically, waiting for the broker/SmartServer to get online again (prevents running without any configuration and needing a hard reset to get config again)
+* [mqtt] Usage of subscription module as it now supports wildcards, saves some RAM. Also stores device subscriptions shortened to save some RAM.
+* [components] added lots of new components like deepsleep, battery, button, switch, solar, heater
+* [uasyncio] now using fast-io provided by Peter Hinch to improve IO response time
+* [developers] for developers of components: pysmartnode.config.pins is now deprecated and removed, usage of unified Pin() object pysmartnode.components.machine.pin.Pin is recommended. See module for explanation
 
 ---------------------------------------------------
 #### Version 3.8.1

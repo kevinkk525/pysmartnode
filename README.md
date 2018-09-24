@@ -12,7 +12,7 @@ So I decided to build one myself with the following points in mind:
 * This framework aims to be easy to use and easy to extend with custom scripts and components.
 * The documentation should be easy to understand and as short as possible while still giving a clear path of how to use the project and integrate your components.
 * The project structure should be easily understandable, no guessing which files are loaded when and by what
-* Provinding templates as example and help of how to make new components, etc.
+* Providing templates as example and help of how to make new components, etc.
 * Be reliable (Have a reliable connection using mqtt, do not fail if a component fails, ...)
 * Comment as much as possible so that anyone can understand what a file or configuration option is for
 
@@ -32,7 +32,7 @@ With this I am able to run I2C, HTU21D, Buzzer, LED, RAM publishing, a debug com
 
 ### ESP32
 
-Only tested on loboris fork which also supports SPRAM. Works well on this port and can be considered almost stable. I did not set up an ESP32 to run continuosly yet and my unit has a faulty flash.
+Only tested on loboris fork which also supports SPRAM (which is now supported by official firmware too). Works well on this port and can be considered almost stable. I did not set up an ESP32 to run continuously yet and my unit has a faulty flash.
 
 Official ESP32 port is not yet tested but if asyncio works, so will this project. Not all of the components are supporting it and help is needed here.
 
@@ -119,7 +119,7 @@ Platform dependend options are
 - for esp8266:
     * LIGHTWEIGHT_LOG: if a logging module with less RAM demands should be used (saves ~500B)
     * MQTT_MINIMAL_VERSION: if a mqtt module should be used that is stripped to only the needed things (saves ~200B)
-    * RTC_SYNC_ACTIVE: if and RTC time sync should be done (saves ~600B)
+    * RTC_SYNC_ACTIVE: if RTC time sync should be done (saves ~600B)
     * USE_SOFTWARE_WATCHDOG: As some of my esp8266 occasionally get stuck for 1h 10minutes but not the interrupts, this makes using a software watchdog possible to reset hanging units (uses ~600B)
 - for esp32_LoBo:
     * MDNS_ACTIVE, MDNS_HOSTNAME, MDNS_DESCRIPTION: mdns options
@@ -289,7 +289,7 @@ This project is licensed under the MIT License - see the [LICENSE.md](./LICENSE.
 
 ## 10. Acknowledgments
 
-* Thanks to Peter Hich for providing *mqtt_as*
+* Thanks to Peter Hinch for providing *mqtt_as*, also *utils/aswitch.py* is his library.
 * Thanks to anyone whose code was an inspiration
 
 **The Readme is not yet finished and the wiki not yet started**

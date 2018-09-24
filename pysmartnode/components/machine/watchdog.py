@@ -16,8 +16,8 @@ example config:
 }
 """
 
-__updated__ = "2018-05-29"
-__version__ = "0.1"
+__updated__ = "2018-08-31"
+__version__ = "0.2"
 
 import gc
 import uasyncio as asyncio
@@ -26,8 +26,6 @@ from pysmartnode.utils import sys_vars
 
 gc.collect()
 from pysmartnode import logging
-
-log = logging.getLogger("WDT")
 
 
 class WDT:
@@ -48,7 +46,7 @@ class WDT:
                 with open("watchdog.txt", "w") as f:
                     f.write("False")
             except Exception as e:
-                log.error("Error saving to file: {!s}".format(e))
+                logging.getLogger("WDT").error("Error saving to file: {!s}".format(e))
 
     def _wdt(self, t):
         self._counter += self._timeout

@@ -4,8 +4,8 @@ Created on 01.06.2018
 @author: Kevin Köck
 '''
 
-__version__ = "1.0"
-__updated__ = "2018-06-01"
+__version__ = "1.1"
+__updated__ = "2018-08-31"
 
 # Template for using components.py as a local component configuration or a starting point for own scripts
 
@@ -37,14 +37,14 @@ from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
 
-mqtt = config.getMQTT()
+_mqtt = config.getMQTT()
 loop = asyncio.get_event_loop()
-log = logging.getLogger("components.py")
+_log = logging.getLogger("components.py")
 
 try:
     import somemodule
 except Exception as e:
-    log.error("Can't import module, error {!s}".format(e))
+    _log.error("Can't import module, error {!s}".format(e))
 
 someinstance = somemodule.Someclass(pin=35)
 loop.create_task(someinstance.getTemperatureContinuosly())
@@ -74,8 +74,8 @@ from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
 
-mqtt = config.getMQTT()
+_mqtt = config.getMQTT()
 loop = asyncio.get_event_loop()
-log = logging.getLogger("components.py")
+_log = logging.getLogger("components.py")
 
 # do whatever you want (don't do long blocking calls or start a synchronous endless loop)

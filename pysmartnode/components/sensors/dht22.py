@@ -21,13 +21,13 @@ example config:
 }
 """
 
-__updated__ = "2018-06-25"
-__version__ = "0.1"
+__updated__ = "2018-08-31"
+__version__ = "0.3"
 
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
-import machine
+from pysmartnode.components.machine.pin import Pin
 import gc
 
 ####################
@@ -36,11 +36,11 @@ from dht import DHT22 as Sensor
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-component_name = "DHT22"
+_component_name = "DHT22"
 ####################
 
-log = logging.getLogger(component_name)
-mqtt = config.getMQTT()
+_log = logging.getLogger(_component_name)
+_mqtt = config.getMQTT()
 gc.collect()
 
 
@@ -49,7 +49,7 @@ class DHT22:
                  offset_temp=0, offset_humid=0,  # also here
                  interval=None, mqtt_topic=None):
         interval = interval or config.INTERVAL_SEND_SENSOR
-        self.topic = mqtt_topic or mqtt.getDeviceTopic(component_name)
+        self.topic = mqtt_topic or _mqtt.getDeviceTopic(_component_name)
 
         ##############################
         # adapt to your sensor by extending/removing unneeded values like in the constructor arguments
@@ -60,9 +60,7 @@ class DHT22:
         self._offs_humid = float(offset_humid)
         ##############################
         # create sensor object
-        if type(pin) == str:
-            pin = config.pins[pin]
-        self.sensor = Sensor(machine.Pin(pin))  # add neccessary constructor arguments here
+        self.sensor = Sensor(Pin(pin))  # add neccessary constructor arguments here
         ##############################
         # choose a background loop that periodically reads the values and publishes it
         # (function is created below)
@@ -82,45 +80,45 @@ class DHT22:
             await asyncio.sleep(1)
             self.sensor.measure()
         except Exception as e:
-            log.error("DHT22 is not working, {!s}".format(e))
+            _log.error("DHT22 is not working, {!s}".format(e))
             return None, None
         await asyncio.sleep_ms(100)  # give other tasks some time as measure() is slow and blocking
         try:
             temp = self.sensor.temperature()
             humid = self.sensor.humidity()
         except Exception as e:
-            log.error("Error reading DHT22: {!s}".format(e))
+            _log.error("Error reading DHT22: {!s}".format(e))
             return None, None
         return temp, humid
 
     async def _read(self, prec, offs, get_value_number=0, publish=True):
         if get_value_number > 2:
-            log.error("DHT22 get_value_number can't be >2")
+            _log.error("DHT22 get_value_number can't be >2")
             return None
         try:
             values = await self._dht_read()
         except Exception as e:
-            log.error("Error reading sensor {!s}: {!s}".format(component_name, e))
+            _log.error("Error reading sensor {!s}: {!s}".format(_component_name, e))
             return None
         if values[0] is not None and values[1] is not None:
             for i in range(0, len(values)):
                 try:
                     values[i] = round(values[i], prec)
                 except Exception as e:
-                    log.error("DHT22 can't round value: {!s}, {!s}".format(values[i], e))
+                    _log.error("DHT22 can't round value: {!s}, {!s}".format(values[i], e))
                     return None if get_value_number != 0 else (None, None)
                 values[i] += offs
         else:
-            log.warn("Sensor {!s} got no value".format(component_name))
+            _log.warn("Sensor {!s} got no value".format(_component_name))
             return None if get_value_number != 0 else (None, None)
         if publish:
             if get_value_number == 0:
-                await mqtt.publish(self.topic, {
+                await _mqtt.publish(self.topic, {
                     "temperature": ("{0:." + str(self._prec_temp) + "f}").format(values[0]),
                     "humidity": ("{0:." + str(self._prec_humid) + "f}").format(values[1])})
                 # formating prevents values like 51.500000000001 on esp32_lobo
             else:
-                await mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(values[get_value_number]))
+                await _mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(values[get_value_number]))
         return {"temperature": values[0], "humiditiy": values[1]} if get_value_number == 0 else values[
             get_value_number]
 

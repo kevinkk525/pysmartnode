@@ -8,22 +8,25 @@ import time
 
 
 def timeit(f):
-    def wrap(*args, **kwargs):
-        st = time.ticks_us()
-        res = f(*args, **kwargs)
-        et = time.ticks_us()
-        print("[Time][{!s}] {!s}us".format(f.__name__ if hasattr(f, "__name__") else "function", et - st))
-        return res
+    def new_func(*args, **kwargs):
+        myname = str(f).split(' ')[1]
+        t = time.ticks_us()
+        result = f(*args, **kwargs)
+        delta = time.ticks_diff(time.ticks_us(), t)
+        print('[Time] Function {}: {:6.3f}ms'.format(myname, delta / 1000))
+        return result
 
-    return wrap
+    return new_func
 
 
 def timeitAsync(f):
-    async def wrap(*args, **kwargs):
-        st = time.ticks_us()
-        res = await f(*args, **kwargs)
-        et = time.ticks_us()
-        print("[Time][{!s}] {!s}us".format(f.__name__ if hasattr(f, "__name__") else "function", et - st))
-        return res
+    async def new_func(*args, **kwargs):
+        gen = f(*args, **kwargs)
+        myname = str(gen).split(' ')[2]
+        t = time.ticks_us()
+        result = await gen
+        delta = time.ticks_diff(time.ticks_us(), t)
+        print('[Time] Coroutine {}: {:6.3f}ms'.format(myname, delta / 1000))
+        return result
 
-    return wrap
+    return new_func

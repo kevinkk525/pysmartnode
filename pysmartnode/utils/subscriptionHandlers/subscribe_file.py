@@ -5,8 +5,8 @@ Created on 11.03.2018
 @author: Kevin Köck
 '''
 
-__version__ = "0.3"
-__updated__ = "2018-04-13"
+__version__ = "0.4"
+__updated__ = "2018-09-22"
 
 import os
 import gc
@@ -30,13 +30,12 @@ class SubscriptionHandler:
                 if identifier == line:
                     cbs = (self._functions[i], i)
                     break
-                elif ignore_wildcard == False and line[-1:] == "#":
-                    if identifier.find(line[:-2]) != -1:
-                        if cbs is None:
-                            cbs = (self._functions[i], i)
+                elif ignore_wildcard is False and self.matchesSubscription(identifier, line):
+                    if cbs is None:
+                        cbs = (self._functions[i], i)
                 i += 1
         if cbs is None:
-            if ignore_error == False:
+            if ignore_error is False:
                 raise IndexError("Object {!s} does not exist".format(identifier))
             i = None
         if index:
@@ -44,6 +43,19 @@ class SubscriptionHandler:
                 return None, i
             return cbs
         return cbs[0]
+
+    @staticmethod
+    def matchesSubscription(topic, subscription):
+        if topic == subscription:
+            return True
+        if subscription.endswith("/#"):
+            lens = len(subscription)
+            if topic[:lens - 2] == subscription[:-2]:
+                if len(topic) == lens - 2 or topic[lens - 2] == "/":
+                    # check if identifier matches subscription or has sublevel
+                    # (home/test/# does not listen to home/testing)
+                    return True
+        return False
 
     def setFunctions(self, identifier, cbs):
         _, i = self.getFunctions(identifier, index=True)

@@ -16,7 +16,7 @@ from pysmartnode.utils.wrappers.async_wrapper import async_wrapper as _async_wra
 import uasyncio as asyncio
 import gc
 
-mqtt = config.getMQTT()
+_mqtt = config.getMQTT()
 
 
 class SensorWrapper:
@@ -25,7 +25,7 @@ class SensorWrapper:
                  retain=False, qos=0):
         self.interval = interval or config.INTERVAL_SEND_SENSOR
         self.component_name = component_name
-        self.topic = mqtt_topic or mqtt.getDeviceTopic(self.component_name)
+        self.topic = mqtt_topic or _mqtt.getDeviceTopic(self.component_name)
         self.log = log
         self.retain = retain
         self.qos = qos
@@ -49,7 +49,7 @@ class SensorWrapper:
         if value is None:
             self.log.warn("Sensor {!s} got no value".format(self.component_name))
         elif publish:
-            await mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(value), self.retain, self.qos)
+            await _mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(value), self.retain, self.qos)
             # formating prevents values like 51.500000000001 on esp32_lobo
         return value
 

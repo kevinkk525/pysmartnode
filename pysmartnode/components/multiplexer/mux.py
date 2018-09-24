@@ -18,11 +18,11 @@ example config:
 }
 """
 
-__updated__ = "2018-06-20"
-__version__ = "0.6"
+__updated__ = "2018-08-18"
+__version__ = "0.7"
 
-from pysmartnode import config
-from machine import Pin as uPin
+import machine
+from pysmartnode.components.machine.pin import Pin as PyPin
 import gc
 
 gc.collect()
@@ -30,9 +30,9 @@ gc.collect()
 
 class Mux:
     def __init__(self, shift_pin, store_pin, data_pin, number_multiplexer=1):
-        self.shcp = uPin(shift_pin if type(shift_pin) != str else config.pins[shift_pin], uPin.OUT)
-        self.stcp = uPin(store_pin if type(store_pin) != str else config.pins[store_pin], uPin.OUT)
-        self.ds = uPin(data_pin if type(data_pin) != str else config.pins[data_pin], uPin.OUT)
+        self.shcp = PyPin(shift_pin, machine.Pin.OUT)
+        self.stcp = PyPin(store_pin, machine.Pin.OUT)
+        self.ds = PyPin(data_pin, machine.Pin.OUT)
         self.__data = bytearray()
         for i in range(0, 8 * number_multiplexer):
             self.__data.append(0)

@@ -1,11 +1,11 @@
 '''
 Created on 17.02.2018
 
-@author: Kevin Köck
+@author: Kevin KÃ¶ck
 '''
 
-__version__ = "1.6"
-__updated__ = "2018-06-24"
+__version__ = "1.9"
+__updated__ = "2018-09-18"
 
 import gc
 import json
@@ -27,13 +27,14 @@ else:
 gc.collect()
 import uasyncio as asyncio
 import os
+import sys
 
-log = logging.getLogger("MQTT")
+_log = logging.getLogger("MQTT")
 gc.collect()
 
 
 class MQTTHandler(MQTTClient):
-    def __init__(self, receive_config=False, allow_wildcards=True):
+    def __init__(self, receive_config=False):
         """
         receive_config: False, if true tries to get the configuration of components
             from a server connected to the mqtt broker
@@ -42,31 +43,21 @@ class MQTTHandler(MQTTClient):
             to store subscriptions instead of the module "tree" which is bigger
         """
         if platform == "esp8266" and sys_vars.hasFilesystem():
-            """ esp8266 has very limited RAM so choosing a module that allows wildcards
-            but writes subscribed topics to a file if filesystem is enabled, else uses Tree.
+            """ esp8266 has very limited RAM so choosing a module that writes subscribed topics 
+            to a file if filesystem is enabled, else uses Subscription module.
             - less feature and less general
             + specifically made for mqtt and esp8266
             - makes it a lot slower (~30ms checking a subscription, ~120ms saving one)
             + saves at least 1kB with a few subscriptions
             """
             from pysmartnode.utils.subscriptionHandlers.subscribe_file import SubscriptionHandler
-            self._subscriptions = SubscriptionHandler()
         else:
             """ 
-            esp32 has a lot of RAM but if wildcards are not needed then
-            the subscription module is faster and saves ram but does not support wildcards.
-            For wildcard support the module tree is used.
-            Also used for esp8266 with no filesystem (which saves ~6kB)
+            For esp32 and esp8266 with no filesystem (which saves ~6kB) Subscription module is used
             """
-            if allow_wildcards:
-                from pysmartnode.utils.subscriptionHandlers.tree import Tree
-                gc.collect()
-                self._subscriptions = Tree(config.MQTT_HOME, ["Functions"])
-            else:
-                from pysmartnode.utils.subscriptionHandlers.subscription import SubscriptionHandler
-                gc.collect()
-                self._subscriptions = SubscriptionHandler(["Functions"])
-        self._allow_wildcards = allow_wildcards
+            from pysmartnode.utils.subscriptionHandlers.subscription import SubscriptionHandler
+        gc.collect()
+        self._subscriptions = SubscriptionHandler()
         self.payload_on = ("ON", True, "True")
         self.payload_off = ("OFF", False, "False")
         self._retained = []
@@ -87,71 +78,82 @@ class MQTTHandler(MQTTClient):
         asyncio.get_event_loop().create_task(self.connect())
         self.__receive_config = receive_config
         # True=receive config, None=config received
+        self._awaiting_config = False
 
     async def _wifiChanged(self, state):
         if config.DEBUG:
-            log.info("WIFI state {!s}".format(state), local_only=True)
+            _log.info("WIFI state {!s}".format(state), local_only=True)
 
     async def _connected(self, client):
         await self._publishDeviceStats()
         await self._subscribeTopics()
-        if self.__receive_config:
-            log.info("Recveiving config", local_only=True)
-            await self.subscribe("{!s}/login/{!s}".format(self.mqtt_home, self.id), self._buildComponents, qos=1,
-                                 check_retained=False)
-            log.debug("waiting for config", local_only=True)
-            await self.publish("{!s}/login/{!s}/set".format(self.mqtt_home, self.id), config.VERSION, qos=1)
-            t = time.ticks_ms()
-            while (time.ticks_ms() - t) < 10000:
-                if self.__receive_config is not None:
-                    await asyncio.sleep_ms(200)
-                else:
-                    break
-            if self.__receive_config is not None:
-                log.error("No configuration received, falling back to local config")
-                asyncio.get_event_loop().create_task(config.loadComponentsFile())
-        elif self.__receive_config is not None:
-            self.__receive_config = None  # None says that first run is complete
-            log.info("Using local components.json/py", local_only=True)
-            asyncio.get_event_loop().create_task(config.loadComponentsFile())
+        if self.__receive_config is True:
+            asyncio.get_event_loop().create_task(self._receiveConfig())
 
-    async def _buildComponents(self, topic=None, msg=None, retain=None):
-        log.debug("Building components", local_only=True)
-        loop = asyncio.get_event_loop()
-        await self.unsubscribe("{!s}/login/".format(self.mqtt_home) + self.id)
-        if type(msg) != dict:
-            log.critical("Received config is no dict")
-            msg = None
-        if msg is None:
-            log.error("No configuration received, falling back to last saved config")
-            loop.create_task(config.loadComponentsFile())
-        else:
-            log.info("received config: {!s}".format(msg), local_only=True)
-            # saving components
-            config.saveComponentsFile(msg)
-            if platform == "esp8266":
-                # on esp8266 components are split in small files and loaded after each other
-                # to keep RAM requirements low, only if filesystem is enabled
-                if sys_vars.hasFilesystem():
-                    loop.create_task(config.loadComponentsFile())
-                else:
-                    loop.create_task(config.registerComponentsAsync(msg))
-            else:
-                # on esp32 components are registered directly but async to let logs run between registrations
-                loop.create_task(config.registerComponentsAsync(msg))
+    async def _receiveConfig(self):
         self.__receive_config = None
+        while True:
+            gc.collect()
+            _log.debug("RAM before receiveConfig import: {!s}".format(gc.mem_free()), local_only=True)
+            import pysmartnode.networking.mqtt_receive_config
+            gc.collect()
+            _log.debug("RAM after receiveConfig import: {!s}".format(gc.mem_free()), local_only=True)
+            result = await pysmartnode.networking.mqtt_receive_config.requestConfig(config, self,
+                                                                                    _log)
+            if result is False:
+                _log.info("Using local components.json/py", local_only=True)
+                gc.collect()
+                _log.debug("RAM before receiveConfig deletion: {!s}".format(gc.mem_free()), local_only=True)
+                del pysmartnode.networking.mqtt_receive_config
+                del sys.modules["pysmartnode.networking.mqtt_receive_config"]
+                gc.collect()
+                _log.debug("RAM after receiveConfig deletion: {!s}".format(gc.mem_free()))
+                local_works = await config.loadComponentsFile()
+                if local_works is True:
+                    return True
+            else:
+                gc.collect()
+                _log.debug("RAM before receiveConfig deletion: {!s}".format(gc.mem_free()), local_only=True)
+                del pysmartnode.networking.mqtt_receive_config
+                del sys.modules["pysmartnode.networking.mqtt_receive_config"]
+                gc.collect()
+                _log.debug("RAM after receiveConfig deletion: {!s}".format(gc.mem_free()), local_only=True)
+                result = json.loads(result)
+                loop = asyncio.get_event_loop()
+                if platform == "esp8266":
+                    # on esp8266 components are split in small files and loaded after each other
+                    # to keep RAM requirements low, only if filesystem is enabled
+                    if sys_vars.hasFilesystem():
+                        loop.create_task(config.loadComponentsFile())
+                    else:
+                        loop.create_task(config.registerComponentsAsync(result))
+                else:
+                    # on esp32 components are registered directly but async to let logs run between registrations
+                    loop.create_task(config.registerComponentsAsync(result))
+                return True
+            await asyncio.sleep(60)  # if connection not stable or broker unreachable, try again in 60s
 
     async def _subscribeTopics(self):
         for obj, topic in self._subscriptions.__iter__(with_path=True):
             await super().subscribe(topic, qos=1)
 
+    def _convertToDeviceTopic(self, topic):
+        if topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.id)):
+            return topic.replace("{!s}/{!s}/".format(self.mqtt_home, self.id), ".")
+        raise TypeError("Topic is not a device subscription: {!s}".format(topic))
+
+    def _isDeviceSubscription(self, topic):
+        if topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.id)):
+            return True
+        return False
+
     async def unsubscribe(self, topic, callback=None):
-        if self._isDeviceTopic(topic):
-            topic = self.getRealTopic(topic)
+        # if self._isDeviceTopic(topic):
+        #    topic = self.getRealTopic(topic)
         if callback is None:
-            log.debug("unsubscribing topic {}".format(topic), local_only=True)
+            _log.debug("unsubscribing topic {}".format(topic), local_only=True)
             self._subscriptions.removeObject(topic)
-            log.warn(
+            _log.warn(
                 "MQTT backend does not support unsubscribe, but function won't be called anymore", local_only=True)
             # mqtt library has no unsubscribe function but it is removed from subscriptions
         else:
@@ -164,39 +166,47 @@ class MQTTHandler(MQTTClient):
                     cbs = list(cbs)
                     cbs.remove(callback)
                 except ValueError:
-                    log.warn("Callback to topic {!s} not subscribed".format(topic), local_only=True)
+                    _log.warn("Callback to topic {!s} not subscribed".format(topic), local_only=True)
                     return
                 self._subscriptions.setFunctions(topic, cbs)
             except ValueError:
-                log.warn("Topic {!s} does not exist".format(topic))
+                _log.warn("Topic {!s} does not exist".format(topic))
 
     def scheduleSubscribe(self, topic, callback_coro, qos=0, check_retained=True):
         asyncio.get_event_loop().create_task(self.subscribe(topic, callback_coro, qos, check_retained))
 
     async def subscribe(self, topic, callback_coro, qos=0, check_retained=True):
-        if self._isDeviceTopic(topic):
-            topic = self.getRealTopic(topic)
-        log.debug("Subscribing to topic {}".format(topic), local_only=True)
+        # if self._isDeviceTopic(topic):
+        #    topic = self.getRealTopic(topic)
+        _log.debug("Subscribing to topic {}".format(topic), local_only=True)
         loop = asyncio.get_event_loop()
-        if not self._allow_wildcards and topic[-2:] == "/#":
-            log.error("Wildcard subscriptions are not allowed, ignoring {!s}".format(topic))
-            return False
         self._subscriptions.addObject(topic, callback_coro)
         if check_retained:
-            if topic[-4:] == "/set":
+            if topic.endswith("/set"):
                 # subscribe to topic without /set to get retained message for this topic state
                 # this is done additionally to the retained topic with /set in order to recreate
                 # the current state and then get new instructions in /set
                 state_topic = topic[:-4]
                 self._retained.append(state_topic)
                 self._subscriptions.addObject(state_topic, callback_coro)
-                await super().subscribe(state_topic, qos)
+                state_topic_new = state_topic
+                if self._isDeviceSubscription(state_topic):
+                    state_topic_new = self._convertToDeviceTopic(state_topic)
+                if self._isDeviceTopic(state_topic):
+                    state_topic_new = self.getRealTopic(state_topic)
+                await super().subscribe(state_topic_new, qos)
                 await self._await_retained(state_topic, callback_coro, True)
                 # to give retained state time to process before adding /set subscription
             self._retained.append(topic)
-        await super().subscribe(topic, qos)
+        topic_new = topic
+        if self._isDeviceSubscription(topic):
+            topic_new = self._convertToDeviceTopic(topic)
+        if self._isDeviceTopic(topic):
+            topic_new = self.getRealTopic(topic)
+        await super().subscribe(topic_new, qos)
         if check_retained:
             loop.create_task(self._await_retained(topic, callback_coro))
+            # TODO: optimize this to prevent coro spam on controller reset when all components subscribe topics
 
     async def _publishDeviceStats(self):
         await self.publish(self.getDeviceTopic("version"), config.VERSION, True, 1)
@@ -209,10 +219,10 @@ class MQTTHandler(MQTTClient):
                                    "{} {}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format("GMT", t[0], t[1], t[2], t[3],
                                                                                      t[4],
                                                                                      t[5]), True, 1)
-                log.info(str(os.uname()))
-                log.info("Client version: {!s}".format(config.VERSION))
+                _log.info(str(os.uname()))
+                _log.info("Client version: {!s}".format(config.VERSION))
         else:
-            log.debug("Reconnected")
+            _log.debug("Reconnected")
 
     def getDeviceTopic(self, attrib, is_request=False):
         if is_request:
@@ -220,13 +230,11 @@ class MQTTHandler(MQTTClient):
         return ".{}".format(attrib)
 
     def _isDeviceTopic(self, topic):
-        if topic[:1] == ".":
-            return True
-        return False
+        return topic.startswith(".")
 
     def getRealTopic(self, device_topic):
-        if device_topic[:1] != ".":
-            raise ValueError("Topic does not start with .")
+        if device_topic.startswith(".") is False:
+            raise ValueError("Topic {!s} is no device topic".format(device_topic))
         return "{}/{}/{}".format(self.mqtt_home, self.id, device_topic[1:])
 
     async def _await_retained(self, topic, cb=None, remove_after=False):
@@ -235,7 +243,7 @@ class MQTTHandler(MQTTClient):
             await asyncio.sleep_ms(250)
             st += 1
         try:
-            log.debug("removing retained topic {}".format(topic), local_only=True)
+            _log.debug("removing retained topic {}".format(topic), local_only=True)
             self._retained.remove(topic)
         except ValueError:
             pass
@@ -243,12 +251,14 @@ class MQTTHandler(MQTTClient):
             await self.unsubscribe(topic, cb)
 
     def _execute_sync(self, topic, msg):
-        """mqtt library only handles sync callbacks so add it to async loop"""
+        """mqtt library only handles sync callbacks so add it to asyncio loop"""
         asyncio.get_event_loop().create_task(self._execute(topic, msg))
 
     async def _execute(self, topic, msg):
-        log.debug("mqtt execution: {!s} {!s}".format(topic, msg), local_only=True)
+        _log.debug("mqtt execution: {!s} {!s}".format(topic, msg), local_only=True)
         topic = topic.decode()
+        if topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.id)):
+            topic = topic.replace("{!s}/{!s}/".format(self.mqtt_home, self.id), ".")
         msg = msg.decode()
         try:
             msg = json.loads(msg)
@@ -256,53 +266,51 @@ class MQTTHandler(MQTTClient):
             pass  # maybe not a json string, no way of knowing
         cb = None
         retain = False
-        if topic in self._retained:
+        _subscriptions = self._subscriptions
+        _retained = self._retained
+        if topic in _retained:
             retain = True
         else:
-            for topicR in self._retained:
-                if topicR[-1:] == "#":
-                    if topic.find(topicR[:-1]) != -1:
-                        retain = True
+            for topicR in _retained:
+                if topicR.endswith("#") and _subscriptions.matchesSubscription(topic, topicR):
+                    retain = True
                 gc.collect()
         if retain:
             try:
-                cb = self._subscriptions.getFunctions(topic + "/set")
-                retain = True
+                cb = _subscriptions.getFunctions(topic + "/set")
             except IndexError:
                 try:
-                    cb = self._subscriptions.getFunctions(topic)
-                    retain = True
+                    cb = _subscriptions.getFunctions(topic)
                 except IndexError:
                     pass
         if cb is None:
             try:
-                cb = self._subscriptions.getFunctions(topic)
+                cb = _subscriptions.getFunctions(topic)
             except IndexError:
-                log.warn("No cb found for topic {!s}".format(topic))
+                _log.warn("No callback found for topic {!s}".format(topic))
         if cb:
             for callback in cb if (type(cb) == list or type(cb) == tuple) else [cb]:
                 try:
                     res = await callback(topic=topic, msg=msg, retain=retain)
                     if not retain:
-                        if (type(res) == int and res is not None) or res == True:
-                            # so that an integer 0 is interpreted as a result to send back
-                            if res == True and type(res) != int:
+                        if res is not None and res is not False:
+                            if res is True:
                                 res = msg
                                 # send original msg back
-                            if topic[-4:] == "/set":
-                                # if a /set topic is found, send without /set
+                            if topic.endswith("/set"):
+                                # if a /set topic is found, send without /set, this is always retained
                                 await self.publish(topic[:-4], res, retain=True)
                 except Exception as e:
-                    log.error("Error executing {!s} mqtt topic {!r}: {!s}".format(
+                    _log.error("Error executing {!s}mqtt topic {!r}: {!s}".format(
                         "retained " if retain else "", topic, e))
-            if retain and not self._allow_wildcards or topic[-2:] != "/#":
+            if retain and topic.endswith("/#") is False:
                 # only remove if it is not a wildcard topic to allow other topics
                 # to handle retained messages belonging to this wildcard
                 try:
-                    self._retained.remove(topic)
+                    _retained.remove(topic)
                 except ValueError:
                     pass
-                    # already removed by _await_retained
+                    # already removed by _await_retained while executing topic
 
     async def publish(self, topic, msg, retain=False, qos=0):
         if type(msg) == dict or type(msg) == list:

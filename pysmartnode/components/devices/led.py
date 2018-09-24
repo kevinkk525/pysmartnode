@@ -19,32 +19,31 @@ example config:
 }
 """
 
-__updated__ = "2018-07-13"
-__version__ = "2.4"
+__updated__ = "2018-07-18"
+__version__ = "2.5"
 
 import gc
 
-from machine import Pin
+import machine
+from pysmartnode.components.machine.pin import Pin
 from pysmartnode import config
 import uasyncio as asyncio
 
-mqtt = config.getMQTT()
+_mqtt = config.getMQTT()
 
 gc.collect()
 
 
 class LEDNotification:
     def __init__(self, pin, on_time=50, off_time=50, iters=20, mqtt_topic=None):
-        if type(pin) == str:
-            pin = config.pins[pin]
-        mqtt_topic = mqtt_topic or mqtt.getDeviceTopic("LEDNotification", is_request=True)
-        self.pin = pin
+        mqtt_topic = mqtt_topic or _mqtt.getDeviceTopic("LEDNotification", is_request=True)
+        self.pin = Pin(pin, machine.Pin.OUT, value=0)
         self.on_time = on_time
         self.off_time = off_time
         self.iters = iters
         self.lock = config.Lock()
-        Pin(self.pin, Pin.OUT, value=0)
-        mqtt.scheduleSubscribe(mqtt_topic, self.notification, check_retained=False)
+
+        _mqtt.scheduleSubscribe(mqtt_topic, self.notification, check_retained=False)
         # not checking retained as led only activates single-shot
         self.mqtt_topic = mqtt_topic
 
@@ -52,12 +51,12 @@ class LEDNotification:
         if self.lock.locked():
             return False
         async with self.lock:
-            if msg in mqtt.payload_on:
-                mqtt.schedulePublish(self.mqtt_topic, "ON")
+            if msg in _mqtt.payload_on:
+                _mqtt.schedulePublish(self.mqtt_topic, "ON")
                 for i in range(0, self.iters):
-                    Pin(self.pin, Pin.OUT).value(1)
+                    self.pin.value(1)
                     await asyncio.sleep_ms(self.on_time)
-                    Pin(self.pin, Pin.OUT).value(0)
+                    self.pin.value(0)
                     await asyncio.sleep_ms(self.off_time)
-                await mqtt.publish(self.mqtt_topic, "OFF")
+                await _mqtt.publish(self.mqtt_topic, "OFF")
         return False  # will not publish the state "ON" to mqtt
