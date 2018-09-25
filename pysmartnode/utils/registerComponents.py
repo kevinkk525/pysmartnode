@@ -1,5 +1,3 @@
-from pysmartnode.utils import sys_vars
-import json
 import gc
 import uasyncio as asyncio
 from sys import platform
@@ -48,23 +46,6 @@ def _getArgs(args):
 def _checkPackage(data):
     if data["package"].startswith("."):
         data["package"] = "pysmartnode.components" + data["package"]
-
-
-def _importComponents(_log):
-    try:
-        import components
-    except ImportError:
-        _log.critical("components.py does not exist")
-        return False
-    except Exception as e:
-        _log.ciritcal("components.py: {!s}".format(e))
-        return False
-    if hasattr(components, "COMPONENTS"):
-        _log.info("Trying to register COMPONENTS of components.py", local_only=True)
-        return _registerComponents(components.COMPONENTS, _log)
-    else:
-        _log.info("No COMPONENTS in components.py, maybe user code executed", local_only=True)
-        return True
 
 
 async def registerComponentsAsync(data, _log, LEN_ASYNC_QUEUE):
@@ -199,56 +180,3 @@ def _registerComponents(data, _log):
             gc.collect()
             __printRAM(mem_start)
     return res
-
-
-async def loadComponentsFile(_log):
-    if not sys_vars.hasFilesystem():
-        if not _importComponents(_log):
-            _log.critical("Can't load components file as filesystem is unavailable")
-            return False
-        return True
-    try:
-        f = open("components.json", "r")
-        components_found = True
-    except OSError:
-        components_found = False
-    if components_found is False:
-        try:
-            f = open("_order.json", "r")
-        except Exception as e:
-            if not _importComponents(_log):
-                _log.critical("_order.json does not exist, {!s}".format(e))
-                return False
-            else:
-                return True
-        order = json.loads(f.read())
-        f.close()
-        gc.collect()
-        for component in order:
-            tmp = {"_order": [component]}
-            try:
-                f = open("components/{!s}.json".format(component), "r")
-                tmp[component] = json.loads(f.read())
-                f.close()
-                _registerComponents(tmp, _log)
-                del tmp
-            except Exception as e:
-                _log.error("Error loading component file {!s}, {!s}".format(component, e))
-            gc.collect()
-            if platform == "esp8266":
-                await asyncio.sleep(1)
-                # gives time to get retained topic and settle ram, important on esp8266
-            else:
-                await asyncio.sleep_ms(100)
-            gc.collect()
-    else:
-        c = f.read()
-        f.close()
-        try:
-            c = json.loads(c)
-            gc.collect()
-            await registerComponentsAsync(c)
-            return True
-        except Exception as e:
-            _log.critical("components.json parsing error {!s}".format(e))
-            return False

@@ -4,7 +4,7 @@ Created on 10.08.2017
 @author: Kevin Köck
 '''
 
-__updated__ = "2018-08-31"
+__updated__ = "2018-09-25"
 
 import gc
 import time
@@ -38,6 +38,9 @@ def main():
 
         wdt = WDT(timeout=config.MQTT_KEEPALIVE * 2)
         config.addComponent("wdt", wdt)
+
+    if config.MQTT_RECEIVE_CONFIG is False:
+        loop.create_task(config.loadComponentsFile())
 
     print("Starting uasyncio loop")
     if config.DEBUG_STOP_AFTER_EXCEPTION:

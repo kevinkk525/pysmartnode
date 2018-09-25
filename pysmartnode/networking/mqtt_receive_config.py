@@ -4,8 +4,8 @@ Created on 2018-09-21
 @author: Kevin Köck
 '''
 
-__version__ = "0.4"
-__updated__ = "2018-09-22"
+__version__ = "0.5"
+__updated__ = "2018-09-25"
 
 import uasyncio as asyncio
 import time
@@ -66,9 +66,10 @@ async def _awaitConfig(topic, msg, retain):
 
 async def _receiveConfig(log):
     global _awaiting_config
+    global _has_failed
     _awaiting_config = True
-    while True:
-        log.info("Receiving config", local_only=True)
+    log.info("Receiving config", local_only=True)
+    for i in range(1, 4):
         await _mqtt.subscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.id), _awaitConfig, qos=1,
                               check_retained=False)
         log.debug("waiting for config", local_only=True)
@@ -80,9 +81,12 @@ async def _receiveConfig(log):
             else:
                 _awaiting_config = False
                 return
-        if _has_failed:
-            _awaiting_config = False
-            return
+        await _mqtt.unsubscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.id))
+        # unsubscribing before resubscribing as otherwise it would result in multiple callbacks
+        # because mqttHandler and subscriptionHandler do not check if function already subscribed.
+    _has_failed = True
+    _awaiting_config = False
+    return
 
 
 def _saveComponentsFile(msg):

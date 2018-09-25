@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__version__ = "1.9"
-__updated__ = "2018-09-18"
+__version__ = "2.0"
+__updated__ = "2018-09-25"
 
 import gc
 import json
@@ -98,8 +98,7 @@ class MQTTHandler(MQTTClient):
             import pysmartnode.networking.mqtt_receive_config
             gc.collect()
             _log.debug("RAM after receiveConfig import: {!s}".format(gc.mem_free()), local_only=True)
-            result = await pysmartnode.networking.mqtt_receive_config.requestConfig(config, self,
-                                                                                    _log)
+            result = await pysmartnode.networking.mqtt_receive_config.requestConfig(config, self, _log)
             if result is False:
                 _log.info("Using local components.json/py", local_only=True)
                 gc.collect()
@@ -107,7 +106,7 @@ class MQTTHandler(MQTTClient):
                 del pysmartnode.networking.mqtt_receive_config
                 del sys.modules["pysmartnode.networking.mqtt_receive_config"]
                 gc.collect()
-                _log.debug("RAM after receiveConfig deletion: {!s}".format(gc.mem_free()))
+                _log.debug("RAM after receiveConfig deletion: {!s}".format(gc.mem_free()), local_only=True)
                 local_works = await config.loadComponentsFile()
                 if local_works is True:
                     return True

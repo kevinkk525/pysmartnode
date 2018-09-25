@@ -76,7 +76,7 @@ They contain an example configuration of the component and some description.
 The example configuration however is in [hjson](https://github.com/hjson/hjson-py), which is easier than *json* and has the possibility to have comments in it.
 This format is used in the *SmartServer* (see 4.1.), if you want to put the configuration onto your controller, you have to convert it to json.
 
-Every added component will be published as *log.info* to *<home>/log/info/<device_id>*. If it contains the variable *__version__* then this will be published as well to make keeping track of component version easier. 
+Every added component will be published as *log.info* to *<home>/log/info/<device_id>*. If it contains the variable ``__version__`` then this will be published as well to make keeping track of component versions easier. 
 
 ### Sensor-API
 
