@@ -20,12 +20,12 @@ example config:
 }
 """
 
-__updated__ = "2018-08-18"
-__version__ = "3.1"
+__updated__ = "2018-09-27"
+__version__ = "3.2"
 
 # Version 2.0 should support an Amux connected to an Amux, not tested though, only have one amux
 
-from pysmartnode.components.machine.adc import ADC
+from pysmartnode.components.machine.adc import ADC as ADCh
 import machine
 from pysmartnode.components.machine.pin import Pin
 from sys import platform
@@ -72,7 +72,7 @@ class Amux:
         else:
             self.__size = 8
         self._return_voltages = return_voltages
-        self.sig = ADC(0 if sig is None and platform == "esp8266" else sig)  # unified ADC interface
+        self.sig = ADCh(0 if sig is None and platform == "esp8266" else sig)  # unified ADC interface
 
     def setReturnVoltages(self, vol):
         self._return_voltages = vol

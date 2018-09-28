@@ -62,7 +62,7 @@ Required external modules are:
 
 * uasyncio (>=V2.0)
 * uasnycio-core (>=V2.0)
-* micropython-mqtt-as, my own fork that has small changes ([mqtt_as](https://github.com/kevinkk525/micropython-mqtt)) 
+* micropython-mqtt-as, my own fork that has small but important and incompatible changes: ([mqtt_as](https://github.com/kevinkk525/micropython-mqtt)) 
 
 All required modules are in this repository and don't need to be aquired manually. 
 Just put the directories `micropython_mqtt_as` and `uasyncio` from `external_modules` into your `modules` directory before building the firmware or run the correct script in section `Tools`.

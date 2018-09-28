@@ -19,8 +19,8 @@ example config:
 }
 """
 
-__updated__ = "2018-07-18"
-__version__ = "2.5"
+__updated__ = "2018-09-26"
+__version__ = "2.6"
 
 import gc
 
@@ -43,7 +43,7 @@ class LEDNotification:
         self.iters = iters
         self.lock = config.Lock()
 
-        _mqtt.scheduleSubscribe(mqtt_topic, self.notification, check_retained=False)
+        _mqtt.scheduleSubscribe(mqtt_topic, self.notification, check_retained_state_topic=False)
         # not checking retained as led only activates single-shot
         self.mqtt_topic = mqtt_topic
 

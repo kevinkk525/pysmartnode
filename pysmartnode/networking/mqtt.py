@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__version__ = "2.0"
-__updated__ = "2018-09-25"
+__version__ = "3.1"
+__updated__ = "2018-09-28"
 
 import gc
 import json
@@ -60,7 +60,6 @@ class MQTTHandler(MQTTClient):
         self._subscriptions = SubscriptionHandler()
         self.payload_on = ("ON", True, "True")
         self.payload_off = ("OFF", False, "False")
-        self._retained = []
         self.id = config.id
         self.mqtt_home = config.MQTT_HOME
         super().__init__(server=config.MQTT_HOST,
@@ -134,6 +133,8 @@ class MQTTHandler(MQTTClient):
 
     async def _subscribeTopics(self):
         for obj, topic in self._subscriptions.__iter__(with_path=True):
+            if self._isDeviceTopic(topic):
+                topic = self.getRealTopic(topic)
             await super().subscribe(topic, qos=1)
 
     def _convertToDeviceTopic(self, topic):
@@ -147,23 +148,26 @@ class MQTTHandler(MQTTClient):
         return False
 
     async def unsubscribe(self, topic, callback=None):
-        # if self._isDeviceTopic(topic):
-        #    topic = self.getRealTopic(topic)
         if callback is None:
             _log.debug("unsubscribing topic {}".format(topic), local_only=True)
             self._subscriptions.removeObject(topic)
-            _log.warn(
-                "MQTT backend does not support unsubscribe, but function won't be called anymore", local_only=True)
-            # mqtt library has no unsubscribe function but it is removed from subscriptions
+            if self._isDeviceTopic(topic):
+                topic = self.getRealTopic(topic)
+            await super().unsubscribe(topic)
         else:
             try:
                 cbs = self._subscriptions.getFunctions(topic)
                 if type(cbs) not in (tuple, list):
                     self._subscriptions.removeObject(topic)
+                    _log.debug("unsubscribing topic {}".format(topic), local_only=True)
+                    if self._isDeviceTopic(topic):
+                        topic = self.getRealTopic(topic)
+                    await super().unsubscribe(topic)
                     return
                 try:
                     cbs = list(cbs)
                     cbs.remove(callback)
+                    _log.debug("unsubscribing callback from topic {}".format(topic), local_only=True)
                 except ValueError:
                     _log.warn("Callback to topic {!s} not subscribed".format(topic), local_only=True)
                     return
@@ -171,22 +175,18 @@ class MQTTHandler(MQTTClient):
             except ValueError:
                 _log.warn("Topic {!s} does not exist".format(topic))
 
-    def scheduleSubscribe(self, topic, callback_coro, qos=0, check_retained=True):
-        asyncio.get_event_loop().create_task(self.subscribe(topic, callback_coro, qos, check_retained))
+    def scheduleSubscribe(self, topic, callback_coro, qos=0, check_retained_state_topic=True):
+        asyncio.get_event_loop().create_task(self.subscribe(topic, callback_coro, qos, check_retained_state_topic))
 
-    async def subscribe(self, topic, callback_coro, qos=0, check_retained=True):
-        # if self._isDeviceTopic(topic):
-        #    topic = self.getRealTopic(topic)
+    async def subscribe(self, topic, callback_coro, qos=0, check_retained_state_topic=True):
         _log.debug("Subscribing to topic {}".format(topic), local_only=True)
-        loop = asyncio.get_event_loop()
         self._subscriptions.addObject(topic, callback_coro)
-        if check_retained:
+        if check_retained_state_topic:
             if topic.endswith("/set"):
                 # subscribe to topic without /set to get retained message for this topic state
                 # this is done additionally to the retained topic with /set in order to recreate
                 # the current state and then get new instructions in /set
                 state_topic = topic[:-4]
-                self._retained.append(state_topic)
                 self._subscriptions.addObject(state_topic, callback_coro)
                 state_topic_new = state_topic
                 if self._isDeviceSubscription(state_topic):
@@ -194,18 +194,16 @@ class MQTTHandler(MQTTClient):
                 if self._isDeviceTopic(state_topic):
                     state_topic_new = self.getRealTopic(state_topic)
                 await super().subscribe(state_topic_new, qos)
-                await self._await_retained(state_topic, callback_coro, True)
-                # to give retained state time to process before adding /set subscription
-            self._retained.append(topic)
-        topic_new = topic
+                await asyncio.sleep_ms(500)
+                # gives retained state topic time to be received and processed before
+                # unsubscribing and adding /set subscription
+                await self.unsubscribe(state_topic, callback_coro)
+                # there might be more cbs regierstered by now so go the complex way
         if self._isDeviceSubscription(topic):
-            topic_new = self._convertToDeviceTopic(topic)
+            topic = self._convertToDeviceTopic(topic)
         if self._isDeviceTopic(topic):
-            topic_new = self.getRealTopic(topic)
-        await super().subscribe(topic_new, qos)
-        if check_retained:
-            loop.create_task(self._await_retained(topic, callback_coro))
-            # TODO: optimize this to prevent coro spam on controller reset when all components subscribe topics
+            topic = self.getRealTopic(topic)
+        await super().subscribe(topic, qos)
 
     async def _publishDeviceStats(self):
         await self.publish(self.getDeviceTopic("version"), config.VERSION, True, 1)
@@ -236,25 +234,12 @@ class MQTTHandler(MQTTClient):
             raise ValueError("Topic {!s} is no device topic".format(device_topic))
         return "{}/{}/{}".format(self.mqtt_home, self.id, device_topic[1:])
 
-    async def _await_retained(self, topic, cb=None, remove_after=False):
-        st = 0
-        while topic in self._retained and st <= 8:
-            await asyncio.sleep_ms(250)
-            st += 1
-        try:
-            _log.debug("removing retained topic {}".format(topic), local_only=True)
-            self._retained.remove(topic)
-        except ValueError:
-            pass
-        if remove_after:
-            await self.unsubscribe(topic, cb)
-
-    def _execute_sync(self, topic, msg):
+    def _execute_sync(self, topic, msg, retained):
         """mqtt library only handles sync callbacks so add it to asyncio loop"""
-        asyncio.get_event_loop().create_task(self._execute(topic, msg))
+        asyncio.get_event_loop().create_task(self._execute(topic, msg, retained))
 
-    async def _execute(self, topic, msg):
-        _log.debug("mqtt execution: {!s} {!s}".format(topic, msg), local_only=True)
+    async def _execute(self, topic, msg, retained):
+        _log.debug("mqtt execution: {!s} {!s} {!s}".format(topic, msg, retained), local_only=True)
         topic = topic.decode()
         if topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.id)):
             topic = topic.replace("{!s}/{!s}/".format(self.mqtt_home, self.id), ".")
@@ -263,53 +248,25 @@ class MQTTHandler(MQTTClient):
             msg = json.loads(msg)
         except:
             pass  # maybe not a json string, no way of knowing
-        cb = None
-        retain = False
         _subscriptions = self._subscriptions
-        _retained = self._retained
-        if topic in _retained:
-            retain = True
-        else:
-            for topicR in _retained:
-                if topicR.endswith("#") and _subscriptions.matchesSubscription(topic, topicR):
-                    retain = True
-                gc.collect()
-        if retain:
+        try:
+            cb = _subscriptions.getFunctions(topic)
+        except IndexError:
+            _log.warn("No callback found for topic {!s}".format(topic))
+            return
+        for callback in cb if (type(cb) == list or type(cb) == tuple) else [cb]:
             try:
-                cb = _subscriptions.getFunctions(topic + "/set")
-            except IndexError:
-                try:
-                    cb = _subscriptions.getFunctions(topic)
-                except IndexError:
-                    pass
-        if cb is None:
-            try:
-                cb = _subscriptions.getFunctions(topic)
-            except IndexError:
-                _log.warn("No callback found for topic {!s}".format(topic))
-        if cb:
-            for callback in cb if (type(cb) == list or type(cb) == tuple) else [cb]:
-                try:
-                    res = await callback(topic=topic, msg=msg, retain=retain)
-                    if not retain:
-                        if res is not None and res is not False:
-                            if res is True:
-                                res = msg
-                                # send original msg back
-                            if topic.endswith("/set"):
-                                # if a /set topic is found, send without /set, this is always retained
-                                await self.publish(topic[:-4], res, retain=True)
-                except Exception as e:
-                    _log.error("Error executing {!s}mqtt topic {!r}: {!s}".format(
-                        "retained " if retain else "", topic, e))
-            if retain and topic.endswith("/#") is False:
-                # only remove if it is not a wildcard topic to allow other topics
-                # to handle retained messages belonging to this wildcard
-                try:
-                    _retained.remove(topic)
-                except ValueError:
-                    pass
-                    # already removed by _await_retained while executing topic
+                res = await callback(topic, msg, retained)
+                if not retained and topic.endswith("/set"):
+                    # if a /set topic is found, send without /set, this is always retained:
+                    if res is not None and res is not False:
+                        if res is True:
+                            res = msg
+                            # send original msg back
+                        await self.publish(topic[:-4], res, retain=True)
+            except Exception as e:
+                _log.error("Error executing {!s}mqtt topic {!r}: {!s}".format(
+                    "retained " if retained else "", topic, e))
 
     async def publish(self, topic, msg, retain=False, qos=0):
         if type(msg) == dict or type(msg) == list:

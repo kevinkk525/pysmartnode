@@ -12,7 +12,6 @@ import json
 from sys import platform
 import gc
 import uasyncio as asyncio
-import os
 
 
 def _importComponents(_log):

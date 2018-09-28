@@ -16,8 +16,8 @@ example config:
 makes esp8266 listen to requested gpio changes or return pin.value() if message is published without payload
 """
 
-__updated__ = "2018-08-18"
-__version__ = "0.5"
+__updated__ = "2018-09-28"
+__version__ = "0.6"
 
 import gc
 import machine
@@ -32,7 +32,7 @@ gc.collect()
 
 async def __gpio(topic, msg, retain):
     _log = logging.getLogger("easyGPIO")
-    if topic.rfind("/set") == -1:
+    if topic.endswith("/set") is False:
         if retain:
             pin = topic[topic.rfind("GPIO/") + 5:]
         else:
@@ -44,7 +44,7 @@ async def __gpio(topic, msg, retain):
     try:
         _p = Pin(pin)
     except Exception as e:
-        _log.error("pin {!r} does not exist: {!s}".format(pin, e))
+        await _log.logAsync("pin {!r} does not exist: {!s}".format(pin, e))
         return False
     if msg != "":
         value = None
@@ -57,7 +57,7 @@ async def __gpio(topic, msg, retain):
         except:
             pass
         if value is None:
-            _log.error("pin {!r} got no supported value {!r}".format(pin, msg))
+            await _log.logAsync("error", "pin {!r} got no supported value {!r}".format(pin, msg))
             return False
         Pin(pin, machine.Pin.OUT).value(value)
         return True
@@ -65,7 +65,6 @@ async def __gpio(topic, msg, retain):
         return Pin(pin, machine.Pin.IN).value()
 
 
-def gpio(topic=None):
+async def gpio(topic=None):
     topic = topic or _mqtt.getDeviceTopic("GPIO/#")
-    print("gpio", topic)
-    _mqtt.scheduleSubscribe(topic, __gpio)
+    await _mqtt.subscribe(topic, __gpio)

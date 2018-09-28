@@ -4,8 +4,8 @@ Created on 10.03.2018
 @author: Kevin Köck
 '''
 
-__updated__ = "2018-07-14"
-__version__ = "2.1"
+__updated__ = "2018-09-28"
+__version__ = "2.2"
 
 import gc
 from pysmartnode.utils import sys_vars
@@ -41,6 +41,11 @@ class Logging:
 
     def debug(self, message, local_only=False):
         self._log(message, "debug", local_only)
+
+    async def asyncLog(self, level, message):
+        print("[{!s}] {}".format(level, message))
+        if config.getMQTT() is not None:
+            await config.getMQTT().publish(self.base_topic.format(level), "{}".format(message))
 
 
 log = Logging()

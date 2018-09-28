@@ -21,8 +21,8 @@ example config:
 }
 """
 
-__updated__ = "2018-08-31"
-__version__ = "0.8"
+__updated__ = "2018-09-28"
+__version__ = "0.9"
 
 import gc
 from pysmartnode import config
@@ -66,7 +66,8 @@ class HTU21D(htu):
         gc.collect()
         asyncio.get_event_loop().create_task(self._loop(background_loop, interval))
 
-    async def _loop(self, gen, interval):
+    @staticmethod
+    async def _loop(gen, interval):
         while True:
             await gen()
             await asyncio.sleep(interval)
@@ -77,13 +78,13 @@ class HTU21D(htu):
         try:
             value = await coro()
         except Exception as e:
-            logging.getLogger(_component_name).error("Error reading sensor {!s}: {!s}".format(_component_name, e))
+            await logging.getLogger(_component_name).asyncLog("error","Error reading sensor {!s}: {!s}".format(_component_name, e))
             return None
         if value is not None:
             value = round(value, prec)
             value += offs
         if value is None:
-            logging.getLogger(_component_name).warn("Sensor {!s} got no value".format(_component_name))
+            await logging.getLogger(_component_name).asyncLog("warn","Sensor {!s} got no value".format(_component_name))
         elif publish:
             await _mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(value))
         return value

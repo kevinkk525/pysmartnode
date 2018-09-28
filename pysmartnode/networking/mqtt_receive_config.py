@@ -4,8 +4,8 @@ Created on 2018-09-21
 @author: Kevin Köck
 '''
 
-__version__ = "0.5"
-__updated__ = "2018-09-25"
+__version__ = "0.6"
+__updated__ = "2018-09-27"
 
 import uasyncio as asyncio
 import time
@@ -71,7 +71,7 @@ async def _receiveConfig(log):
     log.info("Receiving config", local_only=True)
     for i in range(1, 4):
         await _mqtt.subscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.id), _awaitConfig, qos=1,
-                              check_retained=False)
+                              check_retained_state_topic=False)
         log.debug("waiting for config", local_only=True)
         await _mqtt.publish("{!s}/login/{!s}/set".format(_mqtt.mqtt_home, _mqtt.id), _pyconfig.VERSION, qos=1)
         t = time.ticks_ms()

@@ -48,33 +48,18 @@ def _checkPackage(data):
         data["package"] = "pysmartnode.components" + data["package"]
 
 
-async def registerComponentsAsync(data, _log, LEN_ASYNC_QUEUE):
-    _queue_overflow = False
+async def registerComponentsAsync(data, _log):
     for component in data["_order"]:
         tmp = {"_order": [component]}
         tmp[component] = data[component]
-        _registerComponents(tmp, _log)
+        await _registerComponents(tmp, _log)
         del tmp
         gc.collect()
         await asyncio.sleep_ms(750 if platform == "esp8266" else 200)
-        st = time.ticks_ms()
-        loop = asyncio.get_event_loop()
-        while len(loop.runq) > LEN_ASYNC_QUEUE - 6 and time.ticks_ms() - st < 8000:
-            _log.debug("loop has {!s} items, waiting to get less".format(len(loop.runq)), local_only=True)
-            if platform == "esp8266":
-                await asyncio.sleep_ms(500)
-                # gives time to get retained topic and settle ram, important on esp8266
-            else:
-                await asyncio.sleep_ms(200)
-        if time.ticks_ms() - st > 8000 and len(loop.runq) > LEN_ASYNC_QUEUE - 6:
-            _log.critical("Runq > {!s} ({!s}) for more than 8s".format(LEN_ASYNC_QUEUE - 6, len(loop.runq)),
-                          local_only=_queue_overflow)
-            if _queue_overflow is False:
-                _queue_overflow = True  # to prevent multiple loggings only log locally after first log
         gc.collect()
 
 
-def _registerComponents(data, _log):
+async def _registerComponents(data, _log):
     gc.collect()
     mem_start = gc.mem_free()
     __printRAM(mem_start)
@@ -86,12 +71,12 @@ def _registerComponents(data, _log):
     loop = asyncio.get_event_loop()
     for i in range(0, len(order)):
         if order[i] not in data:
-            _log.critical("component {!r} of order is not in component dict".format(data["_order"][i]))
+            await _log.asyncLog("error", "component {!r} of order is not in component dict".format(data["_order"][i]))
         else:
             version = None
             componentname = order[i]
             if componentname in COMPONENTS:
-                _log.critical("Component {!r} already added".format(componentname))
+                await _log.asyncLog("critical", "Component {!r} already added".format(componentname))
                 # False will be returned as res = False if only one component is added
             else:
                 component = data[componentname]
@@ -101,7 +86,7 @@ def _registerComponents(data, _log):
                         tmp = __import__(component["package"], globals(),
                                          locals(), [component["component"]], 0)
                     except Exception as e:
-                        _log.critical("Error importing package {!s}, error: {!s}".format(
+                        await _log.asyncLog("critical", "Error importing package {!s}, error: {!s}".format(
                             component["package"], e))
                         tmp = None
                     gc.collect()
@@ -117,11 +102,15 @@ def _registerComponents(data, _log):
                                 component["constructor_args"]) if "constructor_args" in component and type(
                                 component["constructor_args"]) == list else []
                             try:
-                                obj = getattr(tmp, component["component"])(*args, **kwargs)
+                                obj = getattr(tmp, component["component"])
+                                if str(type(obj)) == "<class 'generator'>":
+                                    obj = await obj(*args, **kwargs)
+                                else:
+                                    obj = obj(*args, **kwargs)
                             except Exception as e:
-                                _log.error(
-                                    "Error during creation of object {!r}, {!r}, version {!s}, error: {!s}".format(
-                                        component["component"], componentname, version, e))
+                                await _log.asyncLog("error",
+                                                    "Error during creation of object {!r}, {!r}, version {!s}: {!s}".format(
+                                                        component["component"], componentname, version, e))
                                 obj = None
                                 err = True
                             if obj is not None:
@@ -136,27 +125,27 @@ def _registerComponents(data, _log):
                                         if type(init) == type(registerComponentsAsync):
                                             from pysmartnode.utils.wrappers.callAsyncSafe import \
                                                 callAsyncSafe as _callAsyncSafe
-                                            loop.create_task(_callAsyncSafe(
-                                                init, component["init_function"], args, kwargs))
+                                            await _callAsyncSafe(init, component["init_function"], args, kwargs)
                                         else:
                                             try:
                                                 tmp_init = init(*args, **kwargs)
                                                 if type(tmp_init) == type(registerComponentsAsync):
-                                                    loop.create_task(tmp_init)
+                                                    await tmp_init
                                             except Exception as e:
-                                                _log.critical(
-                                                    "Error calling init function {!r}, {!r}, version {!s}, error: {!e}".format(
-                                                        component["init_function"], componentname, version, e))
+                                                await _log.asyncLog("critical",
+                                                                    "Error calling init function {!r}, {!r}, version {!s}: {!e}".format(
+                                                                        component["init_function"], componentname,
+                                                                        version, e))
                                                 err = True
                                     else:
-                                        _log.critical(
-                                            "init function {!r} does not exist for object {!r}, version {!s}".format(
-                                                component["init_function"], componentname, version))
+                                        await _log.asyncLog("critical",
+                                                            "init function {!r} does not exist for object {!r}, version {!s}".format(
+                                                                component["init_function"], componentname, version))
                                         err = True
                                 if err is False and "call_function_regularly" in component and component[
                                     "call_function_regularly"] is not None:
                                     if hasattr(obj, component["call_function_regularly"]) is False:
-                                        _log.critical("obj has no function {!r}".format(
+                                        await _log.asyncLog("critical", "obj has no function {!r}".format(
                                             component["call_function_regularly"]))
                                     else:
                                         func = getattr(obj, component["call_function_regularly"])
@@ -165,17 +154,18 @@ def _registerComponents(data, _log):
                                             "call_interval"] if "call_interval" in component else None))
                                 if err is False:
                                     COMPONENTS[componentname] = obj
-                                    _log.info("Added component {!r}, version {!s}".format(
+                                    await _log.asyncLog("info", "Added component {!r}, version {!s}".format(
                                         componentname, version))
                                     res = True
                             elif err is False:
-                                _log.info("Added component {!r}, version {!s} as service".format(
+                                await _log.asyncLog("info", "Added component {!r}, version {!s} as service".format(
                                     componentname, version))  # probably function, not class
                                 res = True
                             else:
                                 res = False
                         else:
-                            _log.critical("error during import of module {!s}".format(component["component"]))
+                            await _log.asyncLog("critical",
+                                                "error during import of module {!s}".format(component["component"]))
                             res = False
             gc.collect()
             __printRAM(mem_start)

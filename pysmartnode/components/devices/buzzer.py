@@ -20,8 +20,8 @@ example config:
 }
 """
 
-__updated__ = "2018-07-18"
-__version__ = "2.6"
+__updated__ = "2018-09-25"
+__version__ = "2.7"
 
 import gc
 
@@ -45,7 +45,7 @@ class Buzzer:
         self.lock = config.Lock()
         self.pin = PWM(self.pin, freq=freq)
         self.pin.duty(0)
-        _mqtt.scheduleSubscribe(mqtt_topic, self.notification, check_retained=False)
+        _mqtt.scheduleSubscribe(mqtt_topic, self.notification, check_retained_state_topic=False)
         # not checking retained as buzzer only activates single-shot
         self.mqtt_topic = mqtt_topic
 

@@ -13,7 +13,7 @@ from config import *
 from sys import platform
 
 # General
-VERSION = const(401)
+VERSION = const(402)
 print("PySmartNode version {!s} started".format(VERSION))
 
 import gc
@@ -68,7 +68,7 @@ async def registerComponentsAsync(data):
     import pysmartnode.utils.registerComponents
     gc.collect()
     _log.debug("RAM after import registerComponents: {!s}".format(gc.mem_free()), local_only=True)
-    await pysmartnode.utils.registerComponents.registerComponentsAsync(data, _log, LEN_ASYNC_QUEUE)
+    await pysmartnode.utils.registerComponents.registerComponentsAsync(data, _log)
     _log.debug("RAM before deleting registerComponents: {!s}".format(gc.mem_free()), local_only=True)
     del pysmartnode.utils.registerComponents
     del sys.modules["pysmartnode.utils.registerComponents"]
@@ -92,7 +92,7 @@ async def loadComponentsFile():
         import pysmartnode.utils.registerComponents
         gc.collect()
         _log.debug("RAM after import registerComponents: {!s}".format(gc.mem_free()), local_only=True)
-        await pysmartnode.utils.registerComponents.registerComponentsAsync(data, _log, LEN_ASYNC_QUEUE)
+        await pysmartnode.utils.registerComponents.registerComponentsAsync(data, _log)
         _log.debug("RAM before deleting registerComponents: {!s}".format(gc.mem_free()), local_only=True)
         del pysmartnode.utils.registerComponents
         del sys.modules["pysmartnode.utils.registerComponents"]
