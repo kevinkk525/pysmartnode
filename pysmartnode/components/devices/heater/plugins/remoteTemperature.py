@@ -42,7 +42,7 @@ async def _remoteTemp(topic, msg, retain):
         # a retained temperature value is of no use
         return
     if type(msg) == dict:
-        if "temperature" in dict:
+        if "temperature" in msg:
             msg = msg["temperature"]
         else:
             log.error("Dictionary has unsupported values")

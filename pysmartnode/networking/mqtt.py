@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__version__ = "3.1"
-__updated__ = "2018-09-28"
+__version__ = "3.2"
+__updated__ = "2018-09-29"
 
 import gc
 import json
@@ -180,6 +180,9 @@ class MQTTHandler(MQTTClient):
 
     async def subscribe(self, topic, callback_coro, qos=0, check_retained_state_topic=True):
         _log.debug("Subscribing to topic {}".format(topic), local_only=True)
+        if type(callback_coro) is None:
+            await _log.asyncLog("error", "Can't subscribe with callback of type None to topic {!s}".format(topic))
+            return False
         self._subscriptions.addObject(topic, callback_coro)
         if check_retained_state_topic:
             if topic.endswith("/set"):
