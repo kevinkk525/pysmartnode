@@ -36,8 +36,8 @@ Short documentation:
 - heater reacts to temperature change every REACTION_TIME seconds and waits xxx_CYCLES before starting/shutting down heater
 """
 
-__updated__ = "2018-09-28"
-__version__ = "0.6"
+__updated__ = "2018-09-29"
+__version__ = "0.7"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -146,6 +146,7 @@ class Heater:
         return self.__target_temp
 
     def setTargetTemp(self, temp):
+        log.debug("Set target temp to {!s}".format(temp), local_only=True)
         self.__target_temp = temp
         if self.__loop_started:
             self.__cycles_target_reached = -2  # makes heater react to temp change immediately
@@ -208,6 +209,7 @@ class Heater:
             self.__event.set()
         await _mqtt.publish(self.__mode_topic[:-4], msg, retain=True, qos=1)
         gc.collect()
+        return True
 
     async def _requestTemp(self, topic, msg, retain):
         if self.__loop_started:
@@ -224,6 +226,7 @@ class Heater:
         if self.__loop_started:
             self.__cycles_target_reached = -2  # makes heater react to temp change immediately
             self.__event.set()
+        return True
 
     async def _timer(self):
         self.__timer_time = time.ticks_ms()

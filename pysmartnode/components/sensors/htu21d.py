@@ -21,8 +21,8 @@ example config:
 }
 """
 
-__updated__ = "2018-09-28"
-__version__ = "0.9"
+__updated__ = "2018-09-29"
+__version__ = "1.0"
 
 import gc
 from pysmartnode import config
@@ -66,8 +66,7 @@ class HTU21D(htu):
         gc.collect()
         asyncio.get_event_loop().create_task(self._loop(background_loop, interval))
 
-    @staticmethod
-    async def _loop(gen, interval):
+    async def _loop(self, gen, interval):
         while True:
             await gen()
             await asyncio.sleep(interval)
@@ -78,27 +77,42 @@ class HTU21D(htu):
         try:
             value = await coro()
         except Exception as e:
-            await logging.getLogger(_component_name).asyncLog("error","Error reading sensor {!s}: {!s}".format(_component_name, e))
+            await logging.getLogger(_component_name).asyncLog("error",
+                                                              "Error reading sensor {!s}: {!s}".format(_component_name,
+                                                                                                       e))
             return None
         if value is not None:
             value = round(value, prec)
             value += offs
-        if value is None:
-            await logging.getLogger(_component_name).asyncLog("warn","Sensor {!s} got no value".format(_component_name))
-        elif publish:
+        if publish and value is not None:
             await _mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(value))
         return value
 
     async def temperature(self, publish=True):
-        return await self._read(self._temp, self._prec_temp, self._offs_temp, publish)
+        temp = await self._read(self._temp, self._prec_temp, self._offs_temp, publish)
+        if temp < -48:  # on a device without a connected HTU I get about -48.85
+            if publish:
+                await logging.getLogger(_component_name).asyncLog("warn",
+                                                                  "Sensor {!s} got no value".format(_component_name))
+            return None
+        return temp
 
     async def humidity(self, publish=True):
-        return await self._read(self._humid, self._prec_humid, self._offs_humid, publish)
+        humid = await self._read(self._humid, self._prec_humid, self._offs_humid, publish)
+        if humid <= 5:  # on a device without a connected HTU I get about 4
+            if publish:
+                await logging.getLogger(_component_name).asyncLog("warn",
+                                                                  "Sensor {!s} got no value".format(_component_name))
+            return None
+        return humid
 
     async def tempHumid(self, publish=True):
         temp = await self.temperature(publish=False)
         humid = await self.humidity(publish=False)
-        if temp is not None and humid is not None and publish:
+        if temp is None or humid is None:
+            await logging.getLogger(_component_name).asyncLog("warn",
+                                                              "Sensor {!s} got no value".format(_component_name))
+        elif publish:
             await _mqtt.publish(self.topic, {
                 "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),
                 "humidity": ("{0:." + str(self._prec_humid) + "f}").format(humid)})
