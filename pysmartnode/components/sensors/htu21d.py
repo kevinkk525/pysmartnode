@@ -22,7 +22,7 @@ example config:
 """
 
 __updated__ = "2018-09-29"
-__version__ = "1.0"
+__version__ = "1.1"
 
 import gc
 from pysmartnode import config
@@ -90,7 +90,7 @@ class HTU21D(htu):
 
     async def temperature(self, publish=True):
         temp = await self._read(self._temp, self._prec_temp, self._offs_temp, publish)
-        if temp < -48:  # on a device without a connected HTU I get about -48.85
+        if temp is not None and temp < -48:  # on a device without a connected HTU I sometimes get about -48.85
             if publish:
                 await logging.getLogger(_component_name).asyncLog("warn",
                                                                   "Sensor {!s} got no value".format(_component_name))
@@ -99,7 +99,7 @@ class HTU21D(htu):
 
     async def humidity(self, publish=True):
         humid = await self._read(self._humid, self._prec_humid, self._offs_humid, publish)
-        if humid <= 5:  # on a device without a connected HTU I get about 4
+        if humid is not None and humid <= 5:  # on a device without a connected HTU I sometimes get about 4
             if publish:
                 await logging.getLogger(_component_name).asyncLog("warn",
                                                                   "Sensor {!s} got no value".format(_component_name))
