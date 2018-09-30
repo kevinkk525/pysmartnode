@@ -216,9 +216,9 @@ class MQTTHandler(MQTTClient):
             if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE:
                 t = time.localtime()
                 await self.publish(self.getDeviceTopic("last_boot"),
-                                   "{} {}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format("GMT", t[0], t[1], t[2], t[3],
-                                                                                     t[4],
-                                                                                     t[5]), True, 1)
+                                   "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3],
+                                                                                  t[4],
+                                                                                  t[5]), True, 1)
                 _log.info(str(os.uname()))
                 _log.info("Client version: {!s}".format(config.VERSION))
         else:

@@ -23,9 +23,11 @@ The project is compatible with ESP32 and ESP8266 microcontrollers.
 
 ### ESP8266
 
-This works pretty well, version >3.0 has even more stable code but sadly also a huge RAM requirement.
-With version 3.4 it was still possible to run this project with an activated filesystem and have a few components. 
-Sadly version 3.8. is unusable if the filesystem is activated. I will work on a solution and clean up the code to free more RAM.
+This works pretty well, since version 4 it's very stable. Sadly the RAM demands are quite high and using it with an active filesystem won't work.
+However without a filesystem, it's easily possible to use it with a few components. Increasing the micropython heap to 44*1024 Bytes works with all of my devices with disabled filesystem and gives 8kB more RAM.
+This makes the device perfectly capable of using up to 8 components with some of them being quite big. 
+I use this setup with version 4.0.3 every day with 6 components (htu21d, buzzer, led, watchdog, ram, gpio) receiving the configuration over mqtt (which costs some RAM) and still have 8kB of free RAM, which is enough for at least 2 more bigger components. 
+I will continue to work on a solution and clean up the code to free more RAM but there seems to be less and less possibilities to save RAM.
 
 However if you disable the filesystem, this frees up more than 4kB of RAM. 
 With this I am able to run I2C, HTU21D, Buzzer, LED, RAM publishing, a debug component and still have 5kB of RAM available, which is enough for a few more components. 
@@ -34,7 +36,7 @@ With this I am able to run I2C, HTU21D, Buzzer, LED, RAM publishing, a debug com
 
 Only tested on loboris fork which also supports SPRAM (which is now supported by official firmware too). Works well on this port and can be considered almost stable. I did not set up an ESP32 to run continuously yet and my unit has a faulty flash.
 
-Official ESP32 port is not yet tested but if asyncio works, so will this project. Not all of the components are supporting it and help is needed here.
+Official ESP32 port is not yet tested but should work. Not all of the components are supporting it and help is needed here as in some modules only the platforms "esp8266" and "esp32_LoBo" are being checked (e.g. ADC)
 
 
 ## 2.Getting started
@@ -120,19 +122,18 @@ Platform dependend options are
     * LIGHTWEIGHT_LOG: if a logging module with less RAM demands should be used (saves ~500B)
     * MQTT_MINIMAL_VERSION: if a mqtt module should be used that is stripped to only the needed things (saves ~200B)
     * RTC_SYNC_ACTIVE: if RTC time sync should be done (saves ~600B)
+    * RTC_TIMEZONE_OFFSET: as esp8266 does not support timezones, add your offset here to match your time
     * USE_SOFTWARE_WATCHDOG: As some of my esp8266 occasionally get stuck for 1h 10minutes but not the interrupts, this makes using a software watchdog possible to reset hanging units (uses ~600B)
 - for esp32_LoBo:
     * MDNS_ACTIVE, MDNS_HOSTNAME, MDNS_DESCRIPTION: mdns options
     * FTP_ACTIVE: enable the built-in ftp server, very nice to have
     * TELNET_ACTIVE: enable the built-in telnet server to access the repl over wifi
-    * RTC_SYNC_ACTIVE, RTC_TIMEZONE: enable RTC time sync and set the time server
+    * RTC_SYNC_ACTIVE, RTC_SERVER, RTC_TIMEZONE: enable RTC time sync, set the time server and timezone
 
 A few additional options define some constants:
 * INTERVAL_SEND_SENSOR: defines an interval, in which sensors are publishing their value if no interval is provided in the component configuration
 * DEBUG: Will display additional information, useful for development only
 * DEBUG_STOP_AFTER_EXECUTION: normally if an uncatched exception occurs and the loop exits, it will send a log and reset the device. This disables it and will stop at the repl after the exception.
-* GC_INTERVAL: if the component ".machine.RAM" is active, this is the interval in which the garbage collection will be run
-* INTERVAL_SEND_RAM: if the component ".machine.RAM" is active, the free RAM will be published in this interval
 
 ### Component configuration
 The configuration of all components used on a microcontroller can be configured in different ways:
@@ -259,13 +260,13 @@ A small overview of the directory structure:
  * external_modules:    contains the needed external modules like mqtt_as and uasyncio. Can be ignored if the dependencies of this project are available.
  * pysmartnode :        contains the project files, the configuration library and main startup script
     * components:       contains all the component libraries grouped by type
-        * devices:      libraries for controlling external devices
+        * devices:      libraries for controlling external devices (displays, heater, buzzer, led, ...)
         * listeners:    only listen to events, e.g. a door bell
         * machine:      libraries for controlling the device (gpio, watchdog, ...)
         * multiplexer:  all sorts of multiplexer: mux, analog-mux, passthrough-mux (analog-mux used as digital passthrough)
         * sensors:      all kinds of externally connected sensors
     * libraries:        contains general device libraries not specific to pysmartnode
-    * logging:          logging implementations sending log messages by mqtt
+    * logging:          logging implementations sending log messages over mqtt
     * networking:       wifi and mqtt handling
     * utils:            helping functions, decorators and wrappers. May be helpful in some custom components. Example: asyncio Event class
         * subscriptionHandlers:     used in mqtt library to manage subscriptions. Different implementations with different strengths and weaknesses. Shortly described in [mqtt.py](./pysmartnode/networking/mqtt.py)

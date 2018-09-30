@@ -11,7 +11,7 @@ example config:
     component: Heater
     constructor_args: { 
         TEMP_SENSOR: htu            # name of a temperature sensor in COMPONENTS, needs to provide an async temperature() or tempHumid() coroutine
-        REACTION_TIME: 900          # how often heater reacts to temperature changes in internal mode
+        REACTION_TIME: 900          # how often heater reacts to temperature changes
         HYSTERESIS_LOW: 0.25        # the theater will start heating below target temperature minus hysteresis
         HYSTERESIS_HIGH: 0.25       # the theater will stop heating above target temperature plus hysteresis
         SHUTDOWN_CYCLES: 2          # amount of cycles (in reaction time) after which the heater will shut down if target+hysteris_high reached
