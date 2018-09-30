@@ -10,6 +10,10 @@
 * [developers] for developers of components: pysmartnode.config.pins is now deprecated and removed, usage of unified Pin() object pysmartnode.components.machine.pin.Pin is recommended. See module for explanation
 
 ---------------------------------------------------
+#### Version 3.8.2
+* RAM optimizations (400B freed)
+
+---------------------------------------------------
 #### Version 3.8.1
 * first version published to github
 * smaller bugfixes
