@@ -16,23 +16,23 @@ example config:
 makes esp8266 listen to requested gpio changes or return pin.value() if message is published without payload
 """
 
-__updated__ = "2018-03-22"
-__version__ = "0.3"
+__updated__ = "2018-09-28"
+__version__ = "0.6"
 
 import gc
-
-from machine import Pin
+import machine
+from pysmartnode.components.machine.pin import Pin
 from pysmartnode import config
 from pysmartnode import logging
 
-log = logging.getLogger("easyGPIO")
-mqtt = config.getMQTT()
+_mqtt = config.getMQTT()
 
 gc.collect()
 
 
 async def __gpio(topic, msg, retain):
-    if topic.rfind("/set") == -1:
+    _log = logging.getLogger("easyGPIO")
+    if topic.endswith("/set") is False:
         if retain:
             pin = topic[topic.rfind("GPIO/") + 5:]
         else:
@@ -42,34 +42,29 @@ async def __gpio(topic, msg, retain):
         pin = topic[topic.rfind("GPIO/") + 5:topic.rfind("/set")]
     print("__gpio pin", pin, msg, retain)
     try:
-        pin = int(pin)
-    except:
-        # means that pin is a str
-        try:
-            pin = config.pins[pin]
-        except:
-            log.error("pin {!r} does not exist".format(pin))
-            return False
+        _p = Pin(pin)
+    except Exception as e:
+        await _log.logAsync("pin {!r} does not exist: {!s}".format(pin, e))
+        return False
     if msg != "":
         value = None
-        if msg in mqtt.payload_on:
+        if msg in _mqtt.payload_on:
             value = 1
-        elif msg in mqtt.payload_off:
+        elif msg in _mqtt.payload_off:
             value = 0
         try:
             value = int(msg)
         except:
             pass
         if value is None:
-            log.error("pin {!r} got no supported value {!r}".format(pin, msg))
+            await _log.logAsync("error", "pin {!r} got no supported value {!r}".format(pin, msg))
             return False
-        Pin(pin, Pin.OUT).value(value)
+        Pin(pin, machine.Pin.OUT).value(value)
         return True
     else:
-        return Pin(pin, Pin.IN).value()
+        return Pin(pin, machine.Pin.IN).value()
 
 
-def gpio(topic=None):
-    topic = topic or mqtt.getDeviceTopic("GPIO/#")
-    print("gpio", topic)
-    mqtt.scheduleSubscribe(topic, __gpio)
+async def gpio(topic=None):
+    topic = topic or _mqtt.getDeviceTopic("GPIO/#")
+    await _mqtt.subscribe(topic, __gpio)

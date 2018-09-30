@@ -40,7 +40,7 @@ example config:
 
 from pysmartnode import config
 
-mqtt = config.getMQTT()
+_mqtt = config.getMQTT()
 from pysmartnode import logging
 import uasyncio as asyncio
 import gc
@@ -76,7 +76,7 @@ def sensor(package, component, constructor_args=None, temp_function=None, humid_
                 sensor_component_name, f))
             return False
     interval = interval or config.INTERVAL_SEND_SENSOR
-    mqtt_topic = mqtt_topic or mqtt.getDeviceTopic(sensor_component_name)
+    mqtt_topic = mqtt_topic or _mqtt.getDeviceTopic(sensor_component_name)
     return SensorWrapper(sensor_component_name, component, temp_function, humid_function,
                          mqtt_topic, interval, precision_temp, precision_humid, temp_offset,
                          humid_offset)
@@ -114,7 +114,7 @@ class SensorWrapper:
         if temp_function is not None and humid_function is not None:
             self.tempHumid = self.__tempHumid
             gen = self.tempHumid
-        self.topic = mqtt_topic or mqtt.getDeviceTopic(component_name)
+        self.topic = mqtt_topic or _mqtt.getDeviceTopic(component_name)
         self.log = logging.getLogger(component_name)
         self.component_name = component_name
         asyncio.get_event_loop().create_task(self._loop(gen, interval))
@@ -138,7 +138,7 @@ class SensorWrapper:
         if value is None:
             self.log.warn("Sensor {!s} got no value".format(self.component_name))
         elif publish:
-            await mqtt.publish(self.topic, value)
+            await _mqtt.publish(self.topic, value)
         return value
 
     async def __temperature(self, publish=True):
@@ -151,5 +151,5 @@ class SensorWrapper:
         temp = await self.temperature(publish=False)
         humid = await self.humidity(publish=False)
         if temp is not None and humid is not None and publish:
-            await mqtt.publish(self.topic, {"temperature": temp, "humidity": humid})
+            await _mqtt.publish(self.topic, {"temperature": temp, "humidity": humid})
         return {"temperature": temp, "humiditiy": humid}

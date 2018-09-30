@@ -5,9 +5,11 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__version__ = "0.2"
-__updated__ = "2018-04-11"
+__version__ = "1.3"
+__updated__ = "2018-09-22"
 
+
+# supports wildcards since 1.0
 
 class _subscription:
     def __init__(self, values):
@@ -16,18 +18,13 @@ class _subscription:
 
 
 class SubscriptionHandler:
-    def __init__(self, structure=None):
+    def __init__(self, len_structure=1):
         """
-        structure: [] list of names of all attributes to be saved
-        identifier not in structure
+        len_structure: number of attributes to be saved separately.
+        identifier does not count to length of structure.
         """
         self.ifirst = None
-        self.__values = 1
-        if type(structure) == list:
-            self.__values = len(structure) + 1
-            for i in range(0, len(structure)):
-                setattr(self, "get{!s}".format(structure[i]), self.__wrapper_get(i + 1))
-                setattr(self, "set{!s}".format(structure[i]), self.__wrapper_set(i + 1))
+        self.__values = len_structure + 1
 
     def get(self, identifier, index):
         if index > self.__values:
@@ -59,28 +56,46 @@ class SubscriptionHandler:
         else:
             raise IndexError("Object {!s} does not exist".format(identifier))
 
-    def __wrapper_get(self, index):
-        def get(identifier):
-            return self.get(identifier, index)
-        return get
+    def getFunctions(self, identifier):
+        return self.get(identifier, 1)
 
-    def __wrapper_set(self, index):
-        def set(identifier, value):
-            return self.set(identifier, index, value)
-        return set
+    def setFunctions(self, identifier, value):
+        return self.set(identifier, 1, value)
 
-    def __getObject(self, identifier):
+    @staticmethod
+    def matchesSubscription(topic, subscription):
+        if topic == subscription:
+            return True
+        if subscription.endswith("/#"):
+            lens = len(subscription)
+            if topic[:lens - 2] == subscription[:-2]:
+                if len(topic) == lens - 2 or topic[lens - 2] == "/":
+                    # check if identifier matches subscription or has sublevel
+                    # (home/test/# does not listen to home/testing)
+                    return True
+        return False
+
+    def __getObject(self, identifier, get=True):
         iObject = self.ifirst
         while iObject is not None:
-            if iObject.values[0] == identifier:
+            obj_val = iObject.values[0]
+            if obj_val == identifier:
                 return iObject
+            elif get and obj_val.endswith("/#"):
+                # check if identifier is found in subscription
+                if identifier[:len(obj_val) - 2] == obj_val[:-2]:
+                    if len(identifier) == len(obj_val) - 2 or \
+                            identifier[len(obj_val) - 2] == "/":
+                        # check if identifier matches subscription or has sublevel
+                        # (home/test/# does not listen to home/testing)
+                        return iObject
             iObject = iObject.next
         return None
 
     def addObject(self, identifier, *args):
         if len(args) + 1 > self.__values:
             raise IndexError("More arguements than structure allows")
-        obj = self.__getObject(identifier)
+        obj = self.__getObject(identifier, get=False)
         if obj is None:
             attribs = (identifier,) + args
             iObject = self.ifirst
@@ -91,7 +106,7 @@ class SubscriptionHandler:
                 iObject = iObject.next
             iObject.next = _subscription(attribs)
         else:
-            #raise IndexError("Object with identifier already exists")
+            # raise IndexError("Object with identifier already exists")
             self._set(obj, (identifier,) + args)
 
     def _set(self, obj, values):
@@ -107,7 +122,7 @@ class SubscriptionHandler:
         obj.values = values_obj
 
     def removeObject(self, identifier):
-        obj = self.__getObject(identifier)
+        obj = self.__getObject(identifier, get=False)
         if obj == self.ifirst:
             self.ifirst = None
             del obj

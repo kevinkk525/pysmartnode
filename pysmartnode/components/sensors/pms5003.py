@@ -25,8 +25,8 @@ example config:
 Sensor can only be used with esp32 as esp8266 has only 1 uart at 115200 (9600 needed) 
 """
 
-__updated__ = "2018-06-22"
-__version__ = "1.1"
+__updated__ = "2018-08-31"
+__version__ = "1.2"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -40,11 +40,11 @@ from pysmartnode.libraries.pms5003 import pms5003 as sensorModule
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-component_name = "PMS5003"
+_component_name = "PMS5003"
 ####################
 
-log = logging.getLogger(component_name)
-mqtt = config.getMQTT()
+_log = logging.getLogger(_component_name)
+_mqtt = config.getMQTT()
 gc.collect()
 
 
@@ -54,9 +54,7 @@ class PMS5003(sensorModule.PMS5003):
                  interval=None, mqtt_topic=None):
         interval = interval or config.INTERVAL_SEND_SENSOR
         interval_passive_mode = interval_passive_mode or interval
-        self.component_name = component_name
-        self.topic = mqtt_topic or mqtt.getDeviceTopic(self.component_name)
-        self.log = logging.getLogger(self.component_name)
+        self.topic = mqtt_topic or _mqtt.getDeviceTopic(_component_name)
         uart = machine.UART(uart_number, tx=uart_tx, rx=uart_rx, baudrate=9600)
 
         ##############################
@@ -96,7 +94,7 @@ class PMS5003(sensorModule.PMS5003):
                 "particles_100um": self._particles_100um
             }
             if publish:
-                await mqtt.publish(self.topic, values)
+                await _mqtt.publish(self.topic, values)
             return values
         else:
             return None
@@ -105,16 +103,16 @@ class PMS5003(sensorModule.PMS5003):
 
     @staticmethod
     def _error(message):
-        log.error(message)
+        _log.error(message)
 
     @staticmethod
     def _warn(message):
-        log.warn(message)
+        _log.warn(message)
 
     @staticmethod
     def _debug(message):
         if sensorModule.DEBUG:
-            log.debug(message, local_only=True)
+            _log.debug(message, local_only=True)
 
     @staticmethod
     def set_debug(value):

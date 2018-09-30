@@ -20,7 +20,7 @@ example config:
 """
 
 __updated__ = "2018-05-20"
-__version__ = "0.2"
+__version__ = "0.3"
 
 import gc
 from pysmartnode import logging
@@ -31,9 +31,9 @@ except:
     from pysmartnode.libraries import ssd1306
 from pysmartnode import config
 
-mqtt = config.getMQTT()
+_mqtt = config.getMQTT()
 
-log = logging.getLogger("SSD1306")
+_log = logging.getLogger("SSD1306")
 gc.collect()
 
 
@@ -42,8 +42,8 @@ gc.collect()
 class SSD1306_easy(ssd1306.SSD1306_I2C):
     def __init__(self, i2c, width=128, height=32, mqtt_topic=None):
         super().__init__(width, height, i2c)
-        mqtt_topic = mqtt_topic or mqtt.getDeviceTopic("ssd1306", is_request=True)
-        mqtt.scheduleSubscribe(mqtt_topic, self.write)
+        mqtt_topic = mqtt_topic or _mqtt.getDeviceTopic("ssd1306", is_request=True)
+        _mqtt.scheduleSubscribe(mqtt_topic, self.write)
         self.fill(0)
         self.show()
 
@@ -57,7 +57,7 @@ class SSD1306_easy(ssd1306.SSD1306_I2C):
             else:
                 color = 1
         except Exception as e:
-            log.error("error in function write in SSD1306_easy: {!s}".format(e))
+            _log.error("error in function write in SSD1306_easy: {!s}".format(e))
             return False
         self.fill(0)  # not good because not posible to add another text additionally
         self.text(text, x, y, color)
@@ -73,7 +73,7 @@ class SSD1306_complex(SSD1306_easy):
             self.gfx = gfx.GFX(width, height, self.pixel,
                                hline=self._fast_hline, vline=self._fast_vline)
         except Exception as e:
-            log.critical(
+            _log.critical(
                 "Could not import gfx module, SSD1306_complex not possible, error {!s}".format(e))
 
     def _fast_hline(self, x, y, width, color):

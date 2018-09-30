@@ -19,20 +19,21 @@ example config:
 }
 """
 
-__updated__ = "2018-07-14"
-__version__ = "0.5"
+__updated__ = "2018-09-28"
+__version__ = "0.7"
 
 import gc
 from pysmartnode import config
 from pysmartnode import logging
 from pysmartnode.utils.event import Event
 from pysmartnode.utils.locksync import Lock
+from pysmartnode.components.machine.pin import Pin
 import machine
 import time
 import uasyncio as asyncio
 
-log = logging.getLogger("bell")
-mqtt = config.getMQTT()
+_log = logging.getLogger("bell")
+_mqtt = config.getMQTT()
 
 gc.collect()
 
@@ -40,10 +41,11 @@ gc.collect()
 class Bell:
     def __init__(self, pin, debounce_time, on_time=None, irq_direction=None, mqtt_topic=None):
         self.mqtt_topic = mqtt_topic or "{!s}/bell".format(config.MQTT_HOME)
+        # TODO: change bell topic to standard <home>/<device-id>/bell?
         self.PIN_BELL_IRQ_DIRECTION = irq_direction or machine.Pin.IRQ_FALLING
         self.debounce_time = debounce_time
         self.on_time = on_time or 500
-        self.pin_bell = pin if type(pin) != str else config.pins[pin]
+        self.pin_bell = pin
         self.last_activation = 0
         self.loop = asyncio.get_event_loop()
         self.loop.create_task(self.__initializeBell())
@@ -51,16 +53,16 @@ class Bell:
 
     async def __initializeBell(self):
         if self.PIN_BELL_IRQ_DIRECTION == machine.Pin.IRQ_FALLING:
-            self.pin_bell = machine.Pin(self.pin_bell, machine.Pin.IN, machine.Pin.PULL_UP)
+            self.pin_bell = Pin(self.pin_bell, machine.Pin.IN, machine.Pin.PULL_UP)
         else:
-            self.pin_bell = machine.Pin(self.pin_bell, machine.Pin.IN)
+            self.pin_bell = Pin(self.pin_bell, machine.Pin.IN)
         self.eventBell = Event()
         self.timerLock = Lock()
         irq = self.pin_bell.irq(trigger=self.PIN_BELL_IRQ_DIRECTION, handler=self.__irqBell)
         self.eventBell.clear()
         self.loop.create_task(self.__bell())
         self.timer_bell = machine.Timer(1)
-        log.info("Bell initialized")
+        _log.info("Bell initialized")
         gc.collect()
 
     async def __bell(self):
@@ -68,23 +70,23 @@ class Bell:
             await self.eventBell
             diff = time.ticks_diff(time.ticks_ms(), self.last_activation)
             if diff > 10000:
-                log.error("Bell rang {!s}s ago, not activated ringing".format(diff / 1000))
+                _log.error("Bell rang {!s}s ago, not activated ringing".format(diff / 1000))
                 self.eventBell.clear()
                 return
             else:
-                await mqtt.publish(self.mqtt_topic, "ON", qos=1)
+                await _mqtt.publish(self.mqtt_topic, "ON", qos=1)
                 await asyncio.sleep_ms(self.on_time)
-                await mqtt.publish(self.mqtt_topic, "OFF", True, 1)
+                await _mqtt.publish(self.mqtt_topic, "OFF", True, 1)
                 if config.RTC_SYNC_ACTIVE:
                     t = time.localtime()
-                    await mqtt.publish("{!s}/last_bell".format(config.MQTT_HOME),
-                                       "{} {}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format("GMT", t[0],
-                                                                                         t[1], t[2],
-                                                                                         t[3], t[4],
-                                                                                         t[5]), True, 1)
+                    await _mqtt.publish("{!s}/last_bell".format(config.MQTT_HOME),
+                                        "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0],
+                                                                                       t[1], t[2],
+                                                                                       t[3], t[4],
+                                                                                       t[5]), True, 1)
                 self.eventBell.clear()
                 if diff > 500:
-                    log.warn("Bell rang {!s}ms ago, activated ringing".format(diff))
+                    _log.warn("Bell rang {!s}ms ago, activated ringing".format(diff))
 
     def __irqBell(self, p):
         # print("BELL",p)

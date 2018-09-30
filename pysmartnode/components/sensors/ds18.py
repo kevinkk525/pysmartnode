@@ -21,14 +21,14 @@ example config:
 }
 """
 
-__updated__ = "2018-06-25"
-__version__ = "0.1"
+__updated__ = "2018-08-31"
+__version__ = "0.3"
 
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
 import gc
-import machine
+from pysmartnode.components.machine.pin import Pin
 
 ####################
 # import your library here
@@ -37,11 +37,11 @@ import onewire
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-component_name = "DS18"
+_component_name = "DS18"
 ####################
 
-log = logging.getLogger(component_name)
-mqtt = config.getMQTT()
+_log = logging.getLogger(_component_name)
+_mqtt = config.getMQTT()
 gc.collect()
 
 
@@ -50,7 +50,7 @@ class DS18(ds18x20.DS18x20):
                  offset_temp=0, offset_humid=0,  # also here
                  interval=None, mqtt_topic=None):
         interval = interval or config.INTERVAL_SEND_SENSOR
-        self.topic = mqtt_topic or mqtt.getDeviceTopic(component_name)
+        self.topic = mqtt_topic or _mqtt.getDeviceTopic(_component_name)
 
         ##############################
         # adapt to your sensor by extending/removing unneeded values like in the constructor arguments
@@ -61,9 +61,7 @@ class DS18(ds18x20.DS18x20):
         self._offs_humid = float(offset_humid)
         ##############################
         # create sensor object
-        if type(pin) == str:
-            pin = config.pins[pin]
-        super().__init__(onewire.OneWire(machine.Pin(pin)))
+        super().__init__(onewire.OneWire(Pin(pin)))
         ##############################
         # choose a background loop that periodically reads the values and publishes it
         # (function is created below)
@@ -80,7 +78,7 @@ class DS18(ds18x20.DS18x20):
     async def _read(self, prec, offs, publish=True):
         roms = self.scan()
         if len(roms) == 0:
-            log.error("No DS18 found")
+            _log.error("No DS18 found")
             return None
         self.convert_temp()
         await asyncio.sleep_ms(750)
@@ -92,18 +90,18 @@ class DS18(ds18x20.DS18x20):
                     values[-1] = round(values[-1], prec)
                     values[-1] += offs
                 except Exception as e:
-                    log.error("Error rounding value {!s} of rom {!s}".format(values[-1], rom))
+                    _log.error("Error rounding value {!s} of rom {!s}".format(values[-1], rom))
                     values[-1] = None
             else:
-                log.warn("Sensor {!s}, rom {!s} got no value".format(component_name, rom))
+                _log.warn("Sensor {!s}, rom {!s} got no value".format(_component_name, rom))
         if publish:
             if len(values) == 1:
-                await mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(values[0]))
+                await _mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(values[0]))
             else:
                 for i in range(0, len(values)):
                     if values[i] is not None:
-                        await mqtt.publish("{!s}_{!s}".format(self.topic, i),
-                                           ("{0:." + str(prec) + "f}").format(values[i]))
+                        await _mqtt.publish("{!s}_{!s}".format(self.topic, i),
+                                            ("{0:." + str(prec) + "f}").format(values[i]))
         return values
 
     ##############################

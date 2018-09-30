@@ -18,21 +18,19 @@ example config:
 
 """
 
-__updated__ = "2018-06-02"
-__version__ = "0.3"
+__updated__ = "2018-08-18"
+__version__ = "0.4"
 
-from pysmartnode import config
 import gc
 
 """
-I2C-Autoconfiguration
+Easy I2C-creation
 """
 
 
 def I2C(SCL, SDA, FREQ=100000):
-    from machine import I2C, Pin
-    SCL = SCL if type(SCL) != str else config.pins[SCL]
-    SDA = SDA if type(SDA) != str else config.pins[SDA]
+    from machine import I2C
+    from pysmartnode.components.machine.pin import Pin
     i2c = I2C(scl=Pin(SCL), sda=Pin(SDA), freq=FREQ)
     gc.collect()
     return i2c

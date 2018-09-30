@@ -23,18 +23,19 @@ example config:
 }
 """
 
-__updated__ = "2018-05-20"
-__version__ = "0.7"
+__updated__ = "2018-08-31"
+__version__ = "0.8"
 
-from machine import Pin, ADC
+from machine import ADC
+import machine
+from pysmartnode.components.machine.pin import Pin
 from pysmartnode import config
 from sys import platform
 import uasyncio as asyncio
 import gc
 from pysmartnode import logging
 
-log = logging.getLogger("soil")
-mqtt = config.getMQTT()
+_mqtt = config.getMQTT()
 Lock = config.Lock
 
 
@@ -72,9 +73,9 @@ class SoilMoisture:
             if type(power_pin) == list:
                 self.power_pin = []
                 for pin in power_pin:
-                    self.power_pin.append(Pin(pin if type(pin) == int else config.pins[pin], Pin.OUT))
+                    self.power_pin.append(Pin(pin, machine.Pin.OUT))
             else:
-                self.power_pin = Pin(power_pin if type(power_pin) == int else config.pins[power_pin], Pin.OUT)
+                self.power_pin = Pin(power_pin, machine.Pin.OUT)
         self.power_warmup = power_warmup or None if power_pin is None else 10
         self.sensor_types = sensor_types
         if type(sensor_types) == list and type(self.adc) == ADC:
@@ -85,7 +86,7 @@ class SoilMoisture:
             if type(water_voltage) != list or type(air_voltage) != list:
                 raise TypeError("Voltages have to be list with multiple sensor_types")
         self.publish_converted_value = publish_converted_value
-        self.topic = mqtt_topic or mqtt.getDeviceTopic("soilMoisture")
+        self.topic = mqtt_topic or _mqtt.getDeviceTopic("soilMoisture")
         interval = interval or config.INTERVAL_SEND_SENSOR
         self._lock = Lock()
         gc.collect()
@@ -170,11 +171,11 @@ class SoilMoisture:
                     voltage /= 3
                     res.append(self._getPercentage(sensor, voltage))
                 if publish:
-                    log.debug(self.topic + "/" + str(i) + ": " + str(res[-1]), local_only=True)
-                    await mqtt.publish(self.topic + "/" + str(i), res[-1])
+                    logging.getLogger("soil").debug(self.topic + "/" + str(i) + ": " + str(res[-1]), local_only=True)
+                    await _mqtt.publish(self.topic + "/" + str(i), res[-1])
                     if self.publish_converted_value:
-                        await mqtt.publish(self.topic + "/" + str(i) + "/conv",
-                                           self._getConverted(sensor, voltage))
+                        await _mqtt.publish(self.topic + "/" + str(i) + "/conv",
+                                            self._getConverted(sensor, voltage))
                 if self.power_pin is not None:
                     if type(self.power_pin) == list:
                         self.power_pin[sensor].value(0)

@@ -20,33 +20,32 @@ example config:
 }
 """
 
-__updated__ = "2018-07-13"
-__version__ = "2.5"
+__updated__ = "2018-09-25"
+__version__ = "2.7"
 
 import gc
 
 from machine import Pin, PWM
+from pysmartnode.components.machine.pin import Pin as PyPin
 from pysmartnode import config
 import uasyncio as asyncio
 
-mqtt = config.getMQTT()
+_mqtt = config.getMQTT()
 
 gc.collect()
 
 
 class Buzzer:
     def __init__(self, pin, pwm_values, on_time=500, iters=1, freq=1000, mqtt_topic=None):
-        if type(pin) == str:
-            pin = config.pins[pin]
-        mqtt_topic = mqtt_topic or mqtt.getDeviceTopic("Buzzer", is_request=True)
-        self.pin = pin
+        mqtt_topic = mqtt_topic or _mqtt.getDeviceTopic("Buzzer", is_request=True)
+        self.pin = PyPin(pin, Pin.OUT)
         self.on_time = on_time
         self.values = pwm_values
         self.iters = iters
         self.lock = config.Lock()
-        self.pin = PWM(Pin(self.pin, Pin.OUT), freq=freq)
+        self.pin = PWM(self.pin, freq=freq)
         self.pin.duty(0)
-        mqtt.scheduleSubscribe(mqtt_topic, self.notification, check_retained=False)
+        _mqtt.scheduleSubscribe(mqtt_topic, self.notification, check_retained_state_topic=False)
         # not checking retained as buzzer only activates single-shot
         self.mqtt_topic = mqtt_topic
 
@@ -54,12 +53,12 @@ class Buzzer:
         if self.lock.locked():
             return False
         async with self.lock:
-            if msg in mqtt.payload_on:
-                mqtt.schedulePublish(self.mqtt_topic, "ON")
+            if msg in _mqtt.payload_on:
+                _mqtt.schedulePublish(self.mqtt_topic, "ON")
                 for i in range(0, self.iters):
                     for duty in self.values:
                         self.pin.duty(duty)
                         await asyncio.sleep_ms(self.on_time)
                 self.pin.duty(0)
-                await mqtt.publish(self.mqtt_topic, "OFF")
+                await _mqtt.publish(self.mqtt_topic, "OFF")
         return False  # will not publish the state "ON" to mqtt

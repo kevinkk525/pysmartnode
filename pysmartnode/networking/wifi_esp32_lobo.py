@@ -12,7 +12,7 @@ import time
 if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE:
     rtc = machine.RTC()
     print("Synchronize time from NTP server ...")
-    rtc.ntp_sync(server=config.RTC_TIMEZONE)  # update once
+    rtc.ntp_sync(server=config.RTC_SERVER, update_period=36000, tz=config.RTC_TIMEZONE)  # update every 10h
     tmo = 100
     while not rtc.synced():
         time.sleep_ms(100)

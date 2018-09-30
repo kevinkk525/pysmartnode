@@ -21,8 +21,8 @@ example config (.hjson format, convert if needed differently e.g. as a local .js
 }
 """
 
-__updated__ = "2018-06-02"
-__version__ = "0.3"
+__updated__ = "2018-08-31"
+__version__ = "0.4"
 
 """
 Works but needs 1.5kB more RAM than the sensor_template
@@ -39,11 +39,11 @@ from htu21d import HTU21D as Sensor
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-component_name = "HTU"
+_component_name = "HTU"
 ####################
 
-log = logging.getLogger(component_name)
-mqtt = config.getMQTT()
+_log = logging.getLogger(_component_name)
+_mqtt = config.getMQTT()
 gc.collect()
 
 
@@ -51,7 +51,7 @@ class mySensor(genericSensor.SensorWrapper):
     def __init__(self, i2c, precision_temp, precision_humid,  # extend or shrink according to your sensor
                  offset_temp, offset_humid,  # also here
                  interval=None, mqtt_topic=None):
-        super().__init__(log, component_name, interval, mqtt_topic, retain=None, qos=None)
+        super().__init__(_log, _component_name, interval, mqtt_topic, retain=None, qos=None)
         ##############################
         # create sensor object
         self.sensor = Sensor(i2c=i2c)  # add neccessary constructor arguments here
@@ -81,7 +81,7 @@ class mySensor(genericSensor.SensorWrapper):
         temp = await self.temperature(publish=False)
         humid = await self.humidity(publish=False)
         if temp is not None and humid is not None and publish:
-            await mqtt.publish(self.topic, {
+            await _mqtt.publish(self.topic, {
                 "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),
                 "humidity": ("{0:." + str(self._prec_humid) + "f}").format(humid)})
             # formating prevents values like 51.500000000001 on esp32_lobo

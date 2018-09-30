@@ -1,5 +1,15 @@
 # Changelog
 
+#### Version 4.0.4
+* lots of improvments, RAM optimizations (sadly eaten by improvements)
+* [config, mqtt] If no local configuration is available and no configuration is received, it will now ask for configuration periodically, waiting for the broker/SmartServer to get online again (prevents running without any configuration and needing a hard reset to get config again)
+* [mqtt] supports now "unsubcribe"
+* [mqtt] Usage of subscription module as it now supports wildcards, saves some RAM. Also stores device subscriptions shortened to save some RAM.
+* [components] added lots of new components like deepsleep, battery, button, switch, heater
+* [PIN, ADC] added unified interface for machine.Pin and machine.ADC accepting pin names for esp8266 nodeMCU and unifying the usage of ADC between esp8266 and esp32_LoBo so you don't have to check each port for its return values etc.
+* [developers] for developers of components: pysmartnode.config.pins is now deprecated and removed, usage of unified Pin() object pysmartnode.components.machine.pin.Pin is recommended. See module for explanation
+
+---------------------------------------------------
 #### Version 3.8.2
 * RAM optimizations (400B freed)
 

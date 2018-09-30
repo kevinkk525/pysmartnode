@@ -1,4 +1,4 @@
-from pysmartnode.config import log
+from pysmartnode.config import _log
 
 
 async def callAsyncSafe(func, name, args, kwargs=None):
@@ -6,4 +6,4 @@ async def callAsyncSafe(func, name, args, kwargs=None):
     try:
         await func(*args, **kwargs)
     except Exception as e:
-        log.error("Error calling async init function {!r}, error: {!s}".format(name, e))
+        _log.error("Error calling async init function {!r}, error: {!s}".format(name, e))
