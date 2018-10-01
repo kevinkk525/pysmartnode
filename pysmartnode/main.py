@@ -4,7 +4,7 @@ Created on 10.08.2017
 @author: Kevin Köck
 '''
 
-__updated__ = "2018-09-25"
+__updated__ = "2018-10-01"
 
 import gc
 import time
@@ -32,6 +32,7 @@ def main():
     pysmartnode.networking.wifi.connect()
     del pysmartnode.networking.wifi
     del sys.modules["pysmartnode.networking.wifi"]
+    gc.collect()
 
     if hasattr(config, "USE_SOFTWARE_WATCHDOG") and config.USE_SOFTWARE_WATCHDOG:
         from pysmartnode.components.machine.watchdog import WDT
