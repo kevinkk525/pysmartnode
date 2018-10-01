@@ -23,14 +23,18 @@ The project is compatible with ESP32 and ESP8266 microcontrollers.
 
 ### ESP8266
 
-This works pretty well, since version 4 it's very stable. Sadly the RAM demands are quite high and using it with an active filesystem won't work.
-However without a filesystem, it's easily possible to use it with a few components. Increasing the micropython heap to 44*1024 Bytes works with all of my devices with disabled filesystem and gives 8kB more RAM.
-This makes the device perfectly capable of using up to 8 components with some of them being quite big. 
-I use this setup with version 4.0.3 every day with 6 components (htu21d, buzzer, led, watchdog, ram, gpio) receiving the configuration over mqtt (which costs some RAM) and still have 8kB of free RAM, which is enough for at least 2 more bigger components. 
-I will continue to work on a solution and clean up the code to free more RAM but there seems to be less and less possibilities to save RAM.
+This works pretty well, since version 4 it's very stable. Sadly the RAM demands are quite high and using it with an active filesystem only works if the receiving of configuration is disabled and *components.py* is used without a dictionary to register components.
 
-However if you disable the filesystem, this frees up more than 4kB of RAM. 
-With this I am able to run I2C, HTU21D, Buzzer, LED, RAM publishing, a debug component and still have 5kB of RAM available, which is enough for a few more components. 
+However *without a filesystem*, it's easily possible to use it with a few components as this gives 4kB more RAM and makes it possible to *increase the micropython heap* to 44*1024 Bytes (works with all of my devices) which gives 8kB more RAM.
+This makes the device perfectly capable of using up to 8 components with some of them being quite big. 
+I use this setup with version 4.0.3 every day with 6 components (htu21d, buzzer, led, watchdog, ram, gpio) receiving the configuration over mqtt (which costs some RAM) and still have 8kB of free RAM, which is enough for at least 2 more bigger components.
+The RAM bottleneck is during the registering of components after receiving the configuration over mqtt. When using a static *components.py* (see 4.2.3) instead, you can register a few more modules.
+
+With *activated filesystem* and *normal heapsize* loading components using the *components.py* (see 4.2.3) works, but a lot less components can be loaded, as less RAM is available. It works with using i2c,htu,ram which is not much. If you leave not enough free RAM, it will often crash when receiving a mqtt message.
+Using any other configuration option is very likely to fail.
+With *increased heapsize* to 44 * 1024Bytes I got some devices to work correctly but this seems to be varying between devices, so you have to test with how much heapsize your device still works reliable, especially once most of the RAM is used.
+In this case receiving the configuration works quite well and you can use a few components, similar to the list above.  
+I will continue to work on a solution and clean up the code to free more RAM but there seems to be less and less possibilities to save RAM. 
 
 ### ESP32
 

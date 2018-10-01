@@ -16,8 +16,8 @@ example config:
 }
 """
 
-__updated__ = "2018-08-31"
-__version__ = "0.2"
+__updated__ = "2018-10-01"
+__version__ = "0.3"
 
 import gc
 import uasyncio as asyncio
@@ -39,7 +39,7 @@ class WDT:
             try:
                 with open("watchdog.txt", "r") as f:
                     if f.read() == "True":
-                        log.warn("Reset reason: Watchdog")
+                        logging.getLogger("WDT").warn("Reset reason: Watchdog")
             except Exception as e:
                 print(e)  # file probably just does not exist
             try:

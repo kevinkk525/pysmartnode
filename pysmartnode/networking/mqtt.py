@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__version__ = "3.2"
-__updated__ = "2018-09-29"
+__version__ = "3.3"
+__updated__ = "2018-10-01"
 
 import gc
 import json
@@ -266,7 +266,7 @@ class MQTTHandler(MQTTClient):
                         if res is True:
                             res = msg
                             # send original msg back
-                        await self.publish(topic[:-4], res, retain=True)
+                        await self.publish(topic[:-4], res, qos=1, retain=True)
             except Exception as e:
                 _log.error("Error executing {!s}mqtt topic {!r}: {!s}".format(
                     "retained " if retained else "", topic, e))

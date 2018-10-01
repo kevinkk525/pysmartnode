@@ -1,5 +1,11 @@
 # Changelog
 
+#### Version 4.0.5
+* minor bugfixes and improvements
+* updated README
+* updated components.py template
+
+---------------------------------------------------
 #### Version 4.0.4
 * lots of improvments, RAM optimizations (sadly eaten by improvements)
 * [config, mqtt] If no local configuration is available and no configuration is received, it will now ask for configuration periodically, waiting for the broker/SmartServer to get online again (prevents running without any configuration and needing a hard reset to get config again)
