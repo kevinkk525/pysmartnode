@@ -16,8 +16,8 @@ example config:
 }
 """
 
-__updated__ = "2018-09-26"
-__version__ = "0.3"
+__updated__ = "2018-10-05"
+__version__ = "0.4"
 
 from ..core import log
 from pysmartnode.components.machine.pin import Pin
@@ -34,6 +34,7 @@ async def pin(HEATER, PIN, INVERTED=False):
     _pin = Pin(PIN, machine.Pin.OUT)
     await log.asyncLog("info", "Heater hardware PIN version {!s}".format(__version__))
     HEATER.registerHardware(_setHeaterPower)
+    await _setHeaterPower(0)  # initialize heater as shut down
 
 
 async def _setHeaterPower(power):

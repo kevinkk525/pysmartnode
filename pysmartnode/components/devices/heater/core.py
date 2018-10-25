@@ -36,8 +36,8 @@ Short documentation:
 - heater reacts to temperature change every REACTION_TIME seconds and waits xxx_CYCLES before starting/shutting down heater
 """
 
-__updated__ = "2018-09-29"
-__version__ = "0.7"
+__updated__ = "2018-10-02"
+__version__ = "0.8"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -247,6 +247,8 @@ class Heater:
 
     async def _watch(self):
         await asyncio.sleep(10)  # gives time to get retained values for targetTemp,Mode,Power,etc; and register plugins
+        await self.__setHeaterPower(self.__target_power)
+        # otherwise heater power would be floating or depending on how the hardware initializes
         self.__loop_started = True
         temp_reading_errors = 0
         frost_cycles = 0
@@ -273,7 +275,7 @@ class Heater:
                 else:
                     frost_cycles += 1
                     if frost_cycles >= 3:
-                        log.critical("Heater can't rise temperature above frost")
+                        log.critical("Heater can't raise temperature above frost")
                 temp_reading_errors = 0
                 do_update = False
             elif current_temp > self.__shutdown_temp:

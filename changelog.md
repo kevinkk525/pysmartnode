@@ -1,5 +1,11 @@
 # Changelog
 
+#### Version 4.0.6
+* [heater] bugfix for unknown hardware initialization status on reboot (resulting in heater being ON although not detected)
+* updated README with additional information about esp8266 heap size changes
+* [watchdog] use RTC memory as backup on ESP8266 if filesystem is unavailable
+
+---------------------------------------------------
 #### Version 4.0.5
 * minor bugfixes and improvements
 * updated README
