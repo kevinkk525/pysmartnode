@@ -53,7 +53,7 @@ class WDT:
         elif use_rtc_memory and platform == "esp8266":
             rtc = machine.RTC()
             if rtc.memory() == b"WDT reset":
-                logging.getLogger("WDT").warn("Reset reason: Watchdog")
+                logging.getLogger("WDT").critical("Reset reason: Watchdog")
             rtc.memory(b"")
 
     def _wdt(self, t):

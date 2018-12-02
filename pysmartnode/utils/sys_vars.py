@@ -9,7 +9,6 @@ __updated__ = "2018-09-30"
 import os
 import machine
 import ubinascii
-import sys
 
 
 def getDeviceType():

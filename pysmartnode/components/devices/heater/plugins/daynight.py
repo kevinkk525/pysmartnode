@@ -25,8 +25,8 @@ Between switching times, the target_temperature can be freely changed.
 Times have to be in the format HH:MM:SS and in 24h format, seconds are ignored and optional.
 """
 
-__updated__ = "2018-09-29"
-__version__ = "0.5"
+__updated__ = "2018-11-11"
+__version__ = "0.6"
 
 from ..core import log, _mqtt
 import time
@@ -48,15 +48,24 @@ async def _daynight(heater, data):
     if t[3] * 60 + t[4] >= __time_night or t[3] * 60 + t[4] < __time_day:
         # night time
         if __last_change is None:
-            __last_change = False  # on reboot assume that it was already set otherweise target_temp will get changed
-        elif __last_change is True:
+            if t[3] * 60 + t[4] - __time_night > heater.getInterval():
+                __last_change = False
+                # on reboot assume that it was already set otherweise target_temp will get changed
+            else:
+                __last_change = True
+                # heater could have rebooted before change was done, therefore accept change within REACTION_TIME
+        if __last_change is True:
             __last_change = False
             heater.setTargetTemp(__temp_night)
     else:
         # day time
         if __last_change is None:
-            __last_change = True  # on reboot assume that it was already set otherweise target_temp will get changed
-        elif __last_change is False:
+            if t[3] * 60 + t[4] - __time_day > heater.getInterval():
+                __last_change = True  # on reboot assume that it was already set otherweise target_temp will get changed
+            else:
+                __last_change = False
+                # heater could have rebooted before change was done, therefore accept change within REACTION_TIME
+        if __last_change is False:
             __last_change = True
             heater.setTargetTemp(__temp_day)
 
