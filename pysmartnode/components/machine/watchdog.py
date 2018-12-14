@@ -12,27 +12,30 @@ example config:
     constructor_args: {
         id: 0                   #optional, number of the timer to be used
         timeout: 120            #optional, defaults to 120s, resets machine after this
+        # use_rtc_memory: true  #optional, use rtc memory as backup if filesystem not available, only esp8266 supported
     }
 }
 """
 
-__updated__ = "2018-10-01"
-__version__ = "0.3"
+__updated__ = "2018-10-19"
+__version__ = "1.0"
 
 import gc
 import uasyncio as asyncio
 import machine
 from pysmartnode.utils import sys_vars
+from sys import platform
 
 gc.collect()
 from pysmartnode import logging
 
 
 class WDT:
-    def __init__(self, id=0, timeout=120):
+    def __init__(self, id=0, timeout=120, use_rtc_memory=True):
         self._timeout = timeout / 10
         self._counter = 0
         self._timer = machine.Timer(id)
+        self._use_rtc_memory = use_rtc_memory
         self.init()
         asyncio.get_event_loop().create_task(self._resetCounter())
         if sys_vars.hasFilesystem():
@@ -47,6 +50,11 @@ class WDT:
                     f.write("False")
             except Exception as e:
                 logging.getLogger("WDT").error("Error saving to file: {!s}".format(e))
+        elif use_rtc_memory and platform == "esp8266":
+            rtc = machine.RTC()
+            if rtc.memory() == b"WDT reset":
+                logging.getLogger("WDT").critical("Reset reason: Watchdog")
+            rtc.memory(b"")
 
     def _wdt(self, t):
         self._counter += self._timeout
@@ -57,6 +65,9 @@ class WDT:
                         f.write("True")
                 except Exception as e:
                     print("Error saving to file: {!s}".format(e))
+            elif self._use_rtc_memory and platform == "esp8266":
+                rtc = machine.RTC()
+                rtc.memory(b"WDT reset")
             machine.reset()
 
     def feed(self):

@@ -32,9 +32,13 @@ The RAM bottleneck is during the registering of components after receiving the c
 
 With *activated filesystem* and *normal heapsize* loading components using the *components.py* (see 4.2.3) works, but a lot less components can be loaded, as less RAM is available. It works with using i2c,htu,ram which is not much. If you leave not enough free RAM, it will often crash when receiving a mqtt message.
 Using any other configuration option is very likely to fail.
+
 With *increased heapsize* to 44 * 1024Bytes I got some devices to work correctly but this seems to be varying between devices, so you have to test with how much heapsize your device still works reliable, especially once most of the RAM is used.
 In this case receiving the configuration works quite well and you can use a few components, similar to the list above.  
 I will continue to work on a solution and clean up the code to free more RAM but there seems to be less and less possibilities to save RAM. 
+
+**General warning:** My units seem to misbehave in available RAM. If I run a code like *a="hi"* the free RAM drops from about 30kB to 22kB. This also happens during the import of a module no matter its size. Others report that their available RAM is 10kB bigger than mine.
+So it might very well be possible that you will have ~10kB more free RAM in every scenario I described.
 
 ### ESP32
 
