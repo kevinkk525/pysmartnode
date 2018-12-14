@@ -37,7 +37,8 @@ With *increased heapsize* to 44 * 1024Bytes I got some devices to work correctly
 In this case receiving the configuration works quite well and you can use a few components, similar to the list above.  
 I will continue to work on a solution and clean up the code to free more RAM but there seems to be less and less possibilities to save RAM. 
 
-WARNING: Increasing heapsize can lead to unreliable hardware. My units with 44 * 1024Byte heap reboot almost every day.
+**General warning:** My units seem to misbehave in available RAM. If I run a code like *a="hi"* the free RAM drops from about 30kB to 22kB. This also happens during the import of a module no matter its size. Others report that their available RAM is 10kB bigger than mine.
+So it might very well be possible that you will have ~10kB more free RAM in every scenario I described.
 
 ### ESP32
 

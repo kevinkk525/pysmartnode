@@ -9,6 +9,9 @@ __updated__ = "2018-10-01"
 import gc
 import time
 
+gc.collect()
+print(gc.mem_free())
+
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
