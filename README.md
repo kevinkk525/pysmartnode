@@ -23,22 +23,10 @@ The project is compatible with ESP32 and ESP8266 microcontrollers.
 
 ### ESP8266
 
-This works pretty well, since version 4 it's very stable. Sadly the RAM demands are quite high and using it with an active filesystem only works if the receiving of configuration is disabled and *components.py* is used without a dictionary to register components.
-
-However *without a filesystem*, it's easily possible to use it with a few components as this gives 4kB more RAM and makes it possible to *increase the micropython heap* to 44*1024 Bytes (works with all of my devices) which gives 8kB more RAM.
-This makes the device perfectly capable of using up to 8 components with some of them being quite big. 
-I use this setup with version 4.0.3 every day with 6 components (htu21d, buzzer, led, watchdog, ram, gpio) receiving the configuration over mqtt (which costs some RAM) and still have 8kB of free RAM, which is enough for at least 2 more bigger components.
-The RAM bottleneck is during the registering of components after receiving the configuration over mqtt. When using a static *components.py* (see 4.2.3) instead, you can register a few more modules.
-
-With *activated filesystem* and *normal heapsize* loading components using the *components.py* (see 4.2.3) works, but a lot less components can be loaded, as less RAM is available. It works with using i2c,htu,ram which is not much. If you leave not enough free RAM, it will often crash when receiving a mqtt message.
-Using any other configuration option is very likely to fail.
-
-With *increased heapsize* to 44 * 1024Bytes I got some devices to work correctly but this seems to be varying between devices, so you have to test with how much heapsize your device still works reliable, especially once most of the RAM is used.
-In this case receiving the configuration works quite well and you can use a few components, similar to the list above.  
-I will continue to work on a solution and clean up the code to free more RAM but there seems to be less and less possibilities to save RAM. 
-
-**General warning:** My units seem to misbehave in available RAM. If I run a code like *a="hi"* the free RAM drops from about 30kB to 22kB. This also happens during the import of a module no matter its size. Others report that their available RAM is 10kB bigger than mine.
-So it might very well be possible that you will have ~10kB more free RAM in every scenario I described.
+This works pretty well, since version 4 it's very stable and useable 24/7 as it recovers from any crashes/freezes using a software watchdog. 
+Apprarently my firmware build had a RAM bug giving me 16kB less RAM than it should. I now did pull the latest firmware commits and this problem is gone! 
+So I wrongly assumed that there won't be much RAM left on the ESP8266. I'm happy to say that I know have 20kB of free RAM with ~7 active components and disabled filesystem! With active filesystem I have 16kB left.
+With this amount of free RAM you can use the ESP82666 with or without activated filesystem and with at least 20 components (depending on their size) without any RAM issues. 
 
 ### ESP32
 
