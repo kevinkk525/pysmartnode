@@ -29,11 +29,15 @@ from pysmartnode import logging
 import uasyncio as asyncio
 import gc
 from pysmartnode.components.machine.pin import Pin
+from sys import platform
 
 ####################
 # import your library here
-import ds18x20
-import onewire
+if platform == "esp8266":
+    import ds18x20
+    from onewire import OneWire
+elif platform == "esp32_LoBo":
+    from machine import OneWire
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
@@ -45,7 +49,7 @@ _mqtt = config.getMQTT()
 gc.collect()
 
 
-class DS18(ds18x20.DS18x20):
+class DS18(ds18x20.DS18x20 if platform != "esp32_LoBo" else OneWire.ds18x20):
     def __init__(self, pin, precision_temp=2, precision_humid=1,  # extend or shrink according to your sensor
                  offset_temp=0, offset_humid=0,  # also here
                  interval=None, mqtt_topic=None):
@@ -61,7 +65,7 @@ class DS18(ds18x20.DS18x20):
         self._offs_humid = float(offset_humid)
         ##############################
         # create sensor object
-        super().__init__(onewire.OneWire(Pin(pin)))
+        super().__init__(OneWire(Pin(pin)) if platform != "esp32_LoBo" else OneWire(pin, 0))
         ##############################
         # choose a background loop that periodically reads the values and publishes it
         # (function is created below)
@@ -80,6 +84,7 @@ class DS18(ds18x20.DS18x20):
         if len(roms) == 0:
             _log.error("No DS18 found")
             return None
+        # until here changed for lobo, but not esp32 mainline
         self.convert_temp()
         await asyncio.sleep_ms(750)
         values = []

@@ -25,7 +25,7 @@ The project is compatible with ESP32 and ESP8266 microcontrollers.
 
 This works pretty well, since version 4 it's very stable and useable 24/7 as it recovers from any crashes/freezes using a software watchdog. 
 Apprarently my firmware build had a RAM bug giving me 16kB less RAM than it should. I now did pull the latest firmware commits and this problem is gone! 
-So I wrongly assumed that there won't be much RAM left on the ESP8266. I'm happy to say that I know have 20kB of free RAM with ~7 active components and disabled filesystem! With active filesystem I have 16kB left.
+So I wrongly assumed that there won't be much RAM left on the ESP8266. I'm happy to say that I now have 20kB of free RAM with ~7 active components and disabled filesystem! With active filesystem I have 16kB left.
 With this amount of free RAM you can use the ESP82666 with or without activated filesystem and with at least 20 components (depending on their size) without any RAM issues. 
 
 ### ESP32

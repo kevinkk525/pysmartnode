@@ -1,5 +1,8 @@
 # Changelog
 
+#### Version 4.0.7
+* [mqtt] changed API from async def publish(self, topic, msg, retain=False, qos=0) to def publish(self, topic, msg, qos=0, retain=False)
+
 #### Version 4.0.6
 * [heater] bugfix for unknown hardware initialization status on reboot (resulting in heater being ON although not detected)
 * updated README with additional information about esp8266 heap size changes

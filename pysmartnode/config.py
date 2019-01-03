@@ -13,7 +13,7 @@ from config import *
 from sys import platform
 
 # General
-VERSION = const(406)
+VERSION = const(407)
 print("PySmartNode version {!s} started".format(VERSION))
 
 import gc

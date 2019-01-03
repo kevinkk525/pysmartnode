@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__version__ = "3.3"
-__updated__ = "2018-10-01"
+__version__ = "3.4"
+__updated__ = "2019-01-03"
 
 import gc
 import json
@@ -271,7 +271,7 @@ class MQTTHandler(MQTTClient):
                 _log.error("Error executing {!s}mqtt topic {!r}: {!s}".format(
                     "retained " if retained else "", topic, e))
 
-    async def publish(self, topic, msg, retain=False, qos=0):
+    async def publish(self, topic, msg, qos=0, retain=False):
         if type(msg) == dict or type(msg) == list:
             msg = json.dumps(msg)
         elif type(msg) != str:

@@ -18,8 +18,8 @@ Fully remotely controlled heater mode. Will just set the power received by mqtt.
 Be aware that heater will switch to internal mode if temp < FROST or temp >SHUTDOWN_TEMP
 """
 
-__updated__ = "2018-08-13"
-__version__ = "0.1"
+__updated__ = "2019-01-03"
+__version__ = "0.2"
 
 from ..core import log, _mqtt
 
@@ -58,11 +58,11 @@ async def _remoteMode(heater, data):
     # remoteControl only sets the power received by mqtt, which is set by heater.requestPower()
     power = heater.getTargetPower()
     if await heater.setPower(power):
-        await _mqtt.publish(heater.getPowerTopic()[:heater.getPowerTopic().find("/set")], power, True, qos=1)
+        await _mqtt.publish(heater.getPowerTopic()[:heater.getPowerTopic().find("/set")], power, qos=1, retain=True)
         if power == 0:
-            await _mqtt.publish(heater.getStatusTopic(), "OFF", True, qos=1)
+            await _mqtt.publish(heater.getStatusTopic(), "OFF", qos=1, retain=True)
         else:
-            await _mqtt.publish(heater.getStatusTopic(), "ON", True, qos=1)
+            await _mqtt.publish(heater.getStatusTopic(), "ON", qos=1, retain=True)
         """
         if heater._last_error=="SET_POWER":
             heater._last_error=None
@@ -72,5 +72,5 @@ async def _remoteMode(heater, data):
         log.error("Could not set heater power to {!s}%, shutting heater down".format(heater.getStatusTopic()))
         await heater.setHeaterPower(0)
         heater.setLastError("SET_POWER")
-        await _mqtt.publish(heater.getPowerTopic()[:heater.getPowerTopic().find("/set")], power, True, qos=1)
-        await _mqtt.publish(heater.getStatusTopic(), "ERR: SET_POWER", True, qos=1)
+        await _mqtt.publish(heater.getPowerTopic()[:heater.getPowerTopic().find("/set")], power, qos=1, retain=True)
+        await _mqtt.publish(heater.getStatusTopic(), "ERR: SET_POWER", qos=1, retain=True)

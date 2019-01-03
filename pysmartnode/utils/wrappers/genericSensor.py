@@ -4,8 +4,8 @@ Created on 14.04.2018
 @author: Kevin Köck
 '''
 
-__updated__ = "2018-06-02"
-__version__ = "0.3"
+__updated__ = "2019-01-03"
+__version__ = "0.4"
 
 """
 Works but needs 1.5kB more RAM than the sensor_template
@@ -49,7 +49,7 @@ class SensorWrapper:
         if value is None:
             self.log.warn("Sensor {!s} got no value".format(self.component_name))
         elif publish:
-            await _mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(value), self.retain, self.qos)
+            await _mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(value), self.qos, self.retain)
             # formating prevents values like 51.500000000001 on esp32_lobo
         return value
 
