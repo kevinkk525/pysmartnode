@@ -2,6 +2,7 @@
 
 #### Version 4.0.7
 * [mqtt] changed API from async def publish(self, topic, msg, retain=False, qos=0) to def publish(self, topic, msg, qos=0, retain=False)
+* [mqtt] added experimental support for a not yet published proxy for mqtt (micropython_iot_generic + micropyhton_iot)
 
 #### Version 4.0.6
 * [heater] bugfix for unknown hardware initialization status on reboot (resulting in heater being ON although not detected)

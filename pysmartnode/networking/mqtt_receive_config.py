@@ -44,7 +44,7 @@ async def requestConfig(config, mqtt, log):
 
 async def _awaitConfig(topic, msg, retain):
     _log.info("Building components", local_only=True)
-    await _mqtt.unsubscribe("{!s}/login/".format(_mqtt.mqtt_home) + _mqtt.id)
+    await _mqtt.unsubscribe("{!s}/login/".format(_mqtt.mqtt_home) + _mqtt.client_id)
     if type(msg) != dict:
         _log.critical("Received config is no dict")
         msg = None
@@ -70,10 +70,10 @@ async def _receiveConfig(log):
     _awaiting_config = True
     log.info("Receiving config", local_only=True)
     for i in range(1, 4):
-        await _mqtt.subscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.id), _awaitConfig, qos=1,
+        await _mqtt.subscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id), _awaitConfig, qos=1,
                               check_retained_state_topic=False)
         log.debug("waiting for config", local_only=True)
-        await _mqtt.publish("{!s}/login/{!s}/set".format(_mqtt.mqtt_home, _mqtt.id), _pyconfig.VERSION, qos=1)
+        await _mqtt.publish("{!s}/login/{!s}/set".format(_mqtt.mqtt_home, _mqtt.client_id), _pyconfig.VERSION, qos=1)
         t = time.ticks_ms()
         while (time.ticks_ms() - t) < 10000:
             if not _has_succeeded:
@@ -81,7 +81,7 @@ async def _receiveConfig(log):
             else:
                 _awaiting_config = False
                 return
-        await _mqtt.unsubscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.id))
+        await _mqtt.unsubscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id))
         # unsubscribing before resubscribing as otherwise it would result in multiple callbacks
         # because mqttHandler and subscriptionHandler do not check if function already subscribed.
     _has_failed = True
