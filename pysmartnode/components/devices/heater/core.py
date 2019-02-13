@@ -104,7 +104,7 @@ class Heater:
         else:
             await _mqtt.publish(self.__status_topic, self.__last_error, qos=1, retain=True)
         await _mqtt.publish(self.__target_temp_topic, self.__target_temp, qos=1, retain=True)
-        await _mqtt.publish(self.__mode_topic, self.__active_mode, True, qos=1, retain=True)
+        await _mqtt.publish(self.__mode_topic, self.__active_mode, qos=1, retain=True)
 
     def registerHardware(self, set_power, hardware_init=None):
         self.__setHeaterPower = set_power

@@ -4,7 +4,7 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__version__ = "3.4"
+__version__ = "3.5"
 __updated__ = "2019-01-03"
 
 import gc
@@ -20,7 +20,7 @@ from pysmartnode.utils import sys_vars
 
 from micropython_iot_generic.client import apphandler
 from micropython_iot_generic.client.apps.mqtt import Mqtt
-from micropython_iot_generic.client.micropython_iot.primitives import Lock
+from micropython_iot import Lock, Event
 from machine import Pin
 
 gc.collect()
@@ -190,7 +190,7 @@ class MQTTHandler(Mqtt):
         try:
             msg = json.loads(data[2])
         except Exception:
-            pass
+            msg = data[2]
         try:
             res = cb(topic, msg, data[3])
             if type(res) == type_gen:
@@ -205,5 +205,5 @@ class MQTTHandler(Mqtt):
             topic = self.getRealTopic(topic)
         await super().publish(topic, msg, qos, retain)
 
-    def schedulePublish(self, topic, msg, retain=False, qos=0):
+    def schedulePublish(self, topic, msg, qos=0, retain=False):
         asyncio.get_event_loop().create_task(self.publish(topic, msg, qos, retain))
