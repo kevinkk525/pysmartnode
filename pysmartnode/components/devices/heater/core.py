@@ -217,7 +217,7 @@ class Heater:
                 await asyncio.sleep_ms(50)
         try:
             temp = float(msg)
-        except:
+        except ValueError:
             log.error("Error converting requested temp to float: {!r}".format(msg))
             return None
         self.__target_temp = temp

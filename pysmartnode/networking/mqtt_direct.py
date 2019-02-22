@@ -249,7 +249,7 @@ class MQTTHandler(MQTTClient):
         msg = msg.decode()
         try:
             msg = json.loads(msg)
-        except:
+        except ValueError:
             pass  # maybe not a json string, no way of knowing
         _subscriptions = self._subscriptions
         try:

@@ -41,7 +41,7 @@ async def _requestPower(topic, msg, retain):
     heater = __heater
     try:
         power = float(msg)
-    except:
+    except ValueError:
         log.error("Error converting requested power to float: {!r}".format(msg))
         return None
     await heater.setTargetPower(power)

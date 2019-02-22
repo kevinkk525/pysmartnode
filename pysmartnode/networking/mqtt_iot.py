@@ -189,7 +189,7 @@ class MQTTHandler(Mqtt):
             topic = data[0]
         try:
             msg = json.loads(data[2])
-        except Exception:
+        except ValueError:
             msg = data[2]
         try:
             res = cb(topic, msg, data[3])
