@@ -6,7 +6,7 @@ Created on 14.07.2017
 
 import time
 
-time.sleep_ms(250)  # give it time to boot before processing code, may repeatedly reset otherwise
+time.sleep_ms(100)  # give it time to boot before processing code, may repeatedly reset otherwise
 import gc
 
 gc.collect()

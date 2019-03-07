@@ -7,8 +7,8 @@ Created on 20.04.2018
 """
 example config:
 {
-    package: .sensors.soilMoisture
-    component: SoilMoisture
+    package: .sensors.moisture
+    component: Moisture
     constructor_args: {
         adc_pin: 0             #pin number of ADC or name of amux component
         power_pin: [D5,5]      # can be a list to have one power_pin per sensor_type or single pin
@@ -16,21 +16,20 @@ example config:
         sensor_types: [0,1]          #optional, list of sensor types (if AMUX is used), 0: resistive, 1: capacitive, null: not connected
         water_voltage: [2.0, 1.5]   #value or list of voltage in  water per sensor_type, [0]=std, [1]=cap
         air_voltage: [0.0, 3.0]     #value or list of voltage in air per sensor_type
-        publish_converted_value: true # optional, publish values "wet", "dry", "humid" additionally to percentage values         mqtt_topic: sometopic,     #optional
-        #mqtt_topic: null           #optional, defaults to <home>/<device-id>/soilMoisture/<#sensor>
-        #interval: 600              #optional, interval of measurement
+        publish_converted_value: true # optional, publish values "wet", "dry", "humid" additionally to percentage values
+        # mqtt_topic: null           #optional, defaults to <home>/<device-id>/moisture/<#sensor>
+        # interval: 600              #optional, interval of measurement
     }
 }
 """
 
-__updated__ = "2018-08-31"
-__version__ = "0.8"
+__updated__ = "2019-03-01"
+__version__ = "0.9"
 
-from machine import ADC
 import machine
 from pysmartnode.components.machine.pin import Pin
+from pysmartnode.components.machine.adc import ADC as ADCpy
 from pysmartnode import config
-from sys import platform
 import uasyncio as asyncio
 import gc
 from pysmartnode import logging
@@ -39,34 +38,23 @@ _mqtt = config.getMQTT()
 Lock = config.Lock
 
 
-class SoilMoisture:
+class Moisture:
     def __init__(self, adc_pin, water_voltage, air_voltage, sensor_types,
                  power_pin=None, power_warmup=None,
                  publish_converted_value=False,
                  mqtt_topic=None, interval=None):
-        if platform == "esp8266":
-            if type(adc_pin) == int:
-                self.adc = ADC(0)
-
-                def read_voltage():
-                    return self.adc.read() / 1024 * 3.3
-
-                self._adc_read = read_voltage
-            else:
-                # AMUX
+        if type(adc_pin) == ADCpy:
+            self.adc = adc_pin
+        elif type(adc_pin) == int:
+            self.adc = ADCpy(adc_pin)
+        else:
+            import pysmartnode.components.multiplexer.amux
+            if type(adc_pin) == pysmartnode.components.multiplexer.amux.Amux:
                 self.adc = adc_pin
-                self._adc_read = self.adc.read
-        elif platform == "esp32_LoBo":
-            self.adc = ADC(adc_pin) if type(adc_pin) == int else adc_pin
-            self._adc_read = self.adc.read
-            if type(adc_pin) == int:
-                self.adc.atten(self.adc.ATTN_11DB)
-            else:
                 # set AMUX to return Voltages
                 self.adc.setReturnVoltages(True)
-        else:
-            raise NotImplementedError("Platform {!s} not implemented, please report".format(platform))
-            # self.adc=ADC(Pin(adc_pin))
+            else:
+                raise NotImplementedError("ADC value {!s} not implemented, please report".format(adc_pin))
         if power_pin is None:
             self.power_pin = None
         else:
@@ -78,15 +66,15 @@ class SoilMoisture:
                 self.power_pin = Pin(power_pin, machine.Pin.OUT)
         self.power_warmup = power_warmup or None if power_pin is None else 10
         self.sensor_types = sensor_types
-        if type(sensor_types) == list and type(self.adc) == ADC:
-            raise TypeError("Single ADC (no Amux) can't have multiple sensor_types")
+        if type(sensor_types) == list and type(self.adc) in (machine.ADC, ADCpy):
+            raise TypeError("Single ADC (no Amux) can't have multiple sensors")
         self.water_voltage = water_voltage
         self.air_voltage = air_voltage
         if type(sensor_types) == list:
             if type(water_voltage) != list or type(air_voltage) != list:
-                raise TypeError("Voltages have to be list with multiple sensor_types")
+                raise TypeError("Voltages have to be lists with multiple sensor_types")
         self.publish_converted_value = publish_converted_value
-        self.topic = mqtt_topic or _mqtt.getDeviceTopic("soilMoisture")
+        self.topic = mqtt_topic or _mqtt.getDeviceTopic("moisture")
         interval = interval or config.INTERVAL_SEND_SENSOR
         self._lock = Lock()
         gc.collect()
@@ -147,13 +135,14 @@ class SoilMoisture:
     async def _read(self, publish=True):
         res = []
         i = 0
+        amux = type(self.adc) not in (machine.ADC, ADCpy)
         async with self._lock:
             if type(self.sensor_types) == list:
                 sensors = self.sensor_types
-            elif type(self.adc) == ADC:
-                sensors = [self.sensor_types]
-            else:
+            elif amux is True:
                 sensors = [self.sensor_types] * self.adc.getSize()
+            else:
+                sensors = [self.sensor_types]
             for sensor in sensors:
                 if self.power_pin is not None:
                     if type(self.power_pin) == list:
@@ -167,11 +156,12 @@ class SoilMoisture:
                 else:
                     voltage = 0
                     for j in range(3):
-                        voltage += self._adc_read() if type(self.adc) == ADC else self._adc_read(i)
+                        voltage += self.adc.readVoltage(i) if amux else self.adc.readVoltage()
                     voltage /= 3
                     res.append(self._getPercentage(sensor, voltage))
                 if publish:
-                    logging.getLogger("soil").debug(self.topic + "/" + str(i) + ": " + str(res[-1]), local_only=True)
+                    logging.getLogger("moisture").debug(self.topic + "/" + str(i) + ": " + str(res[-1]),
+                                                        local_only=True)
                     await _mqtt.publish(self.topic + "/" + str(i), res[-1])
                     if self.publish_converted_value:
                         await _mqtt.publish(self.topic + "/" + str(i) + "/conv",
