@@ -67,7 +67,7 @@ async def wrapAction(func=None, topic=None, msg=None):
     if topic is not None:
         topic = [topic] if type(topic) != list else topic
         for t in topic:
-            await _mqtt.publish(t, msg, retain=True, qos=1)
+            await _mqtt.publish(t, msg, qos=1, retain=True)
 
 
 class Button(Pushbutton):

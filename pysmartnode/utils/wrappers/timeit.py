@@ -1,15 +1,16 @@
 '''
 Created on 18.02.2018
 
-@author: Kevin K�ck
+@author: Kevin Köck
 '''
 
 import time
 
 
 def timeit(f):
+    myname = str(f).split(' ')[1]  # do this calculation outside of measurement
+
     def new_func(*args, **kwargs):
-        myname = str(f).split(' ')[1]
         t = time.ticks_us()
         result = f(*args, **kwargs)
         delta = time.ticks_diff(time.ticks_us(), t)

@@ -223,7 +223,7 @@ Of course these libraries won't be able to use the mqtt component but the possib
 To quickly test this project I'd like to give an example.
 Create a file "components.py" and put the following dictionary into it.
 
-```
+```python
 COMPONENTS = {
     "_order": ["ram"],
     "ram": {

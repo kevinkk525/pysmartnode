@@ -18,7 +18,7 @@ example config:
 """
 
 __updated__ = "2018-10-19"
-__version__ = "1.0"
+__version__ = "1.1"
 
 import gc
 import uasyncio as asyncio
@@ -36,9 +36,11 @@ class WDT:
         self._counter = 0
         self._timer = machine.Timer(id)
         self._use_rtc_memory = use_rtc_memory
+        self._has_filesystem = False
         self.init()
         asyncio.get_event_loop().create_task(self._resetCounter())
         if sys_vars.hasFilesystem():
+            self._has_filesystem = True
             try:
                 with open("watchdog.txt", "r") as f:
                     if f.read() == "True":
@@ -59,7 +61,7 @@ class WDT:
     def _wdt(self, t):
         self._counter += self._timeout
         if self._counter >= self._timeout * 10:
-            if sys_vars.hasFilesystem():
+            if self._has_filesystem:
                 try:
                     with open("watchdog.txt", "w") as f:
                         f.write("True")

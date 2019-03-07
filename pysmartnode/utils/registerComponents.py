@@ -1,7 +1,6 @@
 import gc
 import uasyncio as asyncio
 from sys import platform
-import time
 from pysmartnode import config
 
 if config.DEBUG:

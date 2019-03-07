@@ -20,3 +20,8 @@ import sys
 if sys.platform == "esp32_LoBo":
     sys.path.insert(0, "/flash")
     sys.path.append("/flash/lib")
+
+import uos
+import machine
+
+uos.dupterm(machine.UART(0, 115200), 1)

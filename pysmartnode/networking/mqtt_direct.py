@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__version__ = "3.3"
-__updated__ = "2018-10-01"
+__version__ = "3.4"
+__updated__ = "2019-01-03"
 
 import gc
 import json
@@ -60,7 +60,7 @@ class MQTTHandler(MQTTClient):
         self._subscriptions = SubscriptionHandler()
         self.payload_on = ("ON", True, "True")
         self.payload_off = ("OFF", False, "False")
-        self.id = config.id
+        self.client_id = config.id
         self.mqtt_home = config.MQTT_HOME
         super().__init__(server=config.MQTT_HOST,
                          port=1883,
@@ -138,12 +138,12 @@ class MQTTHandler(MQTTClient):
             await super().subscribe(topic, qos=1)
 
     def _convertToDeviceTopic(self, topic):
-        if topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.id)):
-            return topic.replace("{!s}/{!s}/".format(self.mqtt_home, self.id), ".")
+        if topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.client_id)):
+            return topic.replace("{!s}/{!s}/".format(self.mqtt_home, self.client_id), ".")
         raise TypeError("Topic is not a device subscription: {!s}".format(topic))
 
     def _isDeviceSubscription(self, topic):
-        if topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.id)):
+        if topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.client_id)):
             return True
         return False
 
@@ -218,7 +218,7 @@ class MQTTHandler(MQTTClient):
                 await self.publish(self.getDeviceTopic("last_boot"),
                                    "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3],
                                                                                   t[4],
-                                                                                  t[5]), True, 1)
+                                                                                  t[5]), 1, True)
                 _log.info(str(os.uname()))
                 _log.info("Client version: {!s}".format(config.VERSION))
         else:
@@ -235,7 +235,7 @@ class MQTTHandler(MQTTClient):
     def getRealTopic(self, device_topic):
         if device_topic.startswith(".") is False:
             raise ValueError("Topic {!s} is no device topic".format(device_topic))
-        return "{}/{}/{}".format(self.mqtt_home, self.id, device_topic[1:])
+        return "{}/{}/{}".format(self.mqtt_home, self.client_id, device_topic[1:])
 
     def _execute_sync(self, topic, msg, retained):
         """mqtt library only handles sync callbacks so add it to asyncio loop"""
@@ -244,12 +244,12 @@ class MQTTHandler(MQTTClient):
     async def _execute(self, topic, msg, retained):
         _log.debug("mqtt execution: {!s} {!s} {!s}".format(topic, msg, retained), local_only=True)
         topic = topic.decode()
-        if topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.id)):
-            topic = topic.replace("{!s}/{!s}/".format(self.mqtt_home, self.id), ".")
+        if topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.client_id)):
+            topic = topic.replace("{!s}/{!s}/".format(self.mqtt_home, self.client_id), ".")
         msg = msg.decode()
         try:
             msg = json.loads(msg)
-        except:
+        except ValueError:
             pass  # maybe not a json string, no way of knowing
         _subscriptions = self._subscriptions
         try:
@@ -271,7 +271,7 @@ class MQTTHandler(MQTTClient):
                 _log.error("Error executing {!s}mqtt topic {!r}: {!s}".format(
                     "retained " if retained else "", topic, e))
 
-    async def publish(self, topic, msg, retain=False, qos=0):
+    async def publish(self, topic, msg, qos=0, retain=False):
         if type(msg) == dict or type(msg) == list:
             msg = json.dumps(msg)
         elif type(msg) != str:
@@ -281,5 +281,5 @@ class MQTTHandler(MQTTClient):
         gc.collect()
         await super().publish(topic.encode(), msg.encode(), retain, qos)
 
-    def schedulePublish(self, topic, msg, retain=False, qos=0):
-        asyncio.get_event_loop().create_task(self.publish(topic, msg, retain, qos))
+    def schedulePublish(self, topic, msg, qos=0, retain=False):
+        asyncio.get_event_loop().create_task(self.publish(topic, msg, qos, retain))

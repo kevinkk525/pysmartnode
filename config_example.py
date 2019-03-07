@@ -12,6 +12,7 @@ MQTT_PASSWORD = ""
 MQTT_KEEPALIVE = const(60)
 MQTT_HOME = "home"
 MQTT_RECEIVE_CONFIG = True
+MQTT_TYPE = const(0)  # 0 = mqtt client, 1 = miropython_iot as proxy (experimental)
 # RECEIVE_CONFIG: Only use if you run the "SmartServer" in your environment which
 # sends the configuration of a device over mqtt
 # If you do not run it, you have to configure the components locally on each microcontroller

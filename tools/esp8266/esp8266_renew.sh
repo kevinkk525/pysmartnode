@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 cd esp8266
 ./esp8266_sync.sh
 ./esp8266_build.sh

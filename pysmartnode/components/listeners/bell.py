@@ -19,8 +19,8 @@ example config:
 }
 """
 
-__updated__ = "2018-09-28"
-__version__ = "0.7"
+__updated__ = "2019-01-03"
+__version__ = "0.8"
 
 import gc
 from pysmartnode import config
@@ -76,14 +76,15 @@ class Bell:
             else:
                 await _mqtt.publish(self.mqtt_topic, "ON", qos=1)
                 await asyncio.sleep_ms(self.on_time)
-                await _mqtt.publish(self.mqtt_topic, "OFF", True, 1)
+                await _mqtt.publish(self.mqtt_topic, "OFF", qos=1, retain=True)
                 if config.RTC_SYNC_ACTIVE:
                     t = time.localtime()
                     await _mqtt.publish("{!s}/last_bell".format(config.MQTT_HOME),
                                         "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0],
                                                                                        t[1], t[2],
                                                                                        t[3], t[4],
-                                                                                       t[5]), True, 1)
+                                                                                       t[5]),
+                                        qos=1, retain=True)
                 self.eventBell.clear()
                 if diff > 500:
                     _log.warn("Bell rang {!s}ms ago, activated ringing".format(diff))

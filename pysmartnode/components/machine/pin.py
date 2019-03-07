@@ -24,11 +24,12 @@ import gc
 
 
 def Pin(pin, *args, **kwargs):
-    try:
-        pin = int(pin)
-        # just in case it gets a string that should be an integer
-    except:
-        pass
+    if type(pin) == str:
+        try:
+            pin = int(pin)
+            # just in case it gets a string that should be an integer
+        except ValueError:
+            pass
     if type(pin) == str:
         if platform == "esp8266":
             # generate dictionary on request so no RAM gets reserved all the time
@@ -38,7 +39,7 @@ def Pin(pin, *args, **kwargs):
         if pin in pins:
             pin = pins[pin]
         else:
-            raise TypeError("Pin name {!r} not found in dictionary".format(type(pin), pin))
+            raise TypeError("Pin type {!s}, name {!r} not found in dictionary".format(type(pin), pin))
         gc.collect()
     elif type(pin) != int:
         # assuming pin object

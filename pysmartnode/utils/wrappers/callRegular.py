@@ -21,5 +21,5 @@ async def callRegularPublish(func, topic, interval=None, retain=None, qos=None):
             res = await func()
         else:
             res = func()
-        await mqtt.publish(topic, res, retain, qos)
+        await mqtt.publish(topic, res, qos, retain)
         await asyncio.sleep(interval)

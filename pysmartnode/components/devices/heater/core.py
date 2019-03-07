@@ -36,8 +36,8 @@ Short documentation:
 - heater reacts to temperature change every REACTION_TIME seconds and waits xxx_CYCLES before starting/shutting down heater
 """
 
-__updated__ = "2018-10-02"
-__version__ = "0.8"
+__updated__ = "2019-01-03"
+__version__ = "0.9"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -95,16 +95,16 @@ class Heater:
         asyncio.get_event_loop().create_task(self._initialize())
 
     async def _updateMQTTStatus(self):
-        await _mqtt.publish(self.__power_topic, self.__target_power, True, qos=1)
+        await _mqtt.publish(self.__power_topic, self.__target_power, qos=1, retain=True)
         if self.__last_error is None:
             if self.__target_power == 0:
-                await _mqtt.publish(self.__status_topic, "OFF", True, qos=1)
+                await _mqtt.publish(self.__status_topic, "OFF", qos=1, retain=True)
             else:
-                await _mqtt.publish(self.__status_topic, "ON", True, qos=1)
+                await _mqtt.publish(self.__status_topic, "ON", qos=1, retain=True)
         else:
-            await _mqtt.publish(self.__status_topic, self.__last_error, True, qos=1)
-        await _mqtt.publish(self.__target_temp_topic, self.__target_temp, True, qos=1)
-        await _mqtt.publish(self.__mode_topic, self.__active_mode, True, qos=1)
+            await _mqtt.publish(self.__status_topic, self.__last_error, qos=1, retain=True)
+        await _mqtt.publish(self.__target_temp_topic, self.__target_temp, qos=1, retain=True)
+        await _mqtt.publish(self.__mode_topic, self.__active_mode, qos=1, retain=True)
 
     def registerHardware(self, set_power, hardware_init=None):
         self.__setHeaterPower = set_power
@@ -217,7 +217,7 @@ class Heater:
                 await asyncio.sleep_ms(50)
         try:
             temp = float(msg)
-        except:
+        except ValueError:
             log.error("Error converting requested temp to float: {!r}".format(msg))
             return None
         self.__target_temp = temp
@@ -340,7 +340,7 @@ class Heater:
     async def _setHeaterPower(self, power):
         if self.__setHeaterPower is None:
             log.error("No hardware registered to control heater")
-            await _mqtt.publish(self.__status_topic, "ERR: NO HARDWARE", True, qos=1)
+            await _mqtt.publish(self.__status_topic, "ERR: NO HARDWARE", qos=1, retain=True)
         else:
             if not await self.__setHeaterPower(power):
                 log.error("Could not set heater power to {!s}%, shutting heater down".format(power))
