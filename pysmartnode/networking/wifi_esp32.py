@@ -1,20 +1,13 @@
-'''
-Created on 26.05.2018
-
-@author: Kevin Köck
-'''
-
 from pysmartnode import config
 import gc
 import uasyncio as asyncio
-import sys
 import time
 import machine
 
 if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE is True:
     async def _sync():
+        import ntptime
         while True:
-            import ntptime
             print("Synchronize time from NTP server ...")
             try:
                 ntptime.settime()
@@ -22,8 +15,6 @@ if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE is True:
                 tm = time.localtime()
                 tm = tm[0:3] + (0,) + (tm[3] + config.RTC_TIMEZONE_OFFSET,) + tm[4:6] + (0,)
                 machine.RTC().datetime(tm)
-                del ntptime
-                del sys.modules["ntptime"]
                 await asyncio.sleep(18000)  # every 5h
             except Exception as e:
                 print("Error syncing time: {!s}, retry in 1s".format(e))
@@ -32,3 +23,7 @@ if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE is True:
 
     asyncio.get_event_loop().create_task(_sync())
     gc.collect()
+
+if hasattr(config, "FTP_ACTIVE") and config.FTP_ACTIVE is True:
+    print("FTP-Server active")
+    import pysmartnode.libraries.ftpserver.ftp_thread

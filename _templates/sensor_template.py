@@ -21,8 +21,8 @@ example config:
 }
 """
 
-__updated__ = "2018-08-31"
-__version__ = "0.6"
+__updated__ = "2019-03-26"
+__version__ = "0.7"
 
 from pysmartnode import config
 from pysmartnode.utils.wrappers.async_wrapper import async_wrapper as _async_wrapper
@@ -74,7 +74,8 @@ class MySensor:
         gc.collect()
         asyncio.get_event_loop().create_task(self._loop(background_loop, interval))
 
-    async def _loop(self, gen, interval):
+    @staticmethod
+    async def _loop(gen, interval):
         while True:
             await gen()
             await asyncio.sleep(interval)
@@ -111,7 +112,7 @@ class MySensor:
         if temp is not None and humid is not None and publish:
             await _mqtt.publish(self.topic, {
                 "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),
-                "humidity": ("{0:." + str(self._prec_humid) + "f}").format(humid)})
+                "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(humid)})
             # formating prevents values like 51.500000000001 on esp32_lobo
         return {"temperature": temp, "humiditiy": humid}
 

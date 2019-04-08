@@ -15,8 +15,8 @@ import machine
 p=Pin("D0", machine.Pin.OUT, machine.Pin.PULL_UP)
 """
 
-__updated__ = "2018-08-31"
-__version__ = "0.2"
+__updated__ = "2019-04-04"
+__version__ = "0.3"
 
 import machine
 from sys import platform
@@ -24,6 +24,8 @@ import gc
 
 
 def Pin(pin, *args, **kwargs):
+    if type(pin) == machine.Pin:
+        return pin
     if type(pin) == str:
         try:
             pin = int(pin)
@@ -43,6 +45,7 @@ def Pin(pin, *args, **kwargs):
         gc.collect()
     elif type(pin) != int:
         # assuming pin object
+        # TODO: implement instance system like with ADC
         return pin
     args = list(args)
     args.insert(0, pin)
