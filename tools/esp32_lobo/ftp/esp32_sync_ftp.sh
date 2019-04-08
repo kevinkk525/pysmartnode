@@ -1,8 +1,8 @@
-HOST="192.168.178.160"
-USER="micro"
-PASS="python"
-TARGETFOLDER="/flash/pysmartnode"
-SOURCEFOLDER="/mnt/b/WNodePython/pysmartnode/"
+HOST="192.168.178.51"
+USER=""
+PASS=""
+TARGETFOLDER="/pysmartnode"
+SOURCEFOLDER="/mnt/r/WNodePython/pysmartnode/"
 
 lftp -f "
 open $HOST

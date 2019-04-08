@@ -23,16 +23,17 @@ The project is compatible with ESP32 and ESP8266 microcontrollers.
 
 ### ESP8266
 
-This works pretty well, since version 4 it's very stable and useable 24/7 as it recovers from any crashes/freezes using a software watchdog. 
-Apprarently my firmware build had a RAM bug giving me 16kB less RAM than it should. I now did pull the latest firmware commits and this problem is gone! 
+The ESP8266 works reliable and resilient and is useable 24/7 as it recovers from any crashes/freezes using a software watchdog. 
+Apprarently my firmware build had a RAM bug giving me 16kB less RAM than it should. I did pull the 1.10 firmware commits and this problem is gone! 
 So I wrongly assumed that there won't be much RAM left on the ESP8266. I'm happy to say that I now have 20kB of free RAM with ~7 active components and disabled filesystem! With active filesystem I have 16kB left.
 With this amount of free RAM you can use the ESP82666 with or without activated filesystem and with at least 20 components (depending on their size) without any RAM issues. 
 
 ### ESP32
 
-Only tested on loboris fork which also supports SPRAM (which is now supported by official firmware too). Works well on this port and can be considered almost stable. I did not set up an ESP32 to run continuously yet and my unit has a faulty flash.
+Official ESP32 port is supported since version 4.1.0 and loboris fork is now official unsupported since there hasn't been any commit in over 7 months. 
+However no code for loboris fork has been removed and even the updated modules are written to be compatible, I just don't test any features on that platform myself anymore. 
 
-Official ESP32 port is not yet tested but should work. Not all of the components are supporting it and help is needed here as in some modules only the platforms "esp8266" and "esp32_LoBo" are being checked (e.g. ADC)
+In recent tests this hardware has shown to be finally resilient and can be used 24/7.
 
 
 ## 2.Getting started
@@ -43,7 +44,7 @@ To clone this repository run
 ```
 git clone https://github.com/kevinkk525/pysmartnode
 cd pysmartnode
-git submodule update --init --recursive
+git submodule update --init --recursive --remote
 ```
 
 To update run inside the repository directory

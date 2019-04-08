@@ -1,5 +1,15 @@
 # Changelog
 
+#### Version 4.1.0
+* Dropped official support of ESP32_Loboris_Fork because of lack of updates (no commit since 7 months). No code has been removed and modules are even updated to support it so could still mostly work on that fork, I just won't test it on that platform myself.
+* Support for mainline ESP32 as all important bugs are finally fixed now
+* [ecMeter] added module to measure EC with a simple cable
+* [ds18] multiple bugfixes and improvements. Support for instanciating a single DS18 unit
+* [ADC] updated to support ESP32 mainline. New interface and subclass logic to support custom ADC classes using external ADCs (like the Arduino)
+* [Amux] improvements, supports Arduino ADCs & Pins -> possible to connect an AnalogMultiplexer to an Arduino and control remotely
+* [ArduinoControl] Added library to control an Arduino by communication by 1-wire protocol
+
+---------------------------------------------------
 #### Version 4.0.7
 * [mqtt] changed API from async def publish(self, topic, msg, retain=False, qos=0) to def publish(self, topic, msg, qos=0, retain=False)
 * [mqtt] added experimental support for a not yet published proxy for mqtt (micropython_iot_generic + micropyhton_iot)
