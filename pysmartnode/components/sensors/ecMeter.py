@@ -82,8 +82,8 @@ class EC:
         self._temp = temp_sensor
         if hasattr(temp_sensor, "temperature") is False:
             raise AttributeError(
-                "Temperature sensor {!s}, type {!s} has not async method temperature()".format(temp_sensor,
-                                                                                               type(temp_sensor)))
+                "Temperature sensor {!s}, type {!s} has no async method temperature()".format(temp_sensor,
+                                                                                              type(temp_sensor)))
         gc.collect()
         self._ec25 = None
         self._ppm = None

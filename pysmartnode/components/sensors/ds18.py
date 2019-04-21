@@ -30,8 +30,8 @@ example config:
 }
 """
 
-__updated__ = "2019-04-02"
-__version__ = "1.0"
+__updated__ = "2019-04-21"
+__version__ = "1.1"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -80,14 +80,20 @@ class DS18(ds18x20.DS18X20):
         global _ds18_controller
         _ds18_controller = self
 
-    async def _loop(self, gen, interval):
+    @staticmethod
+    async def _loop(gen, interval):
         await asyncio.sleep(1)
         while True:
             await gen()
             await asyncio.sleep(interval)
 
     async def _read(self, prec, offs, publish=True) -> (list, list):
-        roms = self.scan()
+        roms = []
+        for _ in range(3):
+            roms = self.scan()
+            if len(roms) > 0:
+                break
+            await asyncio.sleep_ms(100)
         if len(roms) == 0:
             await _log.asyncLog("error", "No DS18 found")
             return None, []
@@ -95,14 +101,22 @@ class DS18(ds18x20.DS18X20):
         await asyncio.sleep_ms(750)
         values = []
         for rom in roms:
-            try:
-                values.append(self.read_temp(rom))
-            except Exception as e:
-                _log.warn("Exception reading sensor: {!s}".format(e))  # CRC Error
-                values.append(None)
+            value = None
+            err = None
+            for _ in range(3):
+                try:
+                    value = self.read_temp(rom)
+                except Exception as e:
+                    await asyncio.sleep_ms(100)
+                    err = e
+                    continue
+            if value is None:
+                await _log.asyncLog("error",
+                                    "Sensor {!s}, rom {!s} got no value, {!s}".format(_component_name, rom, err))
+            values.append(value)
             if values[-1] is not None:
                 if values[-1] == 85.0:
-                    await _log.asyncLog("warn", "Sensor {!s}, rom {!s} got value 85.00 [not working correctly]".format(
+                    await _log.asyncLog("error", "Sensor {!s}, rom {!s} got value 85.00 [not working correctly]".format(
                         _component_name, rom))
                     values[-1] = None
                     continue
@@ -112,8 +126,6 @@ class DS18(ds18x20.DS18X20):
                 except Exception as e:
                     await _log.asyncLog("error", "Error rounding value {!s} of rom {!s}".format(values[-1], rom))
                     values[-1] = None
-            else:
-                _log.warn("Sensor {!s}, rom {!s} got no value".format(_component_name, rom))
         if publish:
             if len(values) == 1:
                 await _mqtt.publish(self.topic, ("{0:." + str(prec) + "f}").format(values[0]))
