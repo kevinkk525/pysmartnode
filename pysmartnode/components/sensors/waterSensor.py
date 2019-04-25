@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-04-10 
 
-__updated__ = "2019-04-21"
-__version__ = "0.3"
+__updated__ = "2019-04-23"
+__version__ = "0.4"
 
 """
 Simple water sensor using 2 wires in water. As soon as some conductivity is possible, the sensor will hit.
@@ -12,20 +12,21 @@ Simple water sensor using 2 wires in water. As soon as some conductivity is poss
     package: .sensors.waterSensor
     component: WaterSensor
     constructor_args: {
-        power_pin: 5
         adc: 33
+        power_pin: 5                # optional if connected to permanent power
         # interval: None            # optional, interval in seconds, defaults to 10minutes 
         # interval_reading: 1       # optional, interval in seconds that the sensor gets polled
-        # cutoff_voltage: 3.3       # optional, defaults to ADC maxVoltage (on ESP 3.3V)
+        # cutoff_voltage: 3.3       # optional, defaults to ADC maxVoltage (on ESP 3.3V). Above this voltage means dry
         # mqtt_topic: "sometopic"   # optional, defaults to home/<controller-id>/waterSensor/<count> 
     }
 } 
 Will publish on any state change and in the given interval. State changes are detected in the interval_reading.
-Only the intervals of the first initialized sensors are used. 
-This is to need only one uasyncio task for all sensors to prevent a uasyncio queue overflow.
+Only the polling interval of the first initialized sensor is used.
+The publish interval is unique to each sensor. 
+This is to use only one uasyncio task for all sensors to prevent a uasyncio queue overflow.
 
 ** How to connect:
-Put a Resistor (300R-2kR) between the power pin and the adc pin.
+Put a Resistor (~10kR) between the power pin (or permanent power) and the adc pin.
 Connect the wires to the adc pin and gnd.
 """
 
@@ -50,10 +51,10 @@ gc.collect()
 class WaterSensor:
     DEBUG = False
 
-    def __init__(self, adc, power_pin, cutoff_voltage=None, interval=None, interval_reading=1, topic=None):
+    def __init__(self, adc, power_pin=None, cutoff_voltage=None, interval=None, interval_reading=1, topic=None):
         interval = interval or config.INTERVAL_SEND_SENSOR
         self._adc = ADC(adc)
-        self._ppin = Pin(power_pin, machine.Pin.OUT)
+        self._ppin = Pin(power_pin, machine.Pin.OUT) if power_pin is not None else None
         self._cv = cutoff_voltage or self._adc.maxVoltage()
         global _instances
         if len(_instances) == 0:  # prevent loop queue overflow from multiple instances
@@ -68,7 +69,7 @@ class WaterSensor:
 
     @staticmethod
     async def _loop(interval_reading):
-        interval_reading = interval_reading - 0.1 * len(_instances)
+        interval_reading = interval_reading - 0.05 * len(_instances)
         if interval_reading < 0:
             interval_reading = 0
             # still has 100ms after every read
@@ -77,17 +78,22 @@ class WaterSensor:
                 a = time.ticks_us()
                 await inst.water()
                 b = time.ticks_us()
-                print("Water took", (b - a) / 1000, "ms")
-                await asyncio.sleep_ms(100)
+                if WaterSensor.DEBUG:
+                    print("Water measurement took", (b - a) / 1000, "ms")
+                await asyncio.sleep_ms(50)
                 # using multiple sensors connected to Arduinos it would result in long blocking calls
+                # because a single call to a pin takes ~17ms
             await asyncio.sleep(interval_reading)
 
     async def _read(self, publish=True):
-        self._ppin.value(1)
+        p = self._ppin
+        if p is not None:
+            p.value(1)
         vol = self._adc.readVoltage()
         if self.DEBUG is True:
             print("#{!s}, V".format(self._t[-1]), vol)
-        self._ppin.value(0)
+        if p is not None:
+            p.value(0)
         if vol >= self._cv:
             state = False
             if publish is True and (time.ticks_diff(time.ticks_ms(), self._tm) > self._int or self._lv != state):
