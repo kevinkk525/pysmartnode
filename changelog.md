@@ -1,5 +1,11 @@
 # Changelog
 
+---------------------------------------------------
+#### Version 4.1.1
+* [HCSR04] Added module to measure distance
+* [WaterSensor] Simple water sensor using 2 wires
+* Small fixes in ArduinoControl
+
 #### Version 4.1.0
 * Dropped official support of ESP32_Loboris_Fork because of lack of updates (no commit since 7 months). No code has been removed and modules are even updated to support it so could still mostly work on that fork, I just won't test it on that platform myself.
 * Support for mainline ESP32 as all important bugs are finally fixed now

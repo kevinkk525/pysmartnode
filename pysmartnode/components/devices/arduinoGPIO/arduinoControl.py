@@ -8,7 +8,7 @@ __version__ = "0.1"
 """
 ArduinoControl Instance
 {
-    package: .arduinoGPIO.arduinoControl
+    package: .devices.arduinoGPIO.arduinoControl
     component: ArduinoControl
     constructor_args: {
         pin: 2                              # pin number or object
@@ -18,7 +18,7 @@ ArduinoControl Instance
 
 ArduinoControl Pin instance
 {
-    package: .arduinoGPIO.arduino
+    package: .devices.arduinoGPIO.arduinoControl
     component: Pin
     constructor_args: {
         arduinoControl: "arduinoControlName"   # ArduinoControl instance
@@ -31,7 +31,7 @@ ArduinoControl Pin instance
 
 ArduinoControl ADC instance
 {
-    package: .arduinoGPIO.arduino
+    package: .devices.arduinoGPIO.arduinoControl
     component: ADC
     constructor_args: {
         arduinoControl: "arduinoControlName"   # ArduinoControl instance
@@ -58,7 +58,7 @@ class ArduinoControl(_ArduinoControl):
         """
         pin = PyPin(pin)
         if type(expected_devices) == list:
-            for i in range(expected_devices):
+            for i in range(len(expected_devices)):
                 if type(expected_devices[i]) == str:
                     expected_devices[i] = self.str2rom(expected_devices[i])
         super().__init__(pin, expected_devices)

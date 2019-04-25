@@ -8,7 +8,7 @@ __version__ = "0.0"
 """
 Arduino Instance
 {
-    package: .arduinoGPIO.arduino
+    package: .devices.arduinoGPIO.arduino
     component: Arduino
     constructor_args: {
         arduinoControl: "ardControlName"   # ArduinoControl instance
@@ -18,7 +18,7 @@ Arduino Instance
 
 Arduino Pin instance (could also use ArduinoControl Pin)
 {
-    package: .arduinoGPIO.arduino
+    package: .devices.arduinoGPIO.arduino
     component: Pin
     constructor_args: {
         arduino: "arduinoName"   # Arduino instance
@@ -30,7 +30,7 @@ Arduino Pin instance (could also use ArduinoControl Pin)
 
 Arduino ADC instance (could also use ArduinoControl ADC)
 {
-    package: .arduinoGPIO.arduino
+    package: .devices.arduinoGPIO.arduino
     component: ADC
     constructor_args: {
         arduino: "arduinoName"   # Arduino instance
