@@ -4,8 +4,8 @@ Created on 2018-09-21
 @author: Kevin Köck
 '''
 
-__version__ = "0.6"
-__updated__ = "2018-09-27"
+__version__ = "0.7"
+__updated__ = "2019-04-26"
 
 import uasyncio as asyncio
 import time
@@ -42,26 +42,32 @@ async def requestConfig(config, mqtt, log):
             return tmp
 
 
-async def _awaitConfig(topic, msg, retain):
-    _log.info("Building components", local_only=True)
-    await _mqtt.unsubscribe("{!s}/login/".format(_mqtt.mqtt_home) + _mqtt.client_id)
-    if type(msg) != dict:
-        _log.critical("Received config is no dict")
-        msg = None
-    if msg is None:
-        _log.error("Empty configuration received")
-        global _has_failed
-        _has_failed = True
-        return
-    else:
-        _log.info("received config: {!s}".format(msg), local_only=True)
-        # saving components
-        _saveComponentsFile(msg)
-        global _config
-        _config = json.dumps(msg)
-        global _has_succeeded
-        _has_succeeded = True
-        return
+class AwaitConfig:
+    """Temporary class not following the utils/Component base class"""
+    _topics = None
+    _next_component = None
+
+    @staticmethod
+    async def on_message(topic, msg, retained):
+        _log.info("Building components", local_only=True)
+        await _mqtt.unsubscribe("{!s}/login/".format(_mqtt.mqtt_home) + _mqtt.client_id)
+        if type(msg) != dict:
+            _log.critical("Received config is no dict")
+            msg = None
+        if msg is None:
+            _log.error("Empty configuration received")
+            global _has_failed
+            _has_failed = True
+            return
+        else:
+            _log.info("received config: {!s}".format(msg), local_only=True)
+            # saving components
+            _saveComponentsFile(msg)
+            global _config
+            _config = json.dumps(msg)
+            global _has_succeeded
+            _has_succeeded = True
+            return
 
 
 async def _receiveConfig(log):
@@ -69,9 +75,19 @@ async def _receiveConfig(log):
     global _has_failed
     _awaiting_config = True
     log.info("Receiving config", local_only=True)
+    c = _pyconfig._components
+    p = None
+    while c is not None:
+        p = c
+        c = c._next_component
+    if p is not None:
+        p._next_component = AwaitConfig
+    else:
+        _pyconfig._components = AwaitConfig
+    AwaitConfig._topics = "{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id)
+    # mqtt not fully initialized when class was created created
     for i in range(1, 4):
-        await _mqtt.subscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id), _awaitConfig, qos=1,
-                              check_retained_state_topic=False)
+        await _mqtt.subscribe(AwaitConfig._topics, qos=1, check_retained_state_topic=False)
         log.debug("waiting for config", local_only=True)
         await _mqtt.publish("{!s}/login/{!s}/set".format(_mqtt.mqtt_home, _mqtt.client_id), _pyconfig.VERSION, qos=1)
         t = time.ticks_ms()
@@ -80,10 +96,19 @@ async def _receiveConfig(log):
                 await asyncio.sleep_ms(200)
             else:
                 _awaiting_config = False
+                if _pyconfig._components == AwaitConfig:
+                    _pyconfig._components = None
+                else:
+                    c = _pyconfig._components
+                    p = None
+                    while c is not None:
+                        if c == AwaitConfig:
+                            p._next_component = c._next_component
+                            break
+                        p = c
+                        c = c._next_component
                 return
-        await _mqtt.unsubscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id))
-        # unsubscribing before resubscribing as otherwise it would result in multiple callbacks
-        # because mqttHandler and subscriptionHandler do not check if function already subscribed.
+    await _mqtt.unsubscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id))
     _has_failed = True
     _awaiting_config = False
     return

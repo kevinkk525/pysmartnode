@@ -51,10 +51,10 @@ def main():
         from pysmartnode.components.machine.watchdog import WDT
 
         wdt = WDT(timeout=config.MQTT_KEEPALIVE * 2)
-        config.addComponent("wdt", wdt)
+        config.addNamedComponent("wdt", wdt)
 
     if config.MQTT_RECEIVE_CONFIG is False:
-        loop.create_task(config.loadComponentsFile())
+        loop.create_task(config._loadComponentsFile())
 
     print("Starting uasyncio loop")
     if config.DEBUG_STOP_AFTER_EXCEPTION:

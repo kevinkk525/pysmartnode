@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-cd esp8266
+cd tools/esp8266
 ./esp8266_sync.sh
 ./esp8266_build.sh
 ./esp8266_flash.sh 

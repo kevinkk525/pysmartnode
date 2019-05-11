@@ -15,12 +15,14 @@ example config:
         on_time: 500 #ms       #optional, time the mqtt message stays at on
         direction: 2           #optional, falling 2 (pull-up used in code), rising 1, 
         #mqtt_topic: sometopic #optional, defaults to home/bell
+        # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
+        # friendly_name_last: null # optional, friendly name for last_bell
     }
 }
 """
 
-__updated__ = "2019-01-03"
-__version__ = "0.8"
+__updated__ = "2019-05-08"
+__version__ = "0.9"
 
 import gc
 from pysmartnode import config
@@ -28,84 +30,93 @@ from pysmartnode import logging
 from pysmartnode.utils.event import Event
 from pysmartnode.utils.locksync import Lock
 from pysmartnode.components.machine.pin import Pin
+from pysmartnode.utils.component import Component, TIMELAPSE_TYPE
 import machine
 import time
 import uasyncio as asyncio
 
-_log = logging.getLogger("bell")
+_component_name = "Bell"
+
+_log = logging.getLogger(_component_name)
 _mqtt = config.getMQTT()
 
 gc.collect()
 
 
-class Bell:
-    def __init__(self, pin, debounce_time, on_time=None, irq_direction=None, mqtt_topic=None):
-        self.mqtt_topic = mqtt_topic or "{!s}/bell".format(config.MQTT_HOME)
-        # TODO: change bell topic to standard <home>/<device-id>/bell?
-        self.PIN_BELL_IRQ_DIRECTION = irq_direction or machine.Pin.IRQ_FALLING
-        self.debounce_time = debounce_time
-        self.on_time = on_time or 500
-        self.pin_bell = pin
-        self.last_activation = 0
-        self.loop = asyncio.get_event_loop()
-        self.loop.create_task(self.__initializeBell())
-        gc.collect()
+class Bell(Component):
+    def __init__(self, pin, debounce_time, on_time=None, irq_direction=None, mqtt_topic=None, friendly_name=None,
+                 friendly_name_last=None):
+        super().__init__()
+        self._topic = mqtt_topic or _mqtt.getDeviceTopic(_component_name)
+        self._PIN_BELL_IRQ_DIRECTION = irq_direction or machine.Pin.IRQ_FALLING
+        self._debounce_time = debounce_time
+        self._on_time = on_time or 500
+        self._pin_bell = pin
+        self._last_activation = 0
+        self._frn = friendly_name
+        self._frn_l = friendly_name_last
 
-    async def __initializeBell(self):
-        if self.PIN_BELL_IRQ_DIRECTION == machine.Pin.IRQ_FALLING:
-            self.pin_bell = Pin(self.pin_bell, machine.Pin.IN, machine.Pin.PULL_UP)
+    async def _init(self):
+        await super()._init()
+        if self._PIN_BELL_IRQ_DIRECTION == machine.Pin.IRQ_FALLING:
+            self._pin_bell = Pin(self._pin_bell, machine.Pin.IN, machine.Pin.PULL_UP)
         else:
-            self.pin_bell = Pin(self.pin_bell, machine.Pin.IN)
-        self.eventBell = Event()
-        self.timerLock = Lock()
-        irq = self.pin_bell.irq(trigger=self.PIN_BELL_IRQ_DIRECTION, handler=self.__irqBell)
-        self.eventBell.clear()
-        self.loop.create_task(self.__bell())
-        self.timer_bell = machine.Timer(1)
-        _log.info("Bell initialized")
+            self._pin_bell = Pin(self._pin_bell, machine.Pin.IN)
+        self._event_bell = Event()
+        self._timer_lock = Lock()
+        irq = self._pin_bell.irq(trigger=self._PIN_BELL_IRQ_DIRECTION, handler=self.__irqBell)
+        self._event_bell.clear()
+        asyncio.get_event_loop().create_task(self.__bell())
+        self._timer_bell = machine.Timer(1)
+        await _log.asyncLog("info", "Bell initialized")
         gc.collect()
 
     async def __bell(self):
         while True:
-            await self.eventBell
-            diff = time.ticks_diff(time.ticks_ms(), self.last_activation)
+            await self._event_bell
+            diff = time.ticks_diff(time.ticks_ms(), self._last_activation)
             if diff > 10000:
                 _log.error("Bell rang {!s}s ago, not activated ringing".format(diff / 1000))
-                self.eventBell.clear()
+                self._event_bell.clear()
                 return
             else:
-                await _mqtt.publish(self.mqtt_topic, "ON", qos=1)
-                await asyncio.sleep_ms(self.on_time)
-                await _mqtt.publish(self.mqtt_topic, "OFF", qos=1, retain=True)
+                await _mqtt.publish(self._topic, "ON", qos=1)
+                await asyncio.sleep_ms(self._on_time)
+                await _mqtt.publish(self._topic, "OFF", qos=1, retain=True)
                 if config.RTC_SYNC_ACTIVE:
                     t = time.localtime()
-                    await _mqtt.publish("{!s}/last_bell".format(config.MQTT_HOME),
+                    await _mqtt.publish(_mqtt.getDeviceTopic("last_bell"),
                                         "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0],
                                                                                        t[1], t[2],
                                                                                        t[3], t[4],
                                                                                        t[5]),
                                         qos=1, retain=True)
-                self.eventBell.clear()
+                self._event_bell.clear()
                 if diff > 500:
                     _log.warn("Bell rang {!s}ms ago, activated ringing".format(diff))
 
     def __irqBell(self, p):
-        # print("BELL",p)
-        # print("BELL",time.ticks_ms())
-        if self.timerLock.locked() is True or self.eventBell.is_set() is True:
+        if self._timer_lock.locked() is True or self._event_bell.is_set() is True:
             return
         else:
-            self.timerLock.acquire()  # not checking return value as we checked locked state above
-            self.timer_bell.init(period=self.debounce_time,
-                                 mode=machine.Timer.ONE_SHOT, callback=self.__irqTime)
+            self._timer_lock.acquire()  # not checking return value as we checked locked state above
+            self._timer_bell.init(period=self._debounce_time,
+                                  mode=machine.Timer.ONE_SHOT, callback=self.__irqTime)
 
     def __irqTime(self, t):
-        # print("timer",time.ticks_ms())
-        if self.PIN_BELL_IRQ_DIRECTION == machine.Pin.IRQ_FALLING and self.pin_bell.value() == 0:
-            self.last_activation = time.ticks_ms()
-            self.eventBell.set()
-        elif self.PIN_BELL_IRQ_DIRECTION == machine.Pin.IRQ_RISING and self.pin_bell.value() == 1:
-            self.last_activation = time.ticks_ms()
-            self.eventBell.set()
-        self.timer_bell.deinit()
-        self.timerLock.release()
+        if self._PIN_BELL_IRQ_DIRECTION == machine.Pin.IRQ_FALLING and self._pin_bell.value() == 0:
+            self._last_activation = time.ticks_ms()
+            self._event_bell.set()
+        elif self._PIN_BELL_IRQ_DIRECTION == machine.Pin.IRQ_RISING and self._pin_bell.value() == 1:
+            self._last_activation = time.ticks_ms()
+            self._event_bell.set()
+        self._timer_bell.deinit()
+        self._timer_lock.release()
+
+    async def _discovery(self):
+        await self._publishDiscovery("binary_sensor", self._topic, "bell", '"ic":"mdi:bell",', "Doorbell", self._frn)
+        gc.collect()
+        if config.RTC_SYNC_ACTIVE is True:
+            await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("last_bell"), "last_bell", TIMELAPSE_TYPE,
+                                         "Last Bell", self._frn_l)
+            gc.collect()

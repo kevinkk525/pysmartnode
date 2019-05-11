@@ -33,7 +33,7 @@ gc.collect()
 
 type_gen = type((lambda: (yield))())  # Generator type
 
-app_handler = apphandler.AppHandler(asyncio.get_event_loop(), config.id, config.MQTT_HOST,
+app_handler = apphandler.AppHandler(asyncio.get_event_loop(), sys_vars.getDeviceID(), config.MQTT_HOST,
                                     8888, timeout=3000, verbose=True,
                                     led=Pin(2, Pin.OUT, value=1))
 
@@ -50,7 +50,7 @@ class MQTTHandler(Mqtt):
         gc.collect()
         self.payload_on = ("ON", True, "True")
         self.payload_off = ("OFF", False, "False")
-        self.client_id = config.id
+        self.client_id = sys_vars.getDeviceID()
         self.mqtt_home = config.MQTT_HOME
         super().__init__((self.getRealTopic(self.getDeviceTopic("status")), "OFFLINE", 1, True),
                          (self.getRealTopic(self.getDeviceTopic("status")), "ONLINE", 1, True))
@@ -84,7 +84,7 @@ class MQTTHandler(Mqtt):
                 del sys.modules["pysmartnode.networking.mqtt_receive_config"]
                 gc.collect()
                 _log.debug("RAM after receiveConfig deletion: {!s}".format(gc.mem_free()), local_only=True)
-                local_works = await config.loadComponentsFile()
+                local_works = await config._loadComponentsFile()
                 if local_works is True:
                     return True
             else:
@@ -100,12 +100,12 @@ class MQTTHandler(Mqtt):
                     # on esp8266 components are split in small files and loaded after each other
                     # to keep RAM requirements low, only if filesystem is enabled
                     if sys_vars.hasFilesystem():
-                        loop.create_task(config.loadComponentsFile())
+                        loop.create_task(config._loadComponentsFile())
                     else:
-                        loop.create_task(config.registerComponentsAsync(result))
+                        loop.create_task(config._registerComponentsAsync(result))
                 else:
                     # on esp32 components are registered directly but async to let logs run between registrations
-                    loop.create_task(config.registerComponentsAsync(result))
+                    loop.create_task(config._registerComponentsAsync(result))
                 return True
             await asyncio.sleep(60)  # if connection not stable or broker unreachable, try again in 60s
 
