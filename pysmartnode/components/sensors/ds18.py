@@ -33,8 +33,8 @@ example config:
 # Specific DS18 unit. 
 """
 
-__updated__ = "2019-05-11"
-__version__ = "2.2"
+__updated__ = "2019-05-15"
+__version__ = "2.3"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -103,7 +103,7 @@ class DS18_Controller(ds18x20.DS18X20):
                     await ds.temperature(single_sensor=False)
             await asyncio.sleep(interval)
 
-    async def read(self, rom: bytearray, prec: int, offs: float, publish=True, single_sensor=True) -> float:
+    async def read(self, rom: bytearray, topic: str, prec: int, offs: float, publish=True, single_sensor=True) -> float:
         # Won't scan for available sensors. Missing or defective ones are recognized when reading temperature
         if single_sensor:
             async with self._lock:
@@ -132,8 +132,8 @@ class DS18_Controller(ds18x20.DS18X20):
                 value = None
         if publish:
             if value is not None:
-                await _mqtt.publish("{!s}/{!s}".format(self._topic, self.rom2str(rom)),
-                                    ("{0:." + str(prec) + "f}").format(value))
+                topic = topic or _mqtt.getDeviceTopic("DS18/{!s}".format(self.rom2str(rom)))
+                await _mqtt.publish(topic, ("{0:." + str(prec) + "f}").format(value))
         return value
 
     @staticmethod
@@ -207,4 +207,4 @@ class DS18(Component):
         :param single_sensor: only used by the controller to optimize reading of multiple sensors.
         :return: float
         """
-        return await self._ds.read(self._r, self._prec_temp, self._offs_temp, publish, single_sensor)
+        return await self._ds.read(self._r, self._topic, self._prec_temp, self._offs_temp, publish, single_sensor)
