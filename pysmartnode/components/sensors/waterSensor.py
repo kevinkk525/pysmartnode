@@ -14,7 +14,8 @@ Simple water sensor using 2 wires in water. As soon as some conductivity is poss
         # interval: None            # optional, interval in seconds, defaults to 10minutes 
         # interval_reading: 1       # optional, interval in seconds that the sensor gets polled
         # cutoff_voltage: 3.3       # optional, defaults to ADC maxVoltage (on ESP 3.3V). Above this voltage means dry
-        # mqtt_topic: "sometopic"   # optional, defaults to home/<controller-id>/waterSensor/<count> 
+        # mqtt_topic: "sometopic"   # optional, defaults to home/<controller-id>/waterSensor/<count>
+        # friendly_name: null       # optional, friendly name for the homeassistant gui
     }
 } 
 Will publish on any state change and in the given interval. State changes are detected in the interval_reading.
@@ -27,8 +28,8 @@ Put a Resistor (~10kR) between the power pin (or permanent power) and the adc pi
 Connect the wires to the adc pin and gnd.
 """
 
-__updated__ = "2019-04-29"
-__version__ = "1.0"
+__updated__ = "2019-05-16"
+__version__ = "1.1"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -53,7 +54,8 @@ gc.collect()
 class WaterSensor(Component):
     DEBUG = False
 
-    def __init__(self, adc, power_pin=None, cutoff_voltage=None, interval=None, interval_reading=1, topic=None):
+    def __init__(self, adc, power_pin=None, cutoff_voltage=None, interval=None,
+                 interval_reading=1, topic=None, friendly_name=None):
         super().__init__()
         self._ir = interval_reading
         self._adc = ADC(adc)
@@ -69,6 +71,7 @@ class WaterSensor(Component):
         self._tm = time.ticks_ms()
         interval = interval or config.INTERVAL_SEND_SENSOR
         self._int = interval * 1000
+        self._frn = friendly_name
 
     async def _init(self):
         await super()._init()
@@ -92,7 +95,7 @@ class WaterSensor(Component):
     async def _discovery(self):
         name = "{!s}{!s}".format(_component_name, self._count)
         sens = DISCOVERY_BINARY_SENSOR.format("moisture")  # device_class
-        await self._publishDiscovery(_component_type, self._t, name, sens, "Moisture")
+        await self._publishDiscovery(_component_type, self._t, name, sens, self._frn or "Moisture")
         gc.collect()
 
     async def _read(self, publish=True):
