@@ -25,7 +25,7 @@ class Logging:
         print("[{!s}] {}".format(level, message))
         if config.getMQTT() is not None and local_only is False:
             asyncio.get_event_loop().create_task(
-                config.getMQTT().publish(self.base_topic.format(level), "{}".format(message)))
+                config.getMQTT().publish(self.base_topic.format(level), "{}".format(message)), qos=1)
 
     def critical(self, message, local_only=False):
         self._log(message, "critical", local_only)
@@ -45,7 +45,7 @@ class Logging:
     async def asyncLog(self, level, message):
         print("[{!s}] {}".format(level, message))
         if config.getMQTT() is not None:
-            await config.getMQTT().publish(self.base_topic.format(level), "{}".format(message))
+            await config.getMQTT().publish(self.base_topic.format(level), "{}".format(message), qos=1)
 
 
 log = Logging()

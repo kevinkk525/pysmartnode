@@ -22,7 +22,7 @@ async def asyncLog(name, message, level):
     if config.getMQTT() is not None:
         base_topic = "{!s}/log/{!s}/{!s}".format(config.MQTT_HOME, "{!s}", sys_vars.getDeviceID())
         # if level is before id other clients can subscribe to e.g. all critical logs
-        await config.getMQTT().publish(base_topic.format(level), "[{!s}] {}".format(name, message))
+        await config.getMQTT().publish(base_topic.format(level), "[{!s}] {}".format(name, message), qos=1)
     else:
         print(level, message)
 
