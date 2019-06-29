@@ -29,8 +29,8 @@ example config:
 # interval change can't be discovered as homeassistant doesn't offer a type
 """
 
-__updated__ = "2019-05-09"
-__version__ = "0.2"
+__updated__ = "2019-06-04"
+__version__ = "0.3"
 
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.utils.component import Component
@@ -92,7 +92,7 @@ class HCSR04(Component):
         global _count
         self._count = _count
         _count += 1
-        self._subscribe(self._topic_int)
+        self._subscribe(self._topic_int, self._changeInterval)
 
     async def _init(self):
         await super()._init()
@@ -111,13 +111,9 @@ class HCSR04(Component):
         name = "{!s}{!s}".format(_component_name, self._count)
         await self._publishDiscovery(_component_type, self._topic, name, sens, self._frn or "Distance")
 
-    async def on_message(self, topic, msg, retain):
-        if topic == self._topic_int:
-            self.interval = float(msg)
-            return True  # will publish the new interval
-        else:
-            await _log.asyncLog("error", "Didn't subscribe to topic {!s}".format(topic))
-            return False
+    async def _changeInterval(self, topic, msg, retain):
+        self.interval = float(msg)
+        return True  # will publish the new interval
 
     def _pulse(self) -> int:
         """

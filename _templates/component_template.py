@@ -18,8 +18,8 @@ example config for MyComponent:
 }
 """
 
-__updated__ = "2019-05-11"
-__version__ = "1.0"
+__updated__ = "2019-06-03"
+__version__ = "1.1"
 
 import uasyncio as asyncio
 from pysmartnode import config
@@ -53,8 +53,8 @@ class MyComponent(Component):
         # This will generate a topic like: home/31f29s/MyComponent/0/set
 
         # These calls subscribe the topics, don't use _mqtt.subscribe.
-        self._subscribe(self._command_topic)
-        self._subscribe(mqtt_topic2 or "home/sometopic")
+        self._subscribe(self._command_topic, self.on_message1)
+        self._subscribe(mqtt_topic2 or "home/sometopic", self.on_message2)
         # Alternatively self._topics can be set manually and _init overriden to subscribe the way you want
 
         self.my_value = my_value
@@ -91,19 +91,24 @@ class MyComponent(Component):
         del name, component_topic, friendly_name
         gc.collect()
 
-    async def on_message(self, topic, message, retained):
+    async def on_message1(self, topic, message, retained):
         """
-        MQTTHandler is calling this async method whenever a message is received that matches
-        one of the topics in self._topics (if it is a list). Differentiating between different
-        topics has to be done by the component in this method.
+        MQTTHandler is calling this subscribed async method whenever a message is received for the subscribed topic.
         :param topic: str
         :param message: str/dict/list (json converted)
         :param retained: bool
         :return:
         """
-        if _mqtt.matchesSubscription(topic, self._command_topic):
-            print("Do something")
-        else:
-            # matches topic2
-            print("Do something else")
+        print("Do something")
+        return True  # When returning True, the value of arg "message" will be published to the state topic
+
+    async def on_message2(self, topic, message, retained):
+        """
+        MQTTHandler is calling this subscribed async method whenever a message is received for the subscribed topic.
+        :param topic: str
+        :param message: str/dict/list (json converted)
+        :param retained: bool
+        :return:
+        """
+        print("Do something else")
         return True  # When returning True, the value of arg "message" will be published to the state topic

@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-04-26 
 
-__updated__ = "2019-05-09"
-__version__ = "0.4"
+__updated__ = "2019-06-04"
+__version__ = "0.5"
 
 from pysmartnode import config
 import uasyncio as asyncio
@@ -63,14 +63,15 @@ class Component:
     """
     Use this class as a base for components. Subclass to extend. See the template for examples.
     """
-    _discovery_lock = config.Lock()  # prevent multiple discoveries running concurrently to create Out-Of-Memory errors
+    _discovery_lock = config.Lock()
+
+    # prevent multiple discoveries from running concurrently and creating Out-Of-Memory errors
 
     def __init__(self):
-        self._topics = []
-        # No RAM allocation, topic strings are passed by reference if saved in a variable in subclass.
+        self._topics = {}
+        # No RAM allocation for topic strings as they are passed by reference if saved in a variable in subclass.
         # self._topics is used by mqtt to know which component a message is for.
-        self._next_component = None
-        # needed to keep a list of registered components
+        self._next_component = None  # needed to keep a list of registered components
         config.addComponent(self)
         asyncio.get_event_loop().create_task(self._init())
 
@@ -81,12 +82,8 @@ class Component:
             async with self._discovery_lock:
                 await self._discovery()
 
-    def _subscribe(self, topic):
-        self._topics.append(topic)
-
-    def on_message(self, topic, message, retained):
-        """Subclass to process mqtt messages received from subscribed topics"""
-        raise NotImplementedError("This component has no on_message implemented")
+    def _subscribe(self, topic, cb):
+        self._topics[topic] = cb
 
     async def on_reconnect(self):
         """

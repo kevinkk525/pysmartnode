@@ -104,13 +104,15 @@ class PMS5003(sensorModule.PMS5003, Component):
             sens = DISCOVERY_PM.format(meas[i],  # unit_of_measurement
                                        "{{ value_json.{!s} }}".format(value))  # value_template
             await self._publishDiscovery(_component_type, self._topic, name, sens, self._frn[i] or value)
-            del value, name, sens
+            del name, sens
             gc.collect()
 
     ##############################
     # remove or add functions below depending on the values of your sensor
 
-    async def airQuality(self, publish=True):
+    async def airQuality(self, publish=True) -> dict:
+        """Method for publishing values.
+        There is a method for each value in the base class."""
         if self._active and self._timestamp is not None:  # timestamp is None if no value received yet
             values = {
                 "pm10_standard":   self._pm10_standard,

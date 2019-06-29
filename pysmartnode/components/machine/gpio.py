@@ -17,8 +17,8 @@ example config:
 }
 """
 
-__updated__ = "2019-04-29"
-__version__ = "0.4"
+__updated__ = "2019-06-04"
+__version__ = "0.5"
 
 import gc
 import machine
@@ -40,7 +40,7 @@ class GPIO(Component):
         super().__init__()
         mqtt_topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}/{!s}".format(_component_name, str(pin)), is_request=True)
         self._topic = mqtt_topic
-        self._subscribe(self._topic)
+        self._subscribe(self._topic, self.on_message)
         self.pin = Pin(pin, machine.Pin.OUT, value=0)
         self._frn = friendly_name
         self._name = "{!s}_{!s}".format(_component_name, pin)

@@ -17,8 +17,8 @@ example config:
 makes esp8266 listen to requested gpio changes or return pin.value() if message is published without payload
 """
 
-__updated__ = "2019-04-29"
-__version__ = "1.0"
+__updated__ = "2019-06-04"
+__version__ = "1.1"
 
 import gc
 import machine
@@ -39,7 +39,7 @@ class GPIO(Component):
     def __init__(self, topic=None, discover_pins=None):
         super().__init__()
         self._topic = topic or _mqtt.getDeviceTopic("GPIO/#")
-        self._subscribe(self._topic)
+        self._subscribe(self._topic, self.on_message)
         self._d = discover_pins or []
 
     async def _discovery(self):

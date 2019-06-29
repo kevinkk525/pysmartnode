@@ -4,8 +4,8 @@ Created on 2018-09-21
 @author: Kevin Köck
 '''
 
-__version__ = "0.7"
-__updated__ = "2019-04-26"
+__version__ = "0.8"
+__updated__ = "2019-06-24"
 
 import uasyncio as asyncio
 import time
@@ -44,8 +44,10 @@ async def requestConfig(config, mqtt, log):
 
 class AwaitConfig:
     """Temporary class not following the utils/Component base class"""
-    _topics = None
-    _next_component = None
+
+    def __init__(self):
+        self._next_component = None  # needed to keep a list of registered components
+        self._topics = {"{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id): self.on_message}
 
     @staticmethod
     async def on_message(topic, msg, retained):
@@ -77,17 +79,18 @@ async def _receiveConfig(log):
     log.info("Receiving config", local_only=True)
     c = _pyconfig._components
     p = None
+    awaitConfig = AwaitConfig()
     while c is not None:
         p = c
         c = c._next_component
     if p is not None:
-        p._next_component = AwaitConfig
+        p._next_component = awaitConfig
     else:
-        _pyconfig._components = AwaitConfig
-    AwaitConfig._topics = "{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id)
+        _pyconfig._components = awaitConfig
     # mqtt not fully initialized when class was created created
     for i in range(1, 4):
-        await _mqtt.subscribe(AwaitConfig._topics, qos=1, check_retained_state_topic=False)
+        await _mqtt.subscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id), qos=1,
+                              check_retained_state_topic=False)
         log.debug("waiting for config", local_only=True)
         await _mqtt.publish("{!s}/login/{!s}/set".format(_mqtt.mqtt_home, _mqtt.client_id), _pyconfig.VERSION, qos=1)
         t = time.ticks_ms()
@@ -96,7 +99,7 @@ async def _receiveConfig(log):
                 await asyncio.sleep_ms(200)
             else:
                 _awaiting_config = False
-                if _pyconfig._components == AwaitConfig:
+                if _pyconfig._components == awaitConfig:
                     _pyconfig._components = None
                 else:
                     c = _pyconfig._components
@@ -107,10 +110,12 @@ async def _receiveConfig(log):
                             break
                         p = c
                         c = c._next_component
+                del awaitConfig
                 return
     await _mqtt.unsubscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id))
     _has_failed = True
     _awaiting_config = False
+    del awaitConfig
     return
 
 

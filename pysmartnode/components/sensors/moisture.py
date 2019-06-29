@@ -45,7 +45,7 @@ gc.collect()
 
 
 # TODO: Divide sensor into multiple components as this is currently just a controller returning
-#  all values and doesn't conform to the new API. Only affects other programs calling humidity()
+#  all values and therefore doesn't conform to the new API. Only affects other programs calling humidity()
 
 class Moisture(Component):
     def __init__(self, adc_pin, water_voltage, air_voltage, sensor_types,

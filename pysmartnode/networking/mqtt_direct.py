@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__version__ = "3.5"
-__updated__ = "2019-04-26"
+__version__ = "3.6"
+__updated__ = "2019-06-24"
 
 import gc
 import json
@@ -31,6 +31,8 @@ import sys
 
 _log = logging.getLogger("MQTT")
 gc.collect()
+
+type_gen = type((lambda: (yield))())  # Generator type
 
 
 class MQTTHandler(MQTTClient):
@@ -128,7 +130,7 @@ class MQTTHandler(MQTTClient):
         c = config._components
         while c is not None:
             if hasattr(c, "_topics") is True:
-                ts = [c._topics] if type(c._topics) == str else c._topics
+                ts = c._topics
                 for t in ts:
                     if self.isDeviceTopic(t):
                         t = self.getRealTopic(t)
@@ -150,7 +152,7 @@ class MQTTHandler(MQTTClient):
         return False
 
     @staticmethod
-    def matchesSubscription(topic, subscription):
+    def matchesSubscription(topic, subscription, ignore_command=False):
         if topic == subscription:
             return True
         if subscription.endswith("/#"):
@@ -160,6 +162,9 @@ class MQTTHandler(MQTTClient):
                     # check if identifier matches subscription or has sublevel
                     # (home/test/# does not listen to home/testing)
                     return True
+        if ignore_command is True and subscription.endswith("/set"):
+            if topic == subscription[:-4]:
+                return True
         return False
 
     async def unsubscribe(self, topic=None, component=None):
@@ -167,7 +172,7 @@ class MQTTHandler(MQTTClient):
             raise TypeError("No topic and no component, can't unsubscribe")
         _log.debug("unsubscribing topic {!s} from component {}".format(topic, component), local_only=True)
         if component is not None and topic is None:
-            topic = component._topics if hasattr(component, "_topics") else None
+            topic = component._topics if hasattr(component, "_topics") else [None]
             # removing all topics from component in iteration below
         topic = [topic] if type(topic) == str else topic
         for t in topic:
@@ -178,16 +183,15 @@ class MQTTHandler(MQTTClient):
             while c is not None:
                 if hasattr(c, "_topics") is True:
                     if c != component:
-                        ts = [c._topics] if type(c._topics) == str else c._topics
+                        ts = c._topics
                         for tc in ts:
                             if self.isDeviceTopic(tc):
                                 tc = self.getRealTopic(tc)
                                 if self.matchesSubscription(t, tc) is True:
                                     found = True
                                     break
-                    else:  # remove topic from component topic list as component
-                        topics = list(c._topics) if type(c._topics) == tuple else [c._topics]
-                        topics.remove(t)
+                    else:  # remove topic from component topic dict
+                        del c._topics[t]
                         c._topics = t
                 c = c._next_component
             if found is False:
@@ -248,23 +252,31 @@ class MQTTHandler(MQTTClient):
             msg = json.loads(msg)
         except ValueError:
             pass  # maybe not a json string, no way of knowing
+        if topic in self._temp and retained is True:  # checking retained state topic
+            topic_subs = topic + "/set"
+        else:
+            topic_subs = topic
         c = config._components
         loop = asyncio.get_event_loop()
         found = False
         while c is not None:
+            print("execute_sync, c", c)
             if hasattr(c, "_topics") is True:
-                t = [c._topics] if type(c._topics) == str else c._topics
+                t = c._topics  # _topics is dict
                 for tt in t:
-                    if self.matchesSubscription(topic, tt) is True:
-                        loop.create_task(self._execute_callback(c, topic, msg, retained))
+                    if self.matchesSubscription(topic_subs, tt) is True:
+                        loop.create_task(self._execute_callback(t[tt], topic, msg, retained))
+                        _log.debug("execute_callback {!s} {!s} {!s}".format(t[tt], topic, msg), local_only=True)
                         found = True
             c = c._next_component
         if found is False:
             _log.warn("Subscribed topic {!s} not found".format(topic))
 
-    async def _execute_callback(self, component, topic, msg, retained):
+    async def _execute_callback(self, cb, topic, msg, retained):
         try:
-            res = await component.on_message(topic, msg, retained)
+            res = cb(topic, msg, retained)
+            if type(res) == type_gen:
+                res = await res
             if not retained and topic.endswith("/set"):
                 # if a /set topic is found, send without /set, this is always retained:
                 if res is not None and res is not False:  # Could be any return value

@@ -33,8 +33,8 @@ example config:
 # Specific DS18 unit. 
 """
 
-__updated__ = "2019-05-15"
-__version__ = "2.3"
+__updated__ = "2019-06-04"
+__version__ = "2.4"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -81,17 +81,19 @@ class DS18_Controller(ds18x20.DS18X20):
         asyncio.get_event_loop().create_task(self._loop(auto_discovery))
 
     async def _loop(self, auto_discovery=False):
+        roms = []
+        for _ in range(4):
+            roms_n = self.scan()
+            for rom in roms_n:
+                if rom not in roms:
+                    roms.append(rom)
+            await asyncio.sleep_ms(100)
         if auto_discovery is True:
-            roms = []
-            for _ in range(4):
-                roms_n = self.scan()
-                for rom in roms_n:
-                    if rom not in roms:
-                        roms.append(rom)
-                await asyncio.sleep_ms(100)
             for rom in roms:
                 DS18(rom)
                 await asyncio.sleep_ms(100)  # give discovery time to publish
+        roms = [self.rom2str(rom) for rom in roms]
+        await _log.asyncLog("info", "Found ds18: {!s}".format(roms))
         interval = self._interval
         await asyncio.sleep(1)
         while True:

@@ -19,12 +19,13 @@ example config:
         # interval: 600     # optional, defaults to 600s, interval in which voltage gets published
         # mqtt_topic: null  # optional, defaults to <home>/<device-id>/battery
         # interval_watching: 1 # optional, the interval in which the voltage will be checked, defaults to 1s
-        # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery     
+        # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
+        # friendly_name_abs: null # optional, friendly name for absolute voltage     
     }
 }
 """
 
-__version__ = "0.1"
+__version__ = "0.2"
 __updated__ = "2018-08-18"
 
 from pysmartnode import config
@@ -48,7 +49,7 @@ gc.collect()
 class Battery(Component):
     def __init__(self, adc, voltage_max, voltage_min, multiplier_adc, cutoff_pin=None,
                  precision_voltage=2, interval_watching=1,
-                 interval=None, mqtt_topic=None, friendly_name=None):
+                 interval=None, mqtt_topic=None, friendly_name=None, friendly_name_abs=None):
         super().__init__()
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         self._interval_watching = interval_watching
@@ -62,6 +63,7 @@ class Battery(Component):
         if self._cutoff_pin is not None:
             self._cutoff_pin.value(0)
         self._frn = friendly_name
+        self._frn_abs = friendly_name_abs
         gc.collect()
         self._event_low = None
         self._event_high = None
@@ -98,6 +100,11 @@ class Battery(Component):
         interval_watching = self._interval_watching
         t = time.ticks_ms()
         while True:
+            # reset enets on next reading so consumers don't need to do it as there might be multiple consumers awaiting
+            if self._event_low is not None:
+                self._event_low.release()
+            if self._event_high is not None:
+                self._event_high.release()
             if time.ticks_ms() > t:
                 # publish interval
                 voltage = self._read()
@@ -136,5 +143,13 @@ class Battery(Component):
     async def _discovery(self):
         sens = DISCOVERY_SENSOR.format("battery",  # device_class
                                        "%",  # unit_of_measurement
-                                       "{{ value|float }}")  # value_template
-        await self._publishDiscovery(_component_type, self._topic, _component_name, sens, self._frn or "Battery")
+                                       "{{ value_json.relative }}")  # value_template
+        await self._publishDiscovery(_component_type, self._topic, _component_name + "r", sens,
+                                     self._frn or "Battery %")
+        sens = '"unit_of_meas":"V",' \
+               '"val_tpl":"{{ value_json.absolute }}",' \
+               '"ic":"mdi:car-battery"'
+        await self._publishDiscovery(_component_type, self._topic, _component_name + "a", sens,
+                                     self._frn_abs or "Battery Volt")
+        del sens
+        gc.collect()

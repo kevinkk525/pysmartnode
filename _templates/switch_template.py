@@ -16,8 +16,8 @@ example config:
 }
 """
 
-__updated__ = "2019-05-11"
-__version__ = "1.0"
+__updated__ = "2019-06-03"
+__version__ = "1.1"
 
 import gc
 from pysmartnode import config
@@ -51,7 +51,7 @@ class Switch(Component):
         _count += 1
         self._topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}/{!s}".format(_component_name, self._count),
                                                          is_request=True)
-        self._subscribe(self._topic)
+        self._subscribe(self._topic, self.on_message)
         self._frn = friendly_name
         gc.collect()
         self.lock = config.Lock()  # in case switch activates a device that will need a while to finish
