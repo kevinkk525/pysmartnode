@@ -9,7 +9,7 @@ __updated__ = "2019-06-24"
 
 import uasyncio as asyncio
 import time
-import json
+import ujson
 
 _mqtt = None
 _log = None
@@ -66,7 +66,7 @@ class AwaitConfig:
             # saving components
             _saveComponentsFile(msg)
             global _config
-            _config = json.dumps(msg)
+            _config = ujson.dumps(msg)
             global _has_succeeded
             _has_succeeded = True
             return
@@ -128,7 +128,7 @@ def _saveComponentsFile(msg):
         _log.debug("Not saving components as filesystem is unavailable", local_only=True)
         return
     if platform == "esp8266":
-        tmp = json.dumps(msg["_order"])
+        tmp = ujson.dumps(msg["_order"])
         f = open("_order.json", "w")
         f.write(tmp)
         f.close()
@@ -146,7 +146,7 @@ def _saveComponentsFile(msg):
             if component != "_order":
                 try:
                     f = open("components/{!s}.json".format(component), "w")
-                    f.write(json.dumps(msg[component]))
+                    f.write(ujson.dumps(msg[component]))
                     f.close()
                 except Exception as e:
                     _log.error("Can't save component {!s}, {!s}".format(component, e))
@@ -155,7 +155,7 @@ def _saveComponentsFile(msg):
         except Exception as e:
             pass
     else:
-        tmp = json.dumps(msg)
+        tmp = ujson.dumps(msg)
         f = open("components.json", "w")
         f.write(tmp)
         f.close()

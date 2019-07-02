@@ -16,8 +16,8 @@ DISCOVERY_DEVICE_BASE = '{{' \
                         '"sw":"pysmartnode {!s}",' \
                         '"mf":"{!s}",' \
                         '"mdl":"{!s}",' \
-                        '"name": "{!s}",' \
-                        '"connections": [["mac", "{!s}"]]' \
+                        '"name": "{!s}"' \
+                        '{!s}' \
                         '}}'
 
 
@@ -45,9 +45,9 @@ def getDeviceDiscovery():
     if platform != "linux":
         import network
         s = network.WLAN(network.STA_IF)
-        mac = ubinascii.hexlify(s.config("mac"), ":").decode()
+        mac = ',"connections": [["mac", "{!s}"]]'.format(ubinascii.hexlify(s.config("mac"), ":").decode())
     else:
-        mac = "null"
+        mac = ""
     return DISCOVERY_DEVICE_BASE.format(getDeviceID(),
                                         config.VERSION,
                                         mf,

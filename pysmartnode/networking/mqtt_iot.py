@@ -8,7 +8,7 @@ __version__ = "3.5"
 __updated__ = "2019-01-03"
 
 import gc
-import json
+import ujson
 import time
 
 gc.collect()
@@ -96,7 +96,7 @@ class MQTTHandler(Mqtt):
                 del sys.modules["pysmartnode.networking.mqtt_receive_config"]
                 gc.collect()
                 _log.debug("RAM after receiveConfig deletion: {!s}".format(gc.mem_free()), local_only=True)
-                result = json.loads(result)
+                result = ujson.loads(result)
                 loop = asyncio.get_event_loop()
                 if platform == "esp8266":
                     # on esp8266 components are split in small files and loaded after each other
@@ -190,7 +190,7 @@ class MQTTHandler(Mqtt):
         else:
             topic = data[0]
         try:
-            msg = json.loads(data[2])
+            msg = ujson.loads(data[2])
         except ValueError:
             msg = data[2]
         try:
