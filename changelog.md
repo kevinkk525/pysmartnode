@@ -8,7 +8,8 @@
 * Updated most components accordingly. Some topics and configurations have changed, check your configs! Not updated components were moved to _dev as they need more looking at.
 * [Templates] Updated templates.
 * [RAM] component is now part of a basic system component.
-* [DS18] Component completely rewritten. It is now fully separated into a controller and a unit object. The controller has control over the onewire bus and reads all configured units. (Having other onewire devices on the same bus should be possible. No common onewire controller integrated at the moment). The DS18 unit object supports homeassistant discovery and therefore every DS18 unit connected to the controller has to be configured, unless auto-discovery is enabled on the controller, which will just create an object for each found sensor (this however makes using these in other components impossible and only serves to publish read temperatures). 
+* [DS18] Component completely rewritten. It is now fully separated into a controller and a unit object. The controller has control over the onewire bus and reads all configured units. (Having other onewire devices on the same bus should be possible. No common onewire controller integrated at the moment). The DS18 unit object supports homeassistant discovery and therefore every DS18 unit connected to the controller has to be configured, unless auto-discovery is enabled on the controller, which will just create an object for each found sensor (this however makes using these in other components impossible and only serves to publish read temperatures).
+* [UNIX] Added support for unix port of Micropython! (Most sensors won't be available as it doesn't have a gpio interface, working on an interface for the Pi) 
 
 ---------------------------------------------------
 #### Version 4.1.1

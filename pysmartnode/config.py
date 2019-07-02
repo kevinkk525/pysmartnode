@@ -12,6 +12,9 @@ __updated__ = "2018-09-18"
 from config import *
 from sys import platform
 
+if platform == "linux" and DEVICE_NAME is None:
+    raise TypeError("DEVICE_NAME has to be set on unix port")
+
 # General
 VERSION = const(500)
 print("PySmartNode version {!s} started".format(VERSION))

@@ -4,12 +4,11 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__version__ = "3.6"
-__updated__ = "2019-06-24"
+__version__ = "3.7"
+__updated__ = "2019-07-02"
 
 import gc
 import json
-import time
 
 gc.collect()
 
@@ -48,7 +47,8 @@ class MQTTHandler(MQTTClient):
         self.payload_off = ("OFF", False, "False")
         self.client_id = sys_vars.getDeviceID()
         self.mqtt_home = config.MQTT_HOME
-        super().__init__(server=config.MQTT_HOST,
+        super().__init__(client_id=self.client_id,
+                         server=config.MQTT_HOST,
                          port=1883,
                          user=config.MQTT_USER,
                          password=config.MQTT_PASSWORD,
@@ -75,7 +75,7 @@ class MQTTHandler(MQTTClient):
     async def _connected(self, client):
         if self.__receive_config is not None:
             # only log on first connection, not on reconnect as nothing has changed here
-            await _log.asyncLog("info", str(os.uname()))
+            await _log.asyncLog("info", str(os.name if platform == "linux" else os.uname()))
             await _log.asyncLog("info", "Client version: {!s}".format(config.VERSION))
         if self.__receive_config is None:
             # do not try to resubscribe on first connect as components will do it
@@ -260,7 +260,7 @@ class MQTTHandler(MQTTClient):
         loop = asyncio.get_event_loop()
         found = False
         while c is not None:
-            print("execute_sync, c", c)
+            print("execute_sync, c", c)  # DEBUG
             if hasattr(c, "_topics") is True:
                 t = c._topics  # _topics is dict
                 for tt in t:
