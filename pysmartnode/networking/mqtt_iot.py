@@ -8,7 +8,7 @@ __version__ = "3.5"
 __updated__ = "2019-01-03"
 
 import gc
-import json
+import ujson
 import time
 
 gc.collect()
@@ -33,10 +33,12 @@ gc.collect()
 
 type_gen = type((lambda: (yield))())  # Generator type
 
-app_handler = apphandler.AppHandler(asyncio.get_event_loop(), config.id, config.MQTT_HOST,
+app_handler = apphandler.AppHandler(asyncio.get_event_loop(), sys_vars.getDeviceID(), config.MQTT_HOST,
                                     8888, timeout=3000, verbose=True,
                                     led=Pin(2, Pin.OUT, value=1))
 
+
+# TODO: update to support new APIs like mqtt_direct
 
 class MQTTHandler(Mqtt):
     def __init__(self, receive_config=False):
@@ -50,7 +52,7 @@ class MQTTHandler(Mqtt):
         gc.collect()
         self.payload_on = ("ON", True, "True")
         self.payload_off = ("OFF", False, "False")
-        self.client_id = config.id
+        self.client_id = sys_vars.getDeviceID()
         self.mqtt_home = config.MQTT_HOME
         super().__init__((self.getRealTopic(self.getDeviceTopic("status")), "OFFLINE", 1, True),
                          (self.getRealTopic(self.getDeviceTopic("status")), "ONLINE", 1, True))
@@ -84,7 +86,7 @@ class MQTTHandler(Mqtt):
                 del sys.modules["pysmartnode.networking.mqtt_receive_config"]
                 gc.collect()
                 _log.debug("RAM after receiveConfig deletion: {!s}".format(gc.mem_free()), local_only=True)
-                local_works = await config.loadComponentsFile()
+                local_works = await config._loadComponentsFile()
                 if local_works is True:
                     return True
             else:
@@ -94,18 +96,18 @@ class MQTTHandler(Mqtt):
                 del sys.modules["pysmartnode.networking.mqtt_receive_config"]
                 gc.collect()
                 _log.debug("RAM after receiveConfig deletion: {!s}".format(gc.mem_free()), local_only=True)
-                result = json.loads(result)
+                result = ujson.loads(result)
                 loop = asyncio.get_event_loop()
                 if platform == "esp8266":
                     # on esp8266 components are split in small files and loaded after each other
                     # to keep RAM requirements low, only if filesystem is enabled
                     if sys_vars.hasFilesystem():
-                        loop.create_task(config.loadComponentsFile())
+                        loop.create_task(config._loadComponentsFile())
                     else:
-                        loop.create_task(config.registerComponentsAsync(result))
+                        loop.create_task(config._registerComponentsAsync(result))
                 else:
                     # on esp32 components are registered directly but async to let logs run between registrations
-                    loop.create_task(config.registerComponentsAsync(result))
+                    loop.create_task(config._registerComponentsAsync(result))
                 return True
             await asyncio.sleep(60)  # if connection not stable or broker unreachable, try again in 60s
 
@@ -188,7 +190,7 @@ class MQTTHandler(Mqtt):
         else:
             topic = data[0]
         try:
-            msg = json.loads(data[2])
+            msg = ujson.loads(data[2])
         except ValueError:
             msg = data[2]
         try:
@@ -207,3 +209,19 @@ class MQTTHandler(Mqtt):
 
     def schedulePublish(self, topic, msg, qos=0, retain=False):
         asyncio.get_event_loop().create_task(self.publish(topic, msg, qos, retain))
+
+    @staticmethod
+    def matchesSubscription(topic, subscription, ignore_command=False):
+        if topic == subscription:
+            return True
+        if subscription.endswith("/#"):
+            lens = len(subscription)
+            if topic[:lens - 2] == subscription[:-2]:
+                if len(topic) == lens - 2 or topic[lens - 2] == "/":
+                    # check if identifier matches subscription or has sublevel
+                    # (home/test/# does not listen to home/testing)
+                    return True
+        if ignore_command is True and subscription.endswith("/set"):
+            if topic == subscription[:-4]:
+                return True
+        return False

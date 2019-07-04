@@ -23,6 +23,10 @@ example config:
         # POWER_TOPIC: None         # optional, defaults to <home>/<device-id>/heater/power, for requesting and publishing the current power level of the heater (if supported)
         # TARGET_TEMP_TOPIC: None   # optional, defaults to <home>/<device-id>/heater/temp, for changing the target temperature
         # MODE_TOPIC: None          # optional, defaults to <home>/<device-id>/heater/mode, for setting heater to internal mode, fully remotely controlled, etc
+        # friendly_name_temperature: None # optional, defaults to "Target Temperature", for homeassistant gui
+        # friendly_name_mode: None  # optional, defaults to "Mode"
+        # friendly_name_power: None # optional, defaults to "Power"
+        # frindly_name_status: None # optional, defaults to "Status"
     }
 }
 """
@@ -36,8 +40,8 @@ Short documentation:
 - heater reacts to temperature change every REACTION_TIME seconds and waits xxx_CYCLES before starting/shutting down heater
 """
 
-__updated__ = "2019-01-03"
-__version__ = "0.9"
+__updated__ = "2019-06-04"
+__version__ = "1.1"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -45,16 +49,24 @@ import uasyncio as asyncio
 from pysmartnode.utils.event import Event
 import gc
 import time
+from pysmartnode.utils.component import Component, DISCOVERY_SWITCH
 
 _mqtt = config.getMQTT()
 log = logging.getLogger("Heater")  # not _log as submodules import it
 gc.collect()
 
+_heater = None
+_component_name = "heater"
+_component_type = "sensor"
 
-class Heater:
+
+class Heater(Component):
     def __init__(self, TEMP_SENSOR, REACTION_TIME, HYSTERESIS_LOW, HYSTERESIS_HIGH,
                  SHUTDOWN_CYCLES, START_CYCLES, FROST_TEMP=16, SHUTDOWN_TEMP=29, TARGET_TEMP=22,
-                 TARGET_TEMP_TOPIC=None, STATUS_TOPIC=None, POWER_TOPIC=None, MODE_TOPIC=None):
+                 TARGET_TEMP_TOPIC=None, STATUS_TOPIC=None, POWER_TOPIC=None, MODE_TOPIC=None,
+                 friendly_name_temperature=None, friendly_name_mode=None, friendly_name_power=None,
+                 friendly_name_status=None):
+        super().__init__()
         # self.__sensor = config.getComponent(TEMP_SENSOR)
         self.__sensor = TEMP_SENSOR  # registerComponents already gets the component
         if self.__sensor is None:
@@ -75,8 +87,10 @@ class Heater:
         self.__target_temp = TARGET_TEMP
         self.__status_topic = STATUS_TOPIC or _mqtt.getDeviceTopic("heater/status")
         self.__power_topic = POWER_TOPIC or _mqtt.getDeviceTopic("heater/power")
-        self.__mode_topic = MODE_TOPIC or _mqtt.getDeviceTopic("heater/mode")
-        self.__target_temp_topic = TARGET_TEMP_TOPIC or _mqtt.getDeviceTopic("heater/temp")
+        self.__mode_cmd_topic = MODE_TOPIC or _mqtt.getDeviceTopic("heater/mode", is_request=True)
+        self.__target_temp_cmd_topic = TARGET_TEMP_TOPIC or _mqtt.getDeviceTopic("heater/temp", is_request=True)
+        self._subscribe(self.__mode_cmd_topic, self.setMode)
+        self._subscribe(self.__target_temp_cmd_topic, self._requestTemp)
         ######
         # internal variables
         ######
@@ -92,7 +106,31 @@ class Heater:
         self.__setHeaterPower = None  # coro of registered hardware
         self.__initializeHardware = None  # initialization coro if hardware requires it
         #####
-        asyncio.get_event_loop().create_task(self._initialize())
+        global _heater
+        if _heater is None:
+            _heater = self
+        self._frn_temp = friendly_name_temperature
+        self._frn_mode = friendly_name_mode
+        self._frn_power = friendly_name_power
+        self._frn_status = friendly_name_status
+
+    async def _discovery(self):
+        name = "heater_target_temp"
+        await self._publishDiscovery(_component_type, self.__target_temp_cmd_topic[:-4], name, DISCOVERY_SWITCH,
+                                     self._frn_temp or " Target Temperature")
+        gc.collect()
+        name = "heater_mode"
+        await self._publishDiscovery(_component_type, self.__mode_cmd_topic[:-4], name, DISCOVERY_SWITCH,
+                                     self._frn_mode or "Mode")
+        gc.collect()
+        name = "heater_power"
+        await self._publishDiscovery(_component_type, self.__power_topic, name, "",
+                                     self._frn_power or "Power")
+        gc.collect()
+        name = "heater_status"
+        await self._publishDiscovery(_component_type, self.__status_topic, name, "",
+                                     self._frn_status or "Power")
+        gc.collect()
 
     async def _updateMQTTStatus(self):
         await _mqtt.publish(self.__power_topic, self.__target_power, qos=1, retain=True)
@@ -103,8 +141,8 @@ class Heater:
                 await _mqtt.publish(self.__status_topic, "ON", qos=1, retain=True)
         else:
             await _mqtt.publish(self.__status_topic, self.__last_error, qos=1, retain=True)
-        await _mqtt.publish(self.__target_temp_topic, self.__target_temp, qos=1, retain=True)
-        await _mqtt.publish(self.__mode_topic, self.__active_mode, qos=1, retain=True)
+        await _mqtt.publish(self.__target_temp_cmd_topic[:-4], self.__target_temp, qos=1, retain=True)
+        await _mqtt.publish(self.__mode_cmd_topic[:-4], self.__active_mode, qos=1, retain=True)
 
     def registerHardware(self, set_power, hardware_init=None):
         self.__setHeaterPower = set_power
@@ -157,8 +195,8 @@ class Heater:
     def getPowerTopic(self):
         return self.__power_topic
 
-    def getModeTopic(self):
-        return self.__mode_topic
+    def getModeCmdTopic(self):
+        return self.__mode_cmd_topic
 
     def getActiveMode(self):
         return self.__active_mode
@@ -175,10 +213,9 @@ class Heater:
     def getLastError(self):
         return self.__last_error
 
-    async def _initialize(self):
+    async def _init(self):
+        await super()._init()
         await log.asyncLog("info", "Heater Core version {!s}".format(__version__))
-        await _mqtt.subscribe(self.__mode_topic + "/set", self.setMode, qos=1)
-        await _mqtt.subscribe(self.__target_temp_topic + "/set", self._requestTemp, qos=1)
         if self.__initializeHardware is not None:
             await self.__initializeHardware()
         asyncio.get_event_loop().create_task(self._timer())
@@ -207,7 +244,7 @@ class Heater:
         self.__cycles_target_reached = -2 if retain else 0
         if self.__loop_started:
             self.__event.set()
-        await _mqtt.publish(self.__mode_topic[:-4], msg, retain=True, qos=1)
+        await _mqtt.publish(self.__mode_cmd_topic[:-4], msg, retain=True, qos=1)
         gc.collect()
         return True
 
@@ -263,14 +300,14 @@ class Heater:
                     if temp_reading_errors >= 3:
                         log.critical("heater could not get temperature 3 times, shutting down heater")
                         self.__last_error = "NO_TEMP"
-                        await self._setHeaterPower(0)
+                        await self.setHeaterPower(0)
                 self.__timer_time = time.ticks_ms() - self.__interval / 2 * 1000  # wait only 1/2 reaction time
                 do_update = False
             elif current_temp < self.__frost_temp and self.__target_power < 100:
                 if self.__last_error != "FROST":
                     if self.__active_mode != "INTERNAL":
                         self.__active_mode = "INTERNAL"  # if different mode was active, it has failed
-                    await self._setHeaterPower(100)
+                    await self.setHeaterPower(100)
                     self.__last_error = "FROST"
                 else:
                     frost_cycles += 1
@@ -283,7 +320,7 @@ class Heater:
                     if self.__active_mode != "INTERNAL":
                         self.__active_mode = "INTERNAL"  # if different mode was active, it has failed (or summer)
                     log.error("heater shutdown due to too high temperature of {!r}°C".format(current_temp))
-                    await self._setHeaterPower(0)
+                    await self.setHeaterPower(0)
                     self.__last_error = "TOO_HOT"
                 # could be summer
                 temp_reading_errors = 0
@@ -335,9 +372,9 @@ class Heater:
         log.debug("cycles_target_reached: {!s}".format(self.__cycles_target_reached), local_only=True)
         if power is None:
             return
-        await self._setHeaterPower(power)
+        await self.setHeaterPower(power)
 
-    async def _setHeaterPower(self, power):
+    async def setHeaterPower(self, power):
         if self.__setHeaterPower is None:
             log.error("No hardware registered to control heater")
             await _mqtt.publish(self.__status_topic, "ERR: NO HARDWARE", qos=1, retain=True)

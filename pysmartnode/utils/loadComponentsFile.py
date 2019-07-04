@@ -8,7 +8,7 @@ __version__ = "0.1"
 __updated__ = "2018-09-25"
 
 from pysmartnode.utils import sys_vars
-import json
+import ujson
 from sys import platform
 import gc
 import uasyncio as asyncio
@@ -54,14 +54,14 @@ async def loadComponentsFile(_log, registerComponentsAsync):
                 return False
             else:
                 return comps
-        order = json.loads(f.read())
+        order = ujson.loads(f.read())
         f.close()
         gc.collect()
         for component in order:
             tmp = {"_order": [component]}
             try:
                 f = open("components/{!s}.json".format(component), "r")
-                tmp[component] = json.loads(f.read())
+                tmp[component] = ujson.loads(f.read())
                 f.close()
                 await registerComponentsAsync(tmp)
             except Exception as e:
@@ -78,7 +78,7 @@ async def loadComponentsFile(_log, registerComponentsAsync):
         c = f.read()
         f.close()
         try:
-            c = json.loads(c)
+            c = ujson.loads(c)
             gc.collect()
             return c
         except Exception as e:

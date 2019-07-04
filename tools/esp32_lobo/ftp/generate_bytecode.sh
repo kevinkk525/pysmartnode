@@ -3,9 +3,9 @@
 echo "Cur dir: $(pwd)"
 
 mkdir /tmp/WNodePython
-rsync -av "/home/kevin/ws_cloud/Programme Python/WNodePython/pysmartnode" /mnt/r/WNodePython/ --delete --exclude=__pycache__ --exclude=.git --exclude=.gitignore --exclude=.project --exclude=.pydevproject --exclude=*.mpy --exclude=*.md --exclude=*.bin
-rsync -av "/home/kevin/ws_cloud/Programme Python/WNodePython/_testing" /mnt/r/WNodePython/ --delete --exclude=__pycache__ --exclude=.git --exclude=.gitignore --exclude=.project --exclude=.pydevproject --exclude=*.mpy --exclude=*.md --exclude=*.bin
-rsync -av "/home/kevin/ws_cloud/Programme Python/WNodePython/external_modules" /mnt/r/WNodePython/ --exclude=*.egg-info --exclude=.git --exclude=.gitignore --exclude=.project --exclude=.pydevproject --exclude=*.mpy --exclude=*.md --exclude=*.bin
+rsync -av "/home/kevin/ws_cloud/Programme Python/WNodePython/pysmartnode" /mnt/r/WNodePython/ --delete --exclude=__pycache__ --exclude=.git --exclude=.gitignore --exclude=.project --exclude=.pydevproject --exclude=*.mpy --exclude=*.md --exclude=*.bin --exclude=*.h --exclude=*.c --exclude=*.cpp
+rsync -av "/home/kevin/ws_cloud/Programme Python/WNodePython/_testing" /mnt/r/WNodePython/ --delete --exclude=__pycache__ --exclude=.git --exclude=.gitignore --exclude=.project --exclude=.pydevproject --exclude=*.mpy --exclude=*.md --exclude=*.bin --exclude=*.h --exclude=*.c --exclude=*.cpp
+rsync -av "/home/kevin/ws_cloud/Programme Python/WNodePython/external_modules" /mnt/r/WNodePython/ --exclude=*.egg-info --exclude=.git --exclude=.gitignore --exclude=.project --exclude=.pydevproject --exclude=*.mpy --exclude=*.md --exclude=*.bin --exclude=*.h --exclude=*.c --exclude=*.cpp
 
 cd /mnt/r/WNodePython
 for d in pysmartnode _testing external_modules 

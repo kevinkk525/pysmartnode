@@ -19,14 +19,13 @@ So I decided to build one myself with the following points in mind:
 
 ## 1.Hardware
 
-The project is compatible with ESP32 and ESP8266 microcontrollers.
+The project is tested on ESP32 and ESP8266 microcontrollers.
+It also supports the unix port. 
 
 ### ESP8266
 
-The ESP8266 works reliable and resilient and is useable 24/7 as it recovers from any crashes/freezes using a software watchdog. 
-Apprarently my firmware build had a RAM bug giving me 16kB less RAM than it should. I did pull the 1.10 firmware commits and this problem is gone! 
-So I wrongly assumed that there won't be much RAM left on the ESP8266. I'm happy to say that I now have 20kB of free RAM with ~7 active components and disabled filesystem! With active filesystem I have 16kB left.
-With this amount of free RAM you can use the ESP82666 with or without activated filesystem and with at least 20 components (depending on their size) without any RAM issues. 
+The ESP8266 works reliable and resilient and is useable 24/7 as it recovers from any crashes/freezes using a software watchdog. Before micropython 1.11 there was a bug that could freeze uasyncio for 1h 11min that made the software watchdog neccesary.  
+The device doesn't have much RAM but it's enough for multiple bigger components and many small ones. 
 
 ### ESP32
 
@@ -34,6 +33,13 @@ Official ESP32 port is supported since version 4.1.0 and loboris fork is now off
 However no code for loboris fork has been removed and even the updated modules are written to be compatible, I just don't test any features on that platform myself anymore. 
 
 In recent tests this hardware has shown to be finally resilient and can be used 24/7.
+
+### Unix port
+
+Since version 5.0.0 the unix port is supported. There are no calls to *machine* or *network* in the base code of the framework. 
+The usable components are limited at the moment as no GPIO support is available. However system calls work which gives a lot of options,
+e.g. to use the raspberry-remote library to control RF433Mhz devices.
+Basic GPIO support is planned to be implemented but will still be slow and not a C-module. 
 
 
 ## 2.Getting started
@@ -61,7 +67,7 @@ Required external modules are:
 
 * uasyncio (>=V2.0)
 * uasnycio-core (>=V2.0)
-* micropython-mqtt-as, my own fork that has small but important and incompatible changes: ([mqtt_as](https://github.com/kevinkk525/micropython-mqtt)) 
+* micropython-mqtt-as, my own fork that has many changes: ([mqtt_as](https://github.com/kevinkk525/micropython-mqtt)) 
 
 All required modules are in this repository and don't need to be aquired manually. 
 Just put the directories `micropython_mqtt_as` and `uasyncio` from `external_modules` into your `modules` directory before building the firmware or run the correct script in section `Tools`.
@@ -77,33 +83,38 @@ This format is used in the *SmartServer* (see 4.1.), if you want to put the conf
 
 Every added component will be published as *log.info* to *<home>/log/info/<device_id>*. If it contains the variable ``__version__`` then this will be published as well to make keeping track of component versions easier. 
 
-### Sensor-API
+### API
 
-Components can be and do anything. Sensors however all have a similar API to have a standardized usage.
+Components can be and do anything. There is a basic API and [base class](./pysmartnode/utils/component.py) which takes care of mqtt, discovery and the basic API. 
+<br>Sensors all have a similar API to have a standardized usage.
 For example all temperature sensors provide the function (coroutine actually) *sensor.temperature(publish=True)* that returns the temperature as float and takes the argument *publish=True* controlling if the read value should be published to mqtt in addition to reading the value.
 This should make working with different types of sensors easier. If you are e.g. building a heating controller and need a temperature from some sensor, you can just connect any sensor and provide the heating code with that sensor by configuration. 
 As every temperature sensor has the function (actually coroutine) *temperature()* returning the current temperature in float (or None on error) it does not care about which sensor is connected.
 
-### Sensor-Template
-To make building new components easier, there is a [template](./_templates/sensor_template.py).
+### MQTT-Discovery
+
+[Home-Assistant](https://www.home-assistant.io/) has the feature to automatically discover mqtt components if they provide the needed configuration using mqtt. 
+Since version 5.0.0 all components can now make use of the [MQTT-Discovery](https://www.home-assistant.io/docs/mqtt/discovery/).
 
 ### Component-Template
 
-As components have some kind of API too, there is a [template](./_templates/component_template.py).
+To make building new components easier, there is a [template](./_templates/component_template.py).
 It should help understanding how the configuration can be read and mqtt subscriptions and publishing values works.
 
+Besides the general components, components can mostly be divided in sensors and switches, which have a slightly different API.
+There are templates for both types of components, [sensors](./_templates/sensor_template.py) and [switches](./_templates/switch_template.py).
 
 ## 4.Configuration
 
 To run the pysmartnode on boot, just use the included "main.py".
 
 The environment specific configuration is done within the "config.py" file that has to be put in the root directory of your microcontroller (or if frozen in "modules"). Copy the "config_example.py" to "config.py" and change it according to your needs.
-In this file you have to specify the WIFI and MQTT details of your home environment.
+In this file you have to specify the WIFI and MQTT parameters of your home environment.
 There are also some optional parameters to configure base modules and behaviour.
 
 ### Project configuration
-The project configuration is done in the file *config.py* which should be created by copying the [config_example.py](./config_example.py).
-If you have a filesystem, copy it to there or put it as frozen bytecode in your modules directory.
+The project configuration is done in the file *config.py* which should be created by copying the [config_example.py](./config_example.py) as *config.py*.
+If you have a filesystem, copy it onto the device or put it as frozen bytecode in your modules directory.
 
 The basic configuration options are:
 * WIFI: SSID and PASSPHRASE
@@ -112,23 +123,34 @@ The basic configuration options are:
 Optional configurations for the network are:
 * MQTT_KEEPALIVE: the keepalive interval, if the device does not send a ping within this interval, it will be considered offline
 * MQTT_HOME: the mqtt root topic
+* MQTT_DISCOVERY_PREFIX: the discovery prefix configured in home-assistant, see [autodiscovery](https://www.home-assistant.io/docs/mqtt/discovery/).
+* MQTT_DISCOVERY_ENABLED: disable mqtt discovery if you don't want to use it or don't use home-assistant.
+* MQTT_DISCOVERY_ON_RECONNECT: if the discovery should be sent again after each reconnect. Only needed if the mqtt broker doesn't support saving retained messages when it restarts.
 * MQTT_RECEIVE_CONFIG: states if the device should receive its configuration using mqtt subscription. This only works when using [SmartServer](https://github.com/kevinkk525/SmartServer) in your network
+* MQTT_TYPE: support for an experimental connection type (will be described when fully tested, documented and implemented)
 
-Platform dependend options are
+Platform dependent options are
 - for esp8266:
     * LIGHTWEIGHT_LOG: if a logging module with less RAM demands should be used (saves ~500B)
     * MQTT_MINIMAL_VERSION: if a mqtt module should be used that is stripped to only the needed things (saves ~200B)
     * RTC_SYNC_ACTIVE: if RTC time sync should be done (saves ~600B)
     * RTC_TIMEZONE_OFFSET: as esp8266 does not support timezones, add your offset here to match your time
-    * USE_SOFTWARE_WATCHDOG: As some of my esp8266 occasionally get stuck for 1h 10minutes but not the interrupts, this makes using a software watchdog possible to reset hanging units (uses ~600B)
+    * USE_SOFTWARE_WATCHDOG: Needed for micropython versions before 1.11 as uasyncio could get stuck for 1h 11minutes but not the interrupts. This makes using a software watchdog possible to reset hanging units (uses ~600B)
 - for esp32_LoBo:
     * MDNS_ACTIVE, MDNS_HOSTNAME, MDNS_DESCRIPTION: mdns options
     * FTP_ACTIVE: enable the built-in ftp server, very nice to have
     * TELNET_ACTIVE: enable the built-in telnet server to access the repl over wifi
     * RTC_SYNC_ACTIVE, RTC_SERVER, RTC_TIMEZONE: enable RTC time sync, set the time server and timezone
+- for esp32 (official port):
+    * FTP_ACTIVE: FTP server from [Robert](https://github.com/robert-hh/FTP-Server-for-ESP8266-and-ESP32)
+    * RTC_SYNC_ACTIVE: if RTC time sync should be done
+    * RTC_TIMEZONE_OFFSET: as esp32 does not support timezones, add your offset here to match your time
+- for unix port:
+    * RTC_SYNC_ACTIVE: use synced time. Only disable if the underlying OS has no internet access and can't sync its time. Micropython doesn't sync the time on unix. 
 
 A few additional options define some constants:
 * INTERVAL_SEND_SENSOR: defines an interval, in which sensors are publishing their value if no interval is provided in the component configuration
+* DEVICE_NAME: set to a unique device name otherwise the device id will be used. This is relevant for homeassistant mqtt autodiscovery so the device gets recognized by its device_name instead of the id. It is also used with the unix port instead of the unique chip id (which is not available on the unix port) and it therefore has to be UNIQUE in your network or it will result in problems.
 * DEBUG: Will display additional information, useful for development only
 * DEBUG_STOP_AFTER_EXECUTION: normally if an uncatched exception occurs and the loop exits, it will send a log and reset the device. This disables it and will stop at the repl after the exception.
 
@@ -163,8 +185,8 @@ The file structure is the following, shown as hjson for improved readability so 
     component: I2C                  # class or function name inside module
     constructor_args:               # arguments for the contstructor (in case of class) or function arguments (can be list or dict)
     [
-      D6                            # string pin name for esp8266 NodeMCU
-      D5
+      "D6"                            # string pin name for esp8266 NodeMCU
+      "D5"
     ]
   }
   htu:
@@ -173,8 +195,8 @@ The file structure is the following, shown as hjson for improved readability so 
     component: HTU21D
     constructor_args: {
         i2c: i2c                    # i2c object created before, is being looked up in already registered components
-        #mqtt_topic: sometopic      # optional, defaults to defaults to <home>/<controller-id>/HTU
-        #interval: 600              # optional, defaults to 600s
+        # mqtt_topic: "sometopic"   # optional, defaults to defaults to <home>/<controller-id>/HTU
+        # interval: 600             # optional, defaults to 600s
         precision_temp: 2           # precision of the temperature value published
         precision_humid: 1          # precision of the humidity value published
         temp_offset: -2.0           # offset for temperature to compensate bad sensor reading offsets
@@ -262,6 +284,7 @@ A small overview of the directory structure:
         * machine:      libraries for controlling the device (gpio, watchdog, ...)
         * multiplexer:  all sorts of multiplexer: mux, analog-mux, passthrough-mux (analog-mux used as digital passthrough)
         * sensors:      all kinds of externally connected sensors
+        * unix:         components that can only be used with the unix port
     * libraries:        contains general device libraries not specific to pysmartnode
     * logging:          logging implementations sending log messages over mqtt
     * networking:       wifi and mqtt handling
@@ -273,6 +296,7 @@ A small overview of the directory structure:
 
 I'd like to provide a small flowchart which makes it easier to understand how this project works and which file is called when.
 It shows which modules are imported by which files first (as some are imported in different files of course) in a temporal flow. Only the most important modules are shown, not util modules.
+(Not up to date to version 5.0.0 yet)
 
 ![flowchart](./file_flowchart.jpg)
 

@@ -65,7 +65,7 @@ async def main():
     # This function allows you to periodically read a sensor and publish its value to the given
     # mqtt topic without any additional effort. (mqtt topic starting with "." is "<home>/<device-id>/"
 
-    config.addComponent("mycomponent", someinstance)
+    config.addNamedComponent("mycomponent", someinstance)
     # This is optional, it just puts your component in the dictionary where all registered components are
 
 

@@ -18,12 +18,14 @@ example config:
         precision_voltage: 2 # optional, the precision of the voltage published by mqtt
         # interval: 600     # optional, defaults to 600s, interval in which voltage gets published
         # mqtt_topic: null  # optional, defaults to <home>/<device-id>/battery
-        # interval_watching: 1 # optional, the interval in which the voltage will be checked, defaults to 1s     
+        # interval_watching: 1 # optional, the interval in which the voltage will be checked, defaults to 1s
+        # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
+        # friendly_name_abs: null # optional, friendly name for absolute voltage     
     }
 }
 """
 
-__version__ = "0.1"
+__version__ = "0.2"
 __updated__ = "2018-08-18"
 
 from pysmartnode import config
@@ -33,20 +35,24 @@ import gc
 import machine
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.components.machine.adc import ADC
+from pysmartnode.utils.component import Component, DISCOVERY_SENSOR
 import time
 
 _component_name = "Battery"
+_component_type = "sensor"
 
 _log = logging.getLogger(_component_name)
 _mqtt = config.getMQTT()
 gc.collect()
 
 
-class Battery:
+class Battery(Component):
     def __init__(self, adc, voltage_max, voltage_min, multiplier_adc, cutoff_pin=None,
                  precision_voltage=2, interval_watching=1,
-                 interval=None, mqtt_topic=None):
-        interval = interval or config.INTERVAL_SEND_SENSOR
+                 interval=None, mqtt_topic=None, friendly_name=None, friendly_name_abs=None):
+        super().__init__()
+        self._interval = interval or config.INTERVAL_SEND_SENSOR
+        self._interval_watching = interval_watching
         self._topic = mqtt_topic or _mqtt.getDeviceTopic(_component_name)
         self._precision = int(precision_voltage)
         self._adc = ADC(adc)  # unified ADC interface
@@ -56,10 +62,11 @@ class Battery:
         self._cutoff_pin = None if cutoff_pin is None else (Pin(cutoff_pin, machine.Pin.OUT))
         if self._cutoff_pin is not None:
             self._cutoff_pin.value(0)
+        self._frn = friendly_name
+        self._frn_abs = friendly_name_abs
         gc.collect()
         self._event_low = None
         self._event_high = None
-        asyncio.get_event_loop().create_task(self._watch(interval, interval_watching))
 
     def getVoltageMax(self):
         """Getter for consumers"""
@@ -87,9 +94,17 @@ class Battery:
     async def voltage(self, publish=True):
         return await self._read(publish=publish)
 
-    async def _watch(self, interval, interval_watching):
+    async def _init(self):
+        await super()._init()
+        interval = self._interval
+        interval_watching = self._interval_watching
         t = time.ticks_ms()
         while True:
+            # reset enets on next reading so consumers don't need to do it as there might be multiple consumers awaiting
+            if self._event_low is not None:
+                self._event_low.release()
+            if self._event_high is not None:
+                self._event_high.release()
             if time.ticks_ms() > t:
                 # publish interval
                 voltage = self._read()
@@ -124,3 +139,17 @@ class Battery:
 
     def registerEventLow(self, event):
         self._event_low = event
+
+    async def _discovery(self):
+        sens = DISCOVERY_SENSOR.format("battery",  # device_class
+                                       "%",  # unit_of_measurement
+                                       "{{ value_json.relative }}")  # value_template
+        await self._publishDiscovery(_component_type, self._topic, _component_name + "r", sens,
+                                     self._frn or "Battery %")
+        sens = '"unit_of_meas":"V",' \
+               '"val_tpl":"{{ value_json.absolute }}",' \
+               '"ic":"mdi:car-battery"'
+        await self._publishDiscovery(_component_type, self._topic, _component_name + "a", sens,
+                                     self._frn_abs or "Battery Volt")
+        del sens
+        gc.collect()

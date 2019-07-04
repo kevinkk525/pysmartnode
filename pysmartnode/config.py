@@ -12,13 +12,15 @@ __updated__ = "2018-09-18"
 from config import *
 from sys import platform
 
+if platform == "linux" and DEVICE_NAME is None:
+    raise TypeError("DEVICE_NAME has to be set on unix port")
+
 # General
-VERSION = const(411)
+VERSION = const(500)
 print("PySmartNode version {!s} started".format(VERSION))
 
 import gc
 import sys
-import time
 
 if DEBUG:
     def __printRAM(start, info=""):
@@ -30,7 +32,6 @@ _mem = gc.mem_free()
 
 from pysmartnode.utils import sys_vars
 
-id = sys_vars.getDeviceID()
 gc.collect()
 __printRAM(_mem, "Imported .sys_vars")
 
@@ -60,13 +61,14 @@ else:  # 0 and wrong configuration options
 gc.collect()
 __printRAM(_mem, "Imported MQTTHandler")
 
-COMPONENTS = {}
+COMPONENTS = {}  # dictionary of all configured components
 COMPONENTS["mqtt"] = MQTTHandler(MQTT_RECEIVE_CONFIG)
+_components = None  # pointer list of all registered components, used for mqtt
 gc.collect()
 __printRAM(_mem, "Created MQTT")
 
 
-async def registerComponentsAsync(data):
+async def _registerComponentsAsync(data):
     _log.debug("RAM before import registerComponents: {!s}".format(gc.mem_free()), local_only=True)
     import pysmartnode.utils.registerComponents
     gc.collect()
@@ -79,12 +81,12 @@ async def registerComponentsAsync(data):
     _log.debug("RAM after deleting registerComponents: {!s}".format(gc.mem_free()), local_only=True)
 
 
-async def loadComponentsFile():
+async def _loadComponentsFile():
     _log.debug("RAM before import loadComponentsFile: {!s}".format(gc.mem_free()), local_only=True)
     import pysmartnode.utils.loadComponentsFile
     gc.collect()
     _log.debug("RAM after import loadComponentsFile: {!s}".format(gc.mem_free()), local_only=True)
-    data = await pysmartnode.utils.loadComponentsFile.loadComponentsFile(_log, registerComponentsAsync)
+    data = await pysmartnode.utils.loadComponentsFile.loadComponentsFile(_log, _registerComponentsAsync)
     _log.debug("RAM before deleting loadComponentsFile: {!s}".format(gc.mem_free()), local_only=True)
     del pysmartnode.utils.loadComponentsFile
     del sys.modules["pysmartnode.utils.loadComponentsFile"]
@@ -112,7 +114,11 @@ def getComponent(name):
         return None
 
 
-def addComponent(name, obj):
+def addNamedComponent(name, obj):
+    """
+    Add a named component to the list of accessible components.
+    These are used to register components using remote configuration or local configuration files.
+    """
     if name in COMPONENTS:
         raise ValueError("Component {!s} already registered, can't add".format(name))
     COMPONENTS[name] = obj
@@ -122,3 +128,24 @@ def getMQTT():
     if "mqtt" in COMPONENTS:
         return COMPONENTS["mqtt"]
     return None
+
+
+def addComponent(obj):
+    """Add a component to the list of all used components. Used for mqtt"""
+    global _components
+    if _components is None:
+        _components = obj
+    else:
+        c = _components
+        while c is not None:
+            if c._next_component is None:
+                c._next_component = obj
+                return
+            c = c._next_component
+
+
+from pysmartnode.components.machine.stats import STATS
+
+__printRAM(_mem, "Imported .machine.stats")
+STATS()
+__printRAM(_mem, "Created .machine.stats.STATS")

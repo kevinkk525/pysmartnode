@@ -29,17 +29,17 @@ example config:
 inherits everything from Core and just adds the correct hardware (pin on/off) and remoteControl mode
 """
 
-__updated__ = "2018-09-28"
-__version__ = "0.4"
+__updated__ = "2019-05-19"
+__version__ = "0.5"
 
 from .core import Heater as Core, log
-from .plugins.daynight import daynight
+from .plugins.daynight import Daynight
 from .hardware.pin import pin
 
 
 async def Heater(PIN, **kwargs):
     heater = Core(**kwargs)
     await pin(heater, PIN, INVERTED=True)
-    await daynight(heater)
+    Daynight(HEATER=heater)
     await log.asyncLog("info", "JunkersZWR18-3 created, version {!s}".format(__version__))
     return heater

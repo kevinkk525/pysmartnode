@@ -4,20 +4,24 @@ Created on 28.10.2017
 @author: Kevin Köck
 '''
 
-__updated__ = "2018-09-18"
-__version__ = "1.3"
+__updated__ = "2019-07-02"
+__version__ = "1.4"
 
 import time
 import gc
 from pysmartnode import config
-import network
 import sys
 import uasyncio as asyncio
+
+if sys.platform != "linux":
+    import network
 
 gc.collect()
 
 
 def connect():
+    if sys.platform == "linux":  # nothing to connect or start on linux
+        return True
     ap_if = network.WLAN(network.AP_IF)
     ap_if.active(False)
     wifi = network.WLAN(network.STA_IF)
