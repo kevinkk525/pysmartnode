@@ -7,8 +7,8 @@ Created on 31.10.2017
 """
 example config:
 {
-    package: <package_path<,
-    component: Switch,
+    package: <package_path>
+    component: Switch
     constructor_args: {
         # mqtt_topic: null     #optional, defaults to <mqtt_home>/<device_id>/Buzzer/set
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery

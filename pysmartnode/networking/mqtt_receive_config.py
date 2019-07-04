@@ -4,8 +4,8 @@ Created on 2018-09-21
 @author: Kevin Köck
 '''
 
-__version__ = "0.8"
-__updated__ = "2019-06-24"
+__version__ = "0.9"
+__updated__ = "2019-07-03"
 
 import uasyncio as asyncio
 import time
@@ -99,22 +99,33 @@ async def _receiveConfig(log):
                 await asyncio.sleep_ms(200)
             else:
                 _awaiting_config = False
-                if _pyconfig._components == awaitConfig:
-                    _pyconfig._components = None
-                else:
-                    c = _pyconfig._components
-                    p = None
-                    while c is not None:
-                        if c == AwaitConfig:
-                            p._next_component = c._next_component
+                c = _pyconfig._components
+                p = None
+                while c is not None:
+                    if c == awaitConfig:
+                        if p is None:
+                            _pyconfig._components = c._next_component
                             break
-                        p = c
-                        c = c._next_component
+                        p._next_component = c._next_component
+                        break
+                    p = c
+                    c = c._next_component
                 del awaitConfig
                 return
     await _mqtt.unsubscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id))
     _has_failed = True
     _awaiting_config = False
+    c = _pyconfig._components
+    p = None
+    while c is not None:
+        if c == awaitConfig:
+            if p is None:
+                _pyconfig._components = c._next_component
+                break
+            p._next_component = c._next_component
+            break
+        p = c
+        c = c._next_component
     del awaitConfig
     return
 

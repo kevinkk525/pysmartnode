@@ -5,18 +5,22 @@
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2019-04-29"
-__version__ = "0.2"
+__updated__ = "2019-07-04"
+__version__ = "0.3"
 
 import gc
 
 from pysmartnode import config
 import uasyncio as asyncio
-from pysmartnode.utils.component import Component, TIMELAPSE_TYPE
+from pysmartnode.utils.component import Component, TIMELAPSE_TYPE, DISCOVERY_SENSOR
 import time
+from sys import platform
+from pysmartnode import logging
+
+if platform != "linux":
+    import network
 
 gc.collect()
-from pysmartnode import logging
 
 ####################
 # choose a component name that will be used for logging (not in leightweight_log) and
@@ -59,10 +63,20 @@ class STATS(Component):
 
     async def _loop(self):
         await asyncio.sleep(12)
+        if platform != "linux":
+            s = network.WLAN(network.STA_IF)
+        else:
+            s = None
         while True:
             gc.collect()
             logging.getLogger("RAM").info(gc.mem_free(), local_only=True)
             await config.getMQTT().publish(_mqtt.getDeviceTopic("ram_free"), gc.mem_free())
+            if s is not None:
+                try:
+                    await config.getMQTT().publish(_mqtt.getDeviceTopic("rssi"), s.status("rssi"))
+                except Exception as e:
+                    await logging.getLogger("STATS").asyncLog("error", "Error checking rssi: {!s}".format(e))
+                    s = None
             await asyncio.sleep(self._interval)
 
     async def _discovery(self):
@@ -72,6 +86,12 @@ class STATS(Component):
                                      "Last Boot")
         await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("version"), "sw_version", VERSION_TYPE,
                                      "SW-Version")
+        if platform != "linux":
+            sens = DISCOVERY_SENSOR.format("signal_strength",  # device_class
+                                           "dB",  # unit_of_measurement
+                                           "{{value|int}}")  # value_template
+            await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("rssi"), "rssi", sens,
+                                         "Signal Strength")
 
     async def on_reconnect(self):
         await _mqtt.publish(_mqtt.getDeviceTopic("status"), "online", 1, True)

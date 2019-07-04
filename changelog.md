@@ -3,13 +3,14 @@
 ---------------------------------------------------
 #### Version 5.0.0
 * [MQTT] Integrated Homeassistant auto discovery feature
-* Completely changed the way components are integrated to support homeassistant mqtt discovery. Every component now has to use a common base component class. This is a major change breaking compatibility with previous pysmartnode/components versions and often component configurations. 
-* Mqtt subscriptions are not callback based anymore but component based. But within a component they are callback based.
-* Updated most components accordingly. Some topics and configurations have changed, check your configs! Not updated components were moved to _dev as they need more looking at.
+* [COMPONENTS] Completely changed the way components are integrated to support homeassistant mqtt discovery. Every component now has to use a common base component class. This is a major change breaking compatibility with previous pysmartnode/components versions and often component configurations. 
+* [COMPONENTS, MQTT] Mqtt subscriptions are not callback based anymore but component based. But within a component they are callback based.
+* [COMPONENTS] Updated most components accordingly. Some topics and configurations have changed, check your configs! Not updated components were moved to _dev as they need more looking at.
 * [Templates] Updated templates.
 * [RAM] component is now part of a basic system component.
 * [DS18] Component completely rewritten. It is now fully separated into a controller and a unit object. The controller has control over the onewire bus and reads all configured units. (Having other onewire devices on the same bus should be possible. No common onewire controller integrated at the moment). The DS18 unit object supports homeassistant discovery and therefore every DS18 unit connected to the controller has to be configured, unless auto-discovery is enabled on the controller, which will just create an object for each found sensor (this however makes using these in other components impossible and only serves to publish read temperatures).
-* [UNIX] Added support for unix port of Micropython! (Most sensors won't be available as it doesn't have a gpio interface, working on an interface for the Pi) 
+* [UNIX] Added support for unix port of Micropython! (Most sensors won't be available as it doesn't have a gpio interface, working on an interface for the Pi). But you can execute system commands and e.g. use the rf433 raspberry-remote library
+* [STATS] component now also publishes the wifi signal strength.
 
 ---------------------------------------------------
 #### Version 4.1.1
