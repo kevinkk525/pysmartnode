@@ -15,14 +15,14 @@ example config:
         # on_time: 500                #optional, defaults to 500ms, time buzzer stays at one pwm duty
         # iters: 1                   #optional, iterations done, defaults to 1
         # freq: 1000                 #optional, defaults to 1000
-        # mqtt_topic: null     #optional, defaults to <mqtt_home>/<device_id>/Buzzer/set
+        # mqtt_topic: null     #optional, defaults to <mqtt_home>/<device_id>/Buzzer<count>/set
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
     }
 }
 """
 
-__updated__ = "2019-05-08"
-__version__ = "2.8"
+__updated__ = "2019-07-05"
+__version__ = "2.9"
 
 import gc
 
@@ -64,19 +64,17 @@ class Buzzer(Component):
         global _count
         self._count = _count
         _count += 1
-        mqtt_topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}/{!s}".format(_component_name, self._count),
+        mqtt_topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}{!s}".format(_component_name, self._count),
                                                         is_request=True)
         self._topic = mqtt_topic
         self._frn = friendly_name
         gc.collect()
 
     async def _init(self):
-        self._topics.append(self._topic)
+        await super()._init()
+        self._subscribe(self._topic, self.on_message)
         await _mqtt.subscribe(self._topic, check_retained_state_topic=False)
         # not checking retained state as buzzer only activates single-shot and default state is always off
-        if config.MQTT_DISCOVERY_ENABLED is True:
-            async with self._discovery_lock:
-                await self._discovery()
 
     async def on_message(self, topic, msg, retain):
         if self.lock.locked():

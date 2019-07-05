@@ -20,8 +20,8 @@ example config:
 }
 """
 
-__updated__ = "2019-04-29"
-__version__ = "2.7"
+__updated__ = "2019-07-05"
+__version__ = "2.8"
 
 import gc
 
@@ -59,17 +59,17 @@ class LEDNotification(Component):
         global _count
         self._count = _count
         _count += 1
-        mqtt_topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}/{!s}".format(_component_name, self._count),
+        mqtt_topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}{!s}".format(_component_name, self._count),
                                                         is_request=True)
         self._topic = mqtt_topic
         self._frn = friendly_name
         gc.collect()
 
     async def _init(self):
-        self._topics.append(self._topic)
+        await super()._init()
+        self._subscribe(self._topic, self.on_message)
         await _mqtt.subscribe(self._topic, check_retained_state_topic=False)
         # not checking retained state as led only activates single-shot and default state is always off
-        await self._discovery()
 
     async def on_message(self, topic, msg, retain):
         if self.lock.locked():

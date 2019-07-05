@@ -18,8 +18,8 @@ example config for MyComponent:
 }
 """
 
-__updated__ = "2019-06-03"
-__version__ = "1.1"
+__updated__ = "2019-07-05"
+__version__ = "1.2"
 
 import uasyncio as asyncio
 from pysmartnode import config
@@ -55,7 +55,6 @@ class MyComponent(Component):
         # These calls subscribe the topics, don't use _mqtt.subscribe.
         self._subscribe(self._command_topic, self.on_message1)
         self._subscribe(mqtt_topic2 or "home/sometopic", self.on_message2)
-        # Alternatively self._topics can be set manually and _init overriden to subscribe the way you want
 
         self.my_value = my_value
 
@@ -69,13 +68,7 @@ class MyComponent(Component):
         gc.collect()
 
     async def _init(self):
-        await super()._init()  # if topics should be subscribed normally
-        # alternatively if e.g. the retained state topic doesn't matter, don't call super()._init
-        # but use this:
-        # await _mqtt.subscribe(self._command_topic, check_retained_state_topic=False)
-        # await _mqtt.subscribe(self._topics[1])
-        # await self._discovery()
-
+        await super()._init()
         # Any loops can be started here for the component, this is just an example
         while True:
             await asyncio.sleep(5)
