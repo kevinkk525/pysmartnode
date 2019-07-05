@@ -5,8 +5,8 @@
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2019-07-04"
-__version__ = "0.3"
+__updated__ = "2019-07-05"
+__version__ = "0.4"
 
 import gc
 
@@ -50,6 +50,9 @@ class STATS(Component):
         await super()._init()
         await self.on_reconnect()
         await _mqtt.publish(_mqtt.getDeviceTopic("version"), config.VERSION, 1, True)
+        await logging.getLogger("STATS").asyncLog("info",
+                                                  "Added component '{!s}', version {!s}".format(_component_name,
+                                                                                                __version__))
         if config.RTC_SYNC_ACTIVE is True:
             for _ in range(5):
                 if time.localtime()[0] == 2000:  # not synced

@@ -147,5 +147,5 @@ def addComponent(obj):
 from pysmartnode.components.machine.stats import STATS
 
 __printRAM(_mem, "Imported .machine.stats")
-STATS()
+COMPONENTS["STATS"] = STATS()
 __printRAM(_mem, "Created .machine.stats.STATS")
