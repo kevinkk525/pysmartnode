@@ -2,9 +2,6 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-03-31
 
-__updated__ = "2019-04-09"
-__version__ = "0.1"
-
 """
 Datasheet: https://www.mpja.com/download/hc-sr04_ultrasonic_module_user_guidejohn.pdf
 
@@ -25,11 +22,18 @@ example config:
         # interval: 600         # optional, defaults to 600. can be changed anytime
         # mqtt_topic: null      # optional, distance gets published to this topic
         # mqtt_topic_interval: null     # optional, topic need to have /set at the end. Interval can be changed here
+        # value_template: "{{ 60.0 - float(value) }}" # optional, can be used to measure the reverse distance (e.g. water level)
+        # friendly_name: "Distance" # optional, friendly name for homeassistant gui by mqtt discovery
     }
 }
+# interval change can't be discovered as homeassistant doesn't offer a type
 """
 
+__updated__ = "2019-06-04"
+__version__ = "0.3"
+
 from pysmartnode.components.machine.pin import Pin
+from pysmartnode.utils.component import Component
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
@@ -38,17 +42,25 @@ import time
 import gc
 
 _component_name = "hcsr04"
+# define the type of the component according to the homeassistant specifications
+_component_type = "sensor"
+
+DISCOVERY_DISTANCE = '"unit_of_meas":"cm",' \
+                     '"val_tpl":"{!s}",' \
+                     '"ic":"mdi:axis-arrow",'
 
 _log = logging.getLogger(_component_name)
 _mqtt = config.getMQTT()
 gc.collect()
 
+_count = 0
 
-class HCSR04:
+
+class HCSR04(Component):
     def __init__(self, pin_trigger, pin_echo, timeout=30000, temp_sensor=None,
                  precision=2, offset=0,
                  interval=None, mqtt_topic=None,
-                 mqtt_topic_interval=None):
+                 mqtt_topic_interval=None, value_template=None, friendly_name=None):
         """
         HC-SR04 ultrasonic sensor.
         Be sure to connect it to 5V but use a voltage divider to connect the Echo pin to an ESP.
@@ -61,7 +73,12 @@ class HCSR04:
         :param interval: float, interval in which the distance value gets measured and published
         :param mqtt_topic: distance mqtt topic
         :param mqtt_topic_interval: interval mqtt topic for changing the reading interval
+        :param value_template: optional template can be used to measure the reverse distance (e.g. water level)
+        :param friendly_name: friendly name for homeassistant gui by mqtt discovery, defaults to "Distance"
         """
+        super().__init__()
+        self._frn = friendly_name
+        self._valt = value_template
         self._tr = Pin(pin_trigger, mode=machine.Pin.OUT)
         self._tr.value(0)
         self._ec = Pin(pin_echo, mode=machine.Pin.IN)
@@ -72,10 +89,14 @@ class HCSR04:
         self._topic = mqtt_topic or _mqtt.getDeviceTopic("hcsr04")
         self._topic_int = mqtt_topic_interval or _mqtt.getDeviceTopic("hcsr04/interval", is_request=True)
         self.interval = interval or config.INTERVAL_SEND_SENSOR  # can be changed anytime
-        asyncio.get_event_loop().create_task(self._loop(self.distance))
-        _mqtt.scheduleSubscribe(self._topic_int, self._setInterval, check_retained_state_topic=True)
+        global _count
+        self._count = _count
+        _count += 1
+        self._subscribe(self._topic_int, self._changeInterval)
 
-    async def _loop(self, gen):
+    async def _init(self):
+        await super()._init()
+        gen = self.distance
         await asyncio.sleep(1)
         while True:
             await gen()
@@ -84,16 +105,14 @@ class HCSR04:
                 # this way interval can be changed and sensor reacts within 1s
                 await asyncio.sleep(1)
 
-    async def _setInterval(self, topic, message, retained):
-        """
-        Method called by changing interval through mqtt message
-        """
-        try:
-            message = float(message)
-        except Exception as e:
-            await _log.asyncLog("error", "Can't convert interval {!s} to float: {!s}".format(message, e))
-            return
-        self.interval = message
+    async def _discovery(self):
+        # interval change can't be discovered as homeassistant doesn't offer a type
+        sens = DISCOVERY_DISTANCE.format("{{ value|float }}" if self._valt is None else self._valt)
+        name = "{!s}{!s}".format(_component_name, self._count)
+        await self._publishDiscovery(_component_type, self._topic, name, sens, self._frn or "Distance")
+
+    async def _changeInterval(self, topic, msg, retain):
+        self.interval = float(msg)
         return True  # will publish the new interval
 
     def _pulse(self) -> int:

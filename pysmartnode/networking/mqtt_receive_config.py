@@ -4,12 +4,12 @@ Created on 2018-09-21
 @author: Kevin Köck
 '''
 
-__version__ = "0.6"
-__updated__ = "2018-09-27"
+__version__ = "0.9"
+__updated__ = "2019-07-03"
 
 import uasyncio as asyncio
 import time
-import json
+import ujson
 
 _mqtt = None
 _log = None
@@ -42,26 +42,34 @@ async def requestConfig(config, mqtt, log):
             return tmp
 
 
-async def _awaitConfig(topic, msg, retain):
-    _log.info("Building components", local_only=True)
-    await _mqtt.unsubscribe("{!s}/login/".format(_mqtt.mqtt_home) + _mqtt.client_id)
-    if type(msg) != dict:
-        _log.critical("Received config is no dict")
-        msg = None
-    if msg is None:
-        _log.error("Empty configuration received")
-        global _has_failed
-        _has_failed = True
-        return
-    else:
-        _log.info("received config: {!s}".format(msg), local_only=True)
-        # saving components
-        _saveComponentsFile(msg)
-        global _config
-        _config = json.dumps(msg)
-        global _has_succeeded
-        _has_succeeded = True
-        return
+class AwaitConfig:
+    """Temporary class not following the utils/Component base class"""
+
+    def __init__(self):
+        self._next_component = None  # needed to keep a list of registered components
+        self._topics = {"{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id): self.on_message}
+
+    @staticmethod
+    async def on_message(topic, msg, retained):
+        _log.info("Building components", local_only=True)
+        await _mqtt.unsubscribe("{!s}/login/".format(_mqtt.mqtt_home) + _mqtt.client_id)
+        if type(msg) != dict:
+            _log.critical("Received config is no dict")
+            msg = None
+        if msg is None:
+            _log.error("Empty configuration received")
+            global _has_failed
+            _has_failed = True
+            return
+        else:
+            _log.info("received config: {!s}".format(msg), local_only=True)
+            # saving components
+            _saveComponentsFile(msg)
+            global _config
+            _config = ujson.dumps(msg)
+            global _has_succeeded
+            _has_succeeded = True
+            return
 
 
 async def _receiveConfig(log):
@@ -69,8 +77,19 @@ async def _receiveConfig(log):
     global _has_failed
     _awaiting_config = True
     log.info("Receiving config", local_only=True)
+    c = _pyconfig._components
+    p = None
+    awaitConfig = AwaitConfig()
+    while c is not None:
+        p = c
+        c = c._next_component
+    if p is not None:
+        p._next_component = awaitConfig
+    else:
+        _pyconfig._components = awaitConfig
+    # mqtt not fully initialized when class was created created
     for i in range(1, 4):
-        await _mqtt.subscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id), _awaitConfig, qos=1,
+        await _mqtt.subscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id), qos=1,
                               check_retained_state_topic=False)
         log.debug("waiting for config", local_only=True)
         await _mqtt.publish("{!s}/login/{!s}/set".format(_mqtt.mqtt_home, _mqtt.client_id), _pyconfig.VERSION, qos=1)
@@ -80,12 +99,34 @@ async def _receiveConfig(log):
                 await asyncio.sleep_ms(200)
             else:
                 _awaiting_config = False
+                c = _pyconfig._components
+                p = None
+                while c is not None:
+                    if c == awaitConfig:
+                        if p is None:
+                            _pyconfig._components = c._next_component
+                            break
+                        p._next_component = c._next_component
+                        break
+                    p = c
+                    c = c._next_component
+                del awaitConfig
                 return
-        await _mqtt.unsubscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id))
-        # unsubscribing before resubscribing as otherwise it would result in multiple callbacks
-        # because mqttHandler and subscriptionHandler do not check if function already subscribed.
+    await _mqtt.unsubscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id))
     _has_failed = True
     _awaiting_config = False
+    c = _pyconfig._components
+    p = None
+    while c is not None:
+        if c == awaitConfig:
+            if p is None:
+                _pyconfig._components = c._next_component
+                break
+            p._next_component = c._next_component
+            break
+        p = c
+        c = c._next_component
+    del awaitConfig
     return
 
 
@@ -98,7 +139,7 @@ def _saveComponentsFile(msg):
         _log.debug("Not saving components as filesystem is unavailable", local_only=True)
         return
     if platform == "esp8266":
-        tmp = json.dumps(msg["_order"])
+        tmp = ujson.dumps(msg["_order"])
         f = open("_order.json", "w")
         f.write(tmp)
         f.close()
@@ -116,7 +157,7 @@ def _saveComponentsFile(msg):
             if component != "_order":
                 try:
                     f = open("components/{!s}.json".format(component), "w")
-                    f.write(json.dumps(msg[component]))
+                    f.write(ujson.dumps(msg[component]))
                     f.close()
                 except Exception as e:
                     _log.error("Can't save component {!s}, {!s}".format(component, e))
@@ -125,7 +166,7 @@ def _saveComponentsFile(msg):
         except Exception as e:
             pass
     else:
-        tmp = json.dumps(msg)
+        tmp = ujson.dumps(msg)
         f = open("components.json", "w")
         f.write(tmp)
         f.close()

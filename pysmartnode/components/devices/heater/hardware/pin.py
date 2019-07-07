@@ -27,6 +27,8 @@ _pin = None
 _inverted = False
 
 
+# not converting to a Component subclass as it doesn't use any mqtt.
+
 async def pin(HEATER, PIN, INVERTED=False):
     global _pin
     global _inverted

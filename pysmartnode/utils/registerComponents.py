@@ -54,7 +54,7 @@ async def registerComponentsAsync(data, _log):
         await _registerComponents(tmp, _log)
         del tmp
         gc.collect()
-        await asyncio.sleep_ms(750 if platform == "esp8266" else 200)
+        await asyncio.sleep_ms(750)  # if platform == "esp8266" else 200)
         gc.collect()
 
 

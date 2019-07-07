@@ -4,7 +4,7 @@ Created on 10.08.2017
 @author: Kevin Köck
 '''
 
-__updated__ = "2018-10-01"
+__updated__ = "2019-07-02"
 
 import gc
 import time
@@ -16,11 +16,15 @@ from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
 import sys
-import machine
+import os
+
+if sys.platform != "linux":
+    import machine
+
+    rtc = machine.RTC()
 
 _log = logging.getLogger("pysmartnode")
 gc.collect()
-rtc = machine.RTC()
 
 loop = asyncio.get_event_loop()
 
@@ -34,6 +38,13 @@ async def _resetReason():
     elif sys.platform == "esp32_LoBo" and rtc.read_string() != "":
         await _log.asyncLog("critical", "Reset reason: {!s}".format(rtc.memory()))
         rtc.write_string("")
+    elif sys.platform == "linux":
+        if "reset_reason.txt" not in os.listdir():
+            return
+        with open("reset_reason.txt", "r") as f:
+            await _log.asyncLog("critical", "Reset reason: {!s}".format(f.read()))
+        with open("reset_reason.txt", "w") as f:
+            f.write("")
     elif machine.reset_cause() == machine.WDT_RESET:
         await _log.asyncLog("critical", "Reset reason: WDT reset")
 
@@ -51,10 +62,10 @@ def main():
         from pysmartnode.components.machine.watchdog import WDT
 
         wdt = WDT(timeout=config.MQTT_KEEPALIVE * 2)
-        config.addComponent("wdt", wdt)
+        config.addNamedComponent("wdt", wdt)
 
     if config.MQTT_RECEIVE_CONFIG is False:
-        loop.create_task(config.loadComponentsFile())
+        loop.create_task(config._loadComponentsFile())
 
     print("Starting uasyncio loop")
     if config.DEBUG_STOP_AFTER_EXCEPTION:
@@ -74,6 +85,9 @@ def main():
                 print("{!s}".format(e).encode())
             elif sys.platform == "esp32_LoBo":
                 rtc.write_string("{!s}".format(e))
+            elif sys.platform == "linux":
+                with open("reset_reason.txt", "w") as f:
+                    f.write(e)
             else:
                 _log.critical("Loop error, {!s}".format(e))
             machine.reset()
