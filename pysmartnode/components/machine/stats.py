@@ -50,9 +50,10 @@ class STATS(Component):
         await super()._init()
         await self.on_reconnect()
         await _mqtt.publish(_mqtt.getDeviceTopic("version"), config.VERSION, 1, True)
-        await logging.getLogger("STATS").asyncLog("info",
-                                                  "Added component '{!s}', version {!s}".format(_component_name,
-                                                                                                __version__))
+        await logging.getLogger("config").asyncLog("info",
+                                                   "Added component '{!s}', version {!s}".format(_component_name,
+                                                                                                 __version__))
+        # published to keep in line with every other component registered through pysmartnode/utils/registerComponents
         if config.RTC_SYNC_ACTIVE is True:
             for _ in range(5):
                 if time.localtime()[0] == 2000:  # not synced
