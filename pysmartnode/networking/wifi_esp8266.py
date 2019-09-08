@@ -4,12 +4,19 @@ Created on 26.05.2018
 @author: Kevin Köck
 '''
 
+__updated__ = "2019-08-27"
+
 from pysmartnode import config
 import gc
 import uasyncio as asyncio
 import sys
 import time
 import machine
+
+if hasattr(config, "WIFI_SLEEP_MODE") and config.WIFI_SLEEP_MODE is not None:
+    import esp
+
+    esp.sleep_type(config.WIFI_SLEEP_MODE)  # optionally disable wifi sleep to improve wifi reliability
 
 if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE is True:
     async def _sync():

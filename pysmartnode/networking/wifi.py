@@ -4,8 +4,8 @@ Created on 28.10.2017
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-07-02"
-__version__ = "1.4"
+__updated__ = "2019-09-07"
+__version__ = "1.5"
 
 import time
 import gc
@@ -30,6 +30,11 @@ def connect():
     # TODO: check redundancy as mqtt/communitcation library takes care of this already
     time.sleep(0.1)
     count = 0
+    if hasattr(config, "WIFI_LED") is True and config.WIFI_LED is not None:
+        from pysmartnode.components.machine.wifi_led import WIFILED
+        wifi_led = WIFILED(config.WIFI_LED, config.WIFI_LED_ACTIVE_HIGH)
+    else:
+        wifi_led = None
     while wifi.isconnected() is False:  # Check for successful connection
         count += 1
         if count % 10 == 0:
@@ -37,9 +42,18 @@ def connect():
         time.sleep(0.1)
         if count >= 100:  # ESP32 sometimes takes a bit longer to connect to wifi, 10s is ok
             print("Error connecting to wifi, resetting device in 2s")
+            if wifi_led is not None:
+                for _ in range(5):
+                    wifi_led.flash(500)
+                    time.sleep_ms(500)
+            else:
+                time.sleep(2)
             import machine
-            time.sleep(2)
             machine.reset()
+    if wifi_led is not None:
+        for _ in range(5):
+            wifi_led.flash(50)
+            time.sleep_ms(50)
     loop = asyncio.get_event_loop()
     loop.create_task(start_services(wifi))
     gc.collect()

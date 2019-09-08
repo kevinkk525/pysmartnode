@@ -10,9 +10,9 @@ def wrapResult(handler, expected, result):
     print(handler, "Success:", equals, "Expected result:", expected, "Result:", result)
 
 
-from pysmartnode.utils.subscriptionHandlers.tree import Tree
-from pysmartnode.utils.subscriptionHandlers.subscribe_file import SubscriptionHandler as SubscriptionHandler_File
-from pysmartnode.utils.subscriptionHandlers.subscription import SubscriptionHandler
+from _deprecated.subscriptionHandlers import Tree
+from _deprecated.subscriptionHandlers import SubscriptionHandler as SubscriptionHandler_File
+from _deprecated.subscriptionHandlers import SubscriptionHandler
 
 for handler in [Tree, SubscriptionHandler, SubscriptionHandler_File]:
     print(handler)

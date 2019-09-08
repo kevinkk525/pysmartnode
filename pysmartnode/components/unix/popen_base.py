@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-07-02 
 
-__updated__ = "2019-07-03"
-__version__ = "0.2"
+__updated__ = "2019-07-11"
+__version__ = "0.3"
 
 import os
 import uasyncio as asyncio
@@ -33,7 +33,7 @@ class Popen:
             if self._expected_return is not None:
                 if r == self._expected_return:
                     return True
-                return False
+                return r
             else:
                 return r
         except Exception as e:

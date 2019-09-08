@@ -20,8 +20,8 @@ example config:
 }
 """
 
-__updated__ = "2019-07-03"
-__version__ = "0.1"
+__updated__ = "2019-07-14"
+__version__ = "0.2"
 
 import gc
 from pysmartnode import config
@@ -54,12 +54,13 @@ class RF433(Component):
     def __init__(self, unit_code, unit, expected_execution_time_on=500, expected_execution_time_off=500,
                  iterations=1, iter_delay=10, mqtt_topic=None, friendly_name=None):
         super().__init__()
+        self._log = _log
 
         # This makes it possible to use multiple instances of Switch
         global _count
         self._count = _count
         _count += 1
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}/{!s}".format(_component_name, self._count),
+        self._topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}{!s}".format(_component_name, self._count),
                                                          is_request=True)
         self._subscribe(self._topic, self.on_message)
         self._frn = friendly_name
@@ -78,18 +79,19 @@ class RF433(Component):
                 if msg in _mqtt.payload_on:
                     r = await self._c_on.execute()
                     if r is True:
+                        await _mqtt.publish(self._topic[:-4], "ON", qos=1, retain=True)  # makes it easier to subclass
                         return True
                     else:
-                        await _log.asyncLog("warn", "Got unexpected return: {!s}".format(r))
+                        await self._log.asyncLog("warn", "Got unexpected return: {!s}".format(r))
                         return False
                 elif msg in _mqtt.payload_off:
                     r = await self._c_off.execute()
                     if r is True:
+                        await _mqtt.publish(self._topic[:-4], "OFF", qos=1, retain=True)
                         return True
                     else:
-                        await _log.asyncLog("warn", "Got unexpected return: {!s}".format(r))
+                        await self._log.asyncLog("warn", "Got unexpected return: {!s}".format(r))
                         return False
-        return False  # will not publish the state "ON" to mqtt
 
     async def _discovery(self):
         name = "{!s}{!s}".format(_component_name, self._count)

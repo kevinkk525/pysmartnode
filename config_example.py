@@ -5,6 +5,7 @@ from micropython import const
 WIFI_SSID = "SSID"
 WIFI_PASSPHRASE = "PASSPHRASE"
 MQTT_HOST = "BROKER-IP"
+MQTT_PORT = 1883
 MQTT_USER = ""
 MQTT_PASSWORD = ""
 
@@ -21,6 +22,9 @@ MQTT_RECEIVE_CONFIG = True
 # sends the configuration of a device over mqtt
 # If you do not run it, you have to configure the components locally on each microcontroller
 MQTT_TYPE = const(0)  # 0: direct, 1: IOT implementation
+
+WIFI_LED = None  # set a pin number to have the wifi state displayed by a blinking led. Useful for devices like sonoff
+WIFI_LED_ACTIVE_HIGH = True  # if led is on when output is low, change to False
 
 if platform == "esp32_LoBo":
     MDNS_ACTIVE = True
@@ -41,6 +45,7 @@ elif platform == "esp8266":
     USE_SOFTWARE_WATCHDOG = False  # uses ~700B of RAM, started with timeout=2xMQTT_KEEPALIVE, use if you experience outages
     RTC_SYNC_ACTIVE = False  # uses ~600B additional RAM on esp8266
     RTC_TIMEZONE_OFFSET = 2  # offset from GMT timezone as ntptime on esp8266 does not support timezones
+    WIFI_SLEEP_MODE = None  # WIFI_NONE_SLEEP = 0, WIFI_LIGHT_SLEEP = 1, WIFI_MODEM_SLEEP = 2; change to 0 if you have a lot of reconnects. Standard is 2.
 elif platform == "linux":
     RTC_SYNC_ACTIVE = True  # This should always be True unless your system doesn't have access to the internet or sync the time
 

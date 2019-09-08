@@ -24,7 +24,7 @@ def printMemory(info=""):
 def creating():
     gc.collect()
     printMemory("Start")
-    from pysmartnode.utils.subscriptionHandlers.subscribe_file import SubscriptionHandler
+    from _deprecated.subscriptionHandlers import SubscriptionHandler
     gc.collect()
     printMemory("After import")
     global handler
@@ -67,7 +67,7 @@ print("Functional test")
 
 
 def test():
-    from pysmartnode.utils.subscriptionHandlers.subscribe_file import SubscriptionHandler
+    from _deprecated.subscriptionHandlers import SubscriptionHandler
     handler = SubscriptionHandler()
 
     @timeit

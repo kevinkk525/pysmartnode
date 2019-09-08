@@ -21,7 +21,7 @@ def printMemory(info=""):
 
 def functional_testing():
     print("Functioncal test")
-    from pysmartnode.utils.subscriptionHandlers.tree import Tree
+    from _deprecated.subscriptionHandlers import Tree
     tree = Tree("home", ["Functions"])
     tree.addObject("home/1325/htu21d/set", "func1")
     tree.addObject("home/1325/#", "funcWildcard")
@@ -72,7 +72,7 @@ gc.collect()
 def creating():
     gc.collect()
     printMemory("Start")
-    from pysmartnode.utils.subscriptionHandlers.tree import Tree
+    from _deprecated.subscriptionHandlers import Tree
     gc.collect()
     printMemory("After import")
     global handler

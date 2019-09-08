@@ -118,7 +118,7 @@ If you have a filesystem, copy it onto the device or put it as frozen bytecode i
 
 The basic configuration options are:
 * WIFI: SSID and PASSPHRASE
-* MQTT: HOST, USER and PASSWORD
+* MQTT: HOST, PORT, USER and PASSWORD
 
 Optional configurations for the network are:
 * MQTT_KEEPALIVE: the keepalive interval, if the device does not send a ping within this interval, it will be considered offline
@@ -136,6 +136,7 @@ Platform dependent options are
     * RTC_SYNC_ACTIVE: if RTC time sync should be done (saves ~600B)
     * RTC_TIMEZONE_OFFSET: as esp8266 does not support timezones, add your offset here to match your time
     * USE_SOFTWARE_WATCHDOG: Needed for micropython versions before 1.11 as uasyncio could get stuck for 1h 11minutes but not the interrupts. This makes using a software watchdog possible to reset hanging units (uses ~600B)
+    * WIFI_SLEEP_MODE: If you have frequent reconnects due to wifi problems, disabling wifi sleep could help. WIFI_NONE_SLEEP = 0, WIFI_LIGHT_SLEEP = 1, WIFI_MODEM_SLEEP = 2; change to 0 if you have a lot of reconnects. Standard is 2.
 - for esp32_LoBo:
     * MDNS_ACTIVE, MDNS_HOSTNAME, MDNS_DESCRIPTION: mdns options
     * FTP_ACTIVE: enable the built-in ftp server, very nice to have

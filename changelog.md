@@ -1,8 +1,17 @@
 # Changelog
 
 ---------------------------------------------------
+### Version 5.0.1
+* [MQTT] Port is configureable now
+* [ESP8266 WIFI] Possibility to set wifi sleep mode. No sleep makes wifi more reliable
+* [UNIX] Module improvements, new module RF-Pump in new custom-component directory outside standard components
+* [Tools] Updated scripts to set up initial repositories for building firmware for esp8266/esp32
+* [WIFI-LED] Added option to activate a LED in config.py that displays the wifi status (5 short blinks on initial connect, 1 short blink every 60secs when connected, 3 long blinks every 5secs when not connected).
+* [GPIO] GPIO module supports setting pins active_low 
+
+---------------------------------------------------
 #### Version 5.0.0
-* [MQTT] Integrated Homeassistant auto discovery feature
+* [MQTT] Integrated Homeassistant mqtt discovery feature
 * [COMPONENTS] Completely changed the way components are integrated to support homeassistant mqtt discovery. Every component now has to use a common base component class. This is a major change breaking compatibility with previous pysmartnode/components versions and often component configurations. 
 * [COMPONENTS, MQTT] Mqtt subscriptions are not callback based anymore but component based. But within a component they are callback based.
 * [COMPONENTS] Updated most components accordingly. Some topics and configurations have changed, check your configs! Not updated components were moved to _dev as they need more looking at.

@@ -143,7 +143,7 @@ class HCSR04(Component):
             if self._temp is not None:
                 temp = await self._temp.temperature(publish=False)
                 if temp is None:
-                    await _log.asyncLog("warn", "Couldn't read temp sensor, using fallback caluclation")
+                    await _log.asyncLog("warn", "Couldn't read temp sensor, using fallback calculation")
         val = []
         warnings = 0  # probably not going to happen that both warning types occur at the same time
         warning = "minimum distance reached or different problem"

@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__version__ = "3.7"
-__updated__ = "2019-07-02"
+__version__ = "3.8"
+__updated__ = "2019-08-27"
 
 import gc
 import ujson
@@ -49,7 +49,7 @@ class MQTTHandler(MQTTClient):
         self.mqtt_home = config.MQTT_HOME
         super().__init__(client_id=self.client_id,
                          server=config.MQTT_HOST,
-                         port=1883,
+                         port=config.MQTT_PORT if hasattr(config, "MQTT_PORT") is True else 1883,
                          user=config.MQTT_USER,
                          password=config.MQTT_PASSWORD,
                          keepalive=config.MQTT_KEEPALIVE,
@@ -260,7 +260,6 @@ class MQTTHandler(MQTTClient):
         loop = asyncio.get_event_loop()
         found = False
         while c is not None:
-            print("execute_sync, c", c)  # DEBUG
             if hasattr(c, "_topics") is True:
                 t = c._topics  # _topics is dict
                 for tt in t:

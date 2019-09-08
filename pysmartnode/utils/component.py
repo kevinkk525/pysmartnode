@@ -72,7 +72,7 @@ class Component:
         # No RAM allocation for topic strings as they are passed by reference if saved in a variable in subclass.
         # self._topics is used by mqtt to know which component a message is for.
         self._next_component = None  # needed to keep a list of registered components
-        config.addComponent(self)
+        config.addComponent(self)  # adds component to the chain of components (_next_component)
         asyncio.get_event_loop().create_task(self._init())
 
     async def _init(self):
