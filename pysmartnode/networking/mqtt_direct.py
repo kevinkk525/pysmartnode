@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-09-08"
-__version__ = "3.9"
+__updated__ = "2019-09-10"
+__version__ = "4.0"
 
 import gc
 import ujson
@@ -60,19 +60,71 @@ class MQTTHandler(MQTTClient):
                          clean=False,
                          ssid=config.WIFI_SSID,
                          wifi_pw=config.WIFI_PASSPHRASE)
-        asyncio.get_event_loop().create_task(self.connect())
+        asyncio.get_event_loop().create_task(self._connectCaller())
         self.__receive_config = receive_config
         # True=receive config, None=config received
         self._awaiting_config = False
         self._temp = []  # temporary storage for retained state topics
+        self._connected_coro = None
+        self._reconnected_subs = []
+        self._wifi_coro = None
+        self._wifi_subs = []
         gc.collect()
 
-    @staticmethod
-    async def _wifiChanged(state):
+    def registerWifiCallback(self, cb):
+        """Supports callbacks and coroutines. Will get canceled if Wifi changes during execution"""
+        self._wifi_subs.append(cb)
+
+    def registerConnectedCallback(self, cb):
+        """Supports callbacks and coroutines. Will get canceled if connection changes during execution"""
+        self._reconnected_subs.append(cb)
+
+    async def _connectCaller(self):
+        # catches the error if on esp8266 no wifi credentials were stored on the device. Also error handling
+        if sys.platform == "esp8266":
+            import network
+            ap_if = network.WLAN(network.AP_IF)
+            ap_if.active(False)
+            s = network.WLAN(network.STA_IF)
+            s.active(True)
+            if s.isconnected() is False:
+                s.connect()  # ESP8266 remembers connection.
+                while s.status() == network.STAT_CONNECTING:  # Break out on fail or success. Check once per sec.
+                    await asyncio.sleep(1)
+                if s.isconnected() is False:
+                    s.connect(config.WIFI_SSID, config.WIFI_PASSPHRASE)
+                    await asyncio.sleep(1)
+        while True:
+            try:
+                await self.connect()
+            except OSError as e:
+                _log.error("Error connecting to wifi: {!s}".format(e), local_only=True)
+                # not connected after trying.. not much we can do without a connection except trying again.
+                # Don't like resetting the machine as components could be working without wifi.
+                await asyncio.sleep(10)
+                continue
+
+    async def _wifiChanged(self, state):
+        if self._wifi_coro is not None:
+            asyncio.cancel(self._wifi_coro)
+        self._wifi_coro = self._wifi_handler(state)
+        asyncio.get_event_loop().create_task(self._wifi_coro)
+
+    async def _wifi_handler(self, state):
         if config.DEBUG:
             _log.info("WIFI state {!s}".format(state), local_only=True)
+        for cb in self._wifi_subs:
+            res = cb(self)
+            if type(res) == type_gen:
+                await res
 
     async def _connected(self, client):
+        if self._connected_coro is not None:
+            asyncio.cancel(self._connected_coro)  # processed subscriptions would have to be done again anyway
+        self._connected_coro = self._connected_handler(client)
+        asyncio.get_event_loop().create_task(self._connected_coro)
+
+    async def _connected_handler(self):
         if self.__receive_config is not None:
             # only log on first connection, not on reconnect as nothing has changed here
             await _log.asyncLog("info", str(os.name if platform == "linux" else os.uname()))
@@ -81,8 +133,14 @@ class MQTTHandler(MQTTClient):
             # do not try to resubscribe on first connect as components will do it
             await _log.asyncLog("debug", "Reconnected")
             await self._subscribeTopics()
+            for cb in self._reconnected_subs:
+                res = cb(self)
+                if type(res) == type_gen:
+                    await res
         if self.__receive_config is True:
             asyncio.get_event_loop().create_task(self._receiveConfig())
+        else:
+            self.__receive_config = None  # first connect processed
 
     async def _receiveConfig(self):
         self.__receive_config = None

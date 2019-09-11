@@ -60,13 +60,33 @@ async def _resetReason():
         await _log.asyncLog("critical", "Reset reason: WDT reset")
 
 
+services_started = False
+
+
+def start_services(client):
+    global services_started
+    if services_started is False:
+        import network
+        s = network.WLAN(network.STA_IF)
+        if sys.platform == "esp32_LoBo":
+            import pysmartnode.networking.wifi_esp32_lobo
+            del pysmartnode.networking.wifi_esp32_lobo
+            del sys.modules["pysmartnode.networking.wifi_esp32_lobo"]
+        elif sys.platform == "esp32":
+            import pysmartnode.networking.wifi_esp32
+            del pysmartnode.networking.wifi_esp32
+            del sys.modules["pysmartnode.networking.wifi_esp32"]
+        elif sys.platform == "esp8266":
+            import pysmartnode.networking.wifi_esp8266
+            del pysmartnode.networking.wifi_esp8266
+            del sys.modules["pysmartnode.networking.wifi_esp8266"]
+        services_started = True
+        print("Connected, local ip {!r}".format(s.ifconfig()[0]))
+
+
 def main():
     loop.create_task(_resetReason())
     print("free ram {!r}".format(gc.mem_free()))
-    import pysmartnode.networking.wifi
-    pysmartnode.networking.wifi.connect()
-    del pysmartnode.networking.wifi
-    del sys.modules["pysmartnode.networking.wifi"]
     gc.collect()
 
     if hasattr(config, "USE_SOFTWARE_WATCHDOG") and config.USE_SOFTWARE_WATCHDOG:
@@ -77,6 +97,8 @@ def main():
 
     if config.MQTT_RECEIVE_CONFIG is False:
         loop.create_task(config._loadComponentsFile())
+
+    config.getMQTT().registerConnectedCallback(start_services)
 
     print("Starting uasyncio loop")
     if config.DEBUG_STOP_AFTER_EXCEPTION:
