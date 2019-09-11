@@ -30,13 +30,21 @@
 
 import uasyncio as asyncio
 import utime as time
-# from asyn import launch
+# Remove dependency on asyn to save RAM:
 # launch: run a callback or initiate a coroutine depending on which is passed.
-### change from original source in order to make file use less ram and change behaviour
-### into making Button/Switch not react to changes while callback/coroutine is not done
-### as this prevents asnycio queue overflow or the usage of Locks.
-### This will make debounce time longer by the execution time of the callback.
-### Now only coroutines are allowed as callbacks.
+async def _g():
+    pass
+type_coro = type(_g())
+
+# If a callback is passed, run it and return.
+# If a coro is passed initiate it and return.
+# coros are passed by name i.e. not using function call syntax.
+def launch(func, tup_args):
+    res = func(*tup_args)
+    if isinstance(res, type_coro):
+        loop = asyncio.get_event_loop()
+        loop.create_task(res)
+
 
 class Delay_ms(object):
     def __init__(self, func=None, args=(), can_alloc=True, duration=1000):
@@ -71,6 +79,8 @@ class Delay_ms(object):
     def running(self):
         return self.tstop is not None
 
+    __call__ = running
+
     async def killer(self):
         twait = time.ticks_diff(self.tstop, time.ticks_ms())
         while twait > 0:  # Must loop here: might be retriggered
@@ -79,7 +89,7 @@ class Delay_ms(object):
                 break  # Return if stop() called during wait
             twait = time.ticks_diff(self.tstop, time.ticks_ms())
         if self.tstop is not None and self.func is not None:
-            await self.func(*self.args)  # Timed out: execute callback
+            launch(self.func, self.args)  # Timed out: execute callback
         self.tstop = None  # Not running
 
 class Switch(object):
@@ -105,16 +115,15 @@ class Switch(object):
         return self.switchstate
 
     async def switchcheck(self):
-        loop = asyncio.get_event_loop()
         while True:
             state = self.pin.value()
             if state != self.switchstate:
                 # State has changed: act on it now.
                 self.switchstate = state
                 if state == 0 and self._close_func:
-                    await self._close_func(*self._close_args)
+                    launch(self._close_func, self._close_args)
                 elif state == 1 and self._open_func:
-                    await self._open_func(*self._open_args)
+                    launch(self._open_func, self._open_args)
             # Ignore further state changes until switch has settled
             await asyncio.sleep_ms(Switch.debounce_ms)
 
@@ -122,32 +131,37 @@ class Pushbutton(object):
     debounce_ms = 50
     long_press_ms = 1000
     double_click_ms = 400
-    def __init__(self, pin):
+    def __init__(self, pin, suppress=False):
         self.pin = pin # Initialise for input
-        self._true_func = False
-        self._false_func = False
-        self._double_func = False
-        self._long_func = False
+        self._supp = suppress
+        self._dblpend = False  # Doubleclick waiting for 2nd click
+        self._dblran = False  # Doubleclick executed user function
+        self._tf = False
+        self._ff = False
+        self._df = False
+        self._lf = False
+        self._ld = False  # Delay_ms instance for long press
+        self._dd = False  # Ditto for doubleclick
         self.sense = pin.value()  # Convert from electrical to logical value
-        self.buttonstate = self.rawstate()  # Initial state
+        self.state = self.rawstate()  # Initial state
         loop = asyncio.get_event_loop()
         loop.create_task(self.buttoncheck())  # Thread runs forever
 
     def press_func(self, func, args=()):
-        self._true_func = func
-        self._true_args = args
+        self._tf = func
+        self._ta = args
 
     def release_func(self, func, args=()):
-        self._false_func = func
-        self._false_args = args
+        self._ff = func
+        self._fa = args
 
     def double_func(self, func, args=()):
-        self._double_func = func
-        self._double_args = args
+        self._df = func
+        self._da = args
 
     def long_func(self, func, args=()):
-        self._long_func = func
-        self._long_args = args
+        self._lf = func
+        self._la = args
 
     # Current non-debounced logical button state: True == pressed
     def rawstate(self):
@@ -155,38 +169,51 @@ class Pushbutton(object):
 
     # Current debounced state of button (True == pressed)
     def __call__(self):
-        return self.buttonstate
+        return self.state
+
+    def _ddto(self):  # Doubleclick timeout: no doubleclick occurred
+        self._dblpend = False
+        if self._supp and not self.state:
+            if not self._ld or (self._ld and not self._ld()):
+                launch(self._ff, self._fa)
 
     async def buttoncheck(self):
-        loop = asyncio.get_event_loop()
-        if self._long_func:
-            longdelay = Delay_ms(self._long_func, self._long_args)
-        if self._double_func:
-            doubledelay = Delay_ms()
+        if self._lf:  # Instantiate timers if funcs exist
+            self._ld = Delay_ms(self._lf, self._la)
+        if self._df:
+            self._dd = Delay_ms(self._ddto)
         while True:
             state = self.rawstate()
             # State has changed: act on it now.
-            if state != self.buttonstate:
-                self.buttonstate = state
-                if state:
-                    # Button is pressed
-                    if self._long_func and not longdelay.running():
-                        # Start long press delay
-                        longdelay.trigger(Pushbutton.long_press_ms)
-                    if self._double_func:
-                        if doubledelay.running():
-                            await self._double_func(*self._double_args)
+            if state != self.state:
+                self.state = state
+                if state:  # Button pressed: launch pressed func
+                    if self._tf:
+                        launch(self._tf, self._ta)
+                    if self._lf:  # There's a long func: start long press delay
+                        self._ld.trigger(Pushbutton.long_press_ms)
+                    if self._df:
+                        if self._dd():  # Second click: timer running
+                            self._dd.stop()
+                            self._dblpend = False
+                            self._dblran = True  # Prevent suppressed launch on release
+                            launch(self._df, self._da)
                         else:
                             # First click: start doubleclick timer
-                            doubledelay.trigger(Pushbutton.double_click_ms)
-                    if self._true_func:
-                        await self._true_func(*self._true_args)
-                else:
-                    # Button release
-                    if self._long_func and longdelay.running():
-                        # Avoid interpreting a second click as a long push
-                        longdelay.stop()
-                    if self._false_func:
-                        await self._false_func(*self._false_args)
+                            self._dd.trigger(Pushbutton.double_click_ms)
+                            self._dblpend = True  # Prevent suppressed launch on release
+                else:  # Button release. Is there a release func?
+                    if self._ff:
+                        if self._supp:
+                            d = self._ld
+                            # If long delay exists, is running and doubleclick status is OK
+                            if not self._dblpend and not self._dblran:
+                                if (d and d()) or not d:
+                                    launch(self._ff, self._fa)
+                        else:
+                            launch(self._ff, self._fa)
+                    if self._ld:
+                        self._ld.stop()  # Avoid interpreting a second click as a long push
+                    self._dblran = False
             # Ignore state changes until switch has settled
             await asyncio.sleep_ms(Pushbutton.debounce_ms)

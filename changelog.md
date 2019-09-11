@@ -1,12 +1,25 @@
 # Changelog
 
 ---------------------------------------------------
+### Version 5.1.0
+* [MQTT] Bugfixes in unsubscribe()
+* [WEBREPL] It is now possible to configure the webrepl in config.py and it will automatically be started.
+* [COMPONENTS] Extended by a generic SWITCH class. See description, adds "on" and "off" coroutines so it can be controlled by other components
+* [Templates] Extended the Switch template with "on" and "off" coroutines
+* [Generic_Switch] Wrapper for all SWITCH classes using the Switch template to extend functionality (e.g. safety shutdown, repeating mode, ...)
+* [Bell] Bugfix and moved to "sensors" package
+* [Switches] New package that better reflects the 2 basic component types sensors and switches
+* [LED, Buzzer] moved to package "switches"
+* [GPIO] moved to package "switches". easyGPIO however stays in "machine" as it is very generic and can be used as both sensor and switch
+* Various beautifications, small bugfixes and optimizations
+
+---------------------------------------------------
 ### Version 5.0.1
 * [MQTT] Port is configureable now
 * [ESP8266 WIFI] Possibility to set wifi sleep mode. No sleep makes wifi more reliable
 * [UNIX] Module improvements, new module RF-Pump in new custom-component directory outside standard components
 * [Tools] Updated scripts to set up initial repositories for building firmware for esp8266/esp32
-* [WIFI-LED] Added option to activate a LED in config.py that displays the wifi status (5 short blinks on initial connect, 1 short blink every 60secs when connected, 3 long blinks every 5secs when not connected).
+* [WIFI-LED] Added option to activate a LED in config.py that displays the wifi status (5 short blinks on initial connect, 1 short blink every 30secs when connected, 3 long blinks every 5secs when not connected).
 * [GPIO] GPIO module supports setting pins active_low 
 
 ---------------------------------------------------

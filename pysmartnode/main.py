@@ -4,15 +4,26 @@ Created on 10.08.2017
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-07-02"
+__updated__ = "2019-09-10"
 
 import gc
-import time
 
 gc.collect()
 print(gc.mem_free())
 
 from pysmartnode import config
+
+if hasattr(config, "WEBREPL_ACTIVE") and config.WEBREPL_ACTIVE is True:
+    try:
+        import webrepl_cfg
+    except:
+        with open("webrepl_cfg.py", "w") as f:
+            f.write("PASS = %r\n" % config.WEBREPL_PASSWORD)
+    import webrepl
+
+    webrepl.start()
+    # webrepl started here to start it as quickly as possible.
+
 from pysmartnode import logging
 import uasyncio as asyncio
 import sys

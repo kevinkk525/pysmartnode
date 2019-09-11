@@ -22,13 +22,13 @@ example config:
 }
 """
 
-__updated__ = "2019-07-03"
-__version__ = "0.3"
+__updated__ = "2019-09-08"
+__version__ = "0.4"
 
 import gc
 from pysmartnode import config
 from pysmartnode import logging
-from pysmartnode.utils.component import Component, DISCOVERY_SWITCH
+from pysmartnode.utils.component import Switch as _Switch, DISCOVERY_SWITCH
 from .popen_base import Popen
 
 ####################
@@ -45,7 +45,7 @@ gc.collect()
 _count = 0
 
 
-class Switch(Component):
+class Switch(_Switch):
     def __init__(self, command_on, command_off, expected_return_on=None, expected_execution_time_on=0,
                  expected_return_off=None, expected_execution_time_off=0,
                  iterations=1, iter_delay=10, mqtt_topic=None, friendly_name=None):
@@ -82,7 +82,7 @@ class Switch(Component):
                 else:
                     await _log.asyncLog("warn", "Got unexpected return: {!s}".format(r))
                     return False
-        return False  # will not publish the state "ON" to mqtt
+        return False  # will not publish the requested state to mqtt
 
     async def _discovery(self):
         name = "{!s}{!s}".format(_component_name, self._count)

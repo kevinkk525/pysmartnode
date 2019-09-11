@@ -128,15 +128,10 @@ Optional configurations for the network are:
 * MQTT_DISCOVERY_ON_RECONNECT: if the discovery should be sent again after each reconnect. Only needed if the mqtt broker doesn't support saving retained messages when it restarts.
 * MQTT_RECEIVE_CONFIG: states if the device should receive its configuration using mqtt subscription. This only works when using [SmartServer](https://github.com/kevinkk525/SmartServer) in your network
 * MQTT_TYPE: support for an experimental connection type (will be described when fully tested, documented and implemented)
+* WIFI_LED: Set option to a pin number to use the connected LED to display the Wifi status. If the initial connect to the WIFI was successful then it will blink 5 times very quickly. While connected it will blink quickly one time every 30 seconds. When not connected it will make 3 long blinks every 5 seconds.
+* WIFI_LED_ACTIVE_HIGH: Set to False if the connected LED is active low.
 
 Platform dependent options are
-- for esp8266:
-    * LIGHTWEIGHT_LOG: if a logging module with less RAM demands should be used (saves ~500B)
-    * MQTT_MINIMAL_VERSION: if a mqtt module should be used that is stripped to only the needed things (saves ~200B)
-    * RTC_SYNC_ACTIVE: if RTC time sync should be done (saves ~600B)
-    * RTC_TIMEZONE_OFFSET: as esp8266 does not support timezones, add your offset here to match your time
-    * USE_SOFTWARE_WATCHDOG: Needed for micropython versions before 1.11 as uasyncio could get stuck for 1h 11minutes but not the interrupts. This makes using a software watchdog possible to reset hanging units (uses ~600B)
-    * WIFI_SLEEP_MODE: If you have frequent reconnects due to wifi problems, disabling wifi sleep could help. WIFI_NONE_SLEEP = 0, WIFI_LIGHT_SLEEP = 1, WIFI_MODEM_SLEEP = 2; change to 0 if you have a lot of reconnects. Standard is 2.
 - for esp32_LoBo:
     * MDNS_ACTIVE, MDNS_HOSTNAME, MDNS_DESCRIPTION: mdns options
     * FTP_ACTIVE: enable the built-in ftp server, very nice to have
@@ -146,6 +141,13 @@ Platform dependent options are
     * FTP_ACTIVE: FTP server from [Robert](https://github.com/robert-hh/FTP-Server-for-ESP8266-and-ESP32)
     * RTC_SYNC_ACTIVE: if RTC time sync should be done
     * RTC_TIMEZONE_OFFSET: as esp32 does not support timezones, add your offset here to match your time
+- for esp8266:
+    * LIGHTWEIGHT_LOG: if a logging module with less RAM demands should be used (saves ~500B) but doesn't send module names in the log
+    * MQTT_MINIMAL_VERSION: if a mqtt module should be used that is stripped to only the needed things (saves ~200B)
+    * RTC_SYNC_ACTIVE: if RTC time sync should be done (saves ~600B)
+    * RTC_TIMEZONE_OFFSET: as esp8266 does not support timezones, add your offset here to match your time
+    * USE_SOFTWARE_WATCHDOG: Needed for micropython versions before 1.11 as uasyncio could get stuck for 1h 11minutes but not the interrupts. This makes using a software watchdog possible to reset hanging units (uses ~600B)
+    * WIFI_SLEEP_MODE: If you have frequent reconnects due to wifi problems, disabling wifi sleep could help. WIFI_NONE_SLEEP = 0, WIFI_LIGHT_SLEEP = 1, WIFI_MODEM_SLEEP = 2; change to 0 if you have a lot of reconnects. Standard is 2.
 - for unix port:
     * RTC_SYNC_ACTIVE: use synced time. Only disable if the underlying OS has no internet access and can't sync its time. Micropython doesn't sync the time on unix. 
 

@@ -20,13 +20,13 @@ example config:
 }
 """
 
-__updated__ = "2019-07-14"
-__version__ = "0.2"
+__updated__ = "2019-09-08"
+__version__ = "0.3"
 
 import gc
 from pysmartnode import config
 from pysmartnode import logging
-from pysmartnode.utils.component import Component, DISCOVERY_SWITCH
+from pysmartnode.utils.component import Switch, DISCOVERY_SWITCH
 from .popen_base import Popen
 
 ####################
@@ -48,7 +48,7 @@ EXPECTED_RETURN_ON = 'using pin 0\nsending systemCode[{!s}] unitCode[{!s}] comma
 EXPECTED_RETURN_OFF = 'using pin 0\nsending systemCode[{!s}] unitCode[{!s}] command[0]\n'
 
 
-class RF433(Component):
+class RF433(Switch):
     lock = config.Lock()  # only one method can have control over the RF433 device
 
     def __init__(self, unit_code, unit, expected_execution_time_on=500, expected_execution_time_off=500,

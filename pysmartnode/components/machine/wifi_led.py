@@ -34,7 +34,7 @@ class WIFILED(Component):
         while sta.isconnected() is True:
             await self.async_flash(20)
             st = time.ticks_ms()
-            while time.ticks_ms() - st < 60000:
+            while time.ticks_ms() - st < 30000:
                 await asyncio.sleep(1)
         while sta.isconnected() is False:
             for _ in range(3):

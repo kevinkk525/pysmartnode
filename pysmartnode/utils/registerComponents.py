@@ -3,6 +3,9 @@ import uasyncio as asyncio
 from sys import platform
 from pysmartnode import config
 
+__updated__ = "2019-09-08"
+__version__ = "0.3"
+
 if config.DEBUG:
     def __printRAM(start, info=""):
         print(info, "Mem free", gc.mem_free(), "diff:", gc.mem_free() - start)
@@ -82,18 +85,22 @@ async def _registerComponents(data, _log):
                 if _checkArgs(data[componentname], _log):
                     _checkPackage(data[componentname])
                     try:
-                        tmp = __import__(component["package"], globals(),
-                                         locals(), [component["component"]], 0)
+                        module = __import__(component["package"], globals(),
+                                            locals(), [component["component"]], 0)
                     except Exception as e:
                         await _log.asyncLog("critical", "Error importing package {!s}, error: {!s}".format(
                             component["package"], e))
-                        tmp = None
+                        module = None
                     gc.collect()
                     err = False
-                    if tmp is not None:
-                        if hasattr(tmp, "__version__"):
-                            version = getattr(tmp, "__version__")
-                        if hasattr(tmp, component["component"]):
+                    if module is not None:
+                        if hasattr(module, "__version__"):
+                            version = getattr(module, "__version__")
+                        if hasattr(module, "_component_name"):
+                            module_name = getattr(module, "_component_name")
+                        else:
+                            module_name = component["package"]
+                        if hasattr(module, component["component"]):
                             kwargs = _getKwargs(
                                 component["constructor_args"]) if "constructor_args" in component and type(
                                 component["constructor_args"]) == dict else {}
@@ -101,7 +108,7 @@ async def _registerComponents(data, _log):
                                 component["constructor_args"]) if "constructor_args" in component and type(
                                 component["constructor_args"]) == list else []
                             try:
-                                obj = getattr(tmp, component["component"])
+                                obj = getattr(module, component["component"])
                                 if str(type(obj)) == "<class 'generator'>":
                                     obj = await obj(*args, **kwargs)
                                 else:
@@ -153,12 +160,15 @@ async def _registerComponents(data, _log):
                                             "call_interval"] if "call_interval" in component else None))
                                 if err is False:
                                     COMPONENTS[componentname] = obj
-                                    await _log.asyncLog("info", "Added component {!r}, version {!s}".format(
-                                        componentname, version))
+                                    await _log.asyncLog("info",
+                                                        "Added module {!r} version {!s} as component {!r}".format(
+                                                            module_name, version, componentname))
                                     res = True
                             elif err is False:
-                                await _log.asyncLog("info", "Added component {!r}, version {!s} as service".format(
-                                    componentname, version))  # probably function, not class
+                                await _log.asyncLog("info",
+                                                    "Added module {!s} version {!s}, component {!r} as service".format(
+                                                        module_name, version,
+                                                        componentname))  # function. Prpbably unused since 5.0.0.
                                 res = True
                             else:
                                 res = False

@@ -4,6 +4,8 @@ Created on 28.10.2017
 @author: Kevin Köck
 '''
 
+_component_name = "I2C"
+
 """
 example config:
 {

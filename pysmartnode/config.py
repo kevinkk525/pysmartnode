@@ -16,7 +16,7 @@ if platform == "linux" and DEVICE_NAME is None:
     raise TypeError("DEVICE_NAME has to be set on unix port")
 
 # General
-VERSION = const(501)
+VERSION = const(510)
 print("PySmartNode version {!s} started".format(VERSION))
 
 import gc
@@ -112,6 +112,13 @@ def getComponent(name):
         return COMPONENTS[name]
     else:
         return None
+
+
+def getComponentName(component):
+    for comp in COMPONENTS:
+        if COMPONENTS[comp] == component:
+            return comp
+    return None
 
 
 def addNamedComponent(name, obj):

@@ -21,8 +21,8 @@ example config:
 }
 """
 
-__updated__ = "2019-05-08"
-__version__ = "0.9"
+__updated__ = "2019-09-08"
+__version__ = "1.0"
 
 import gc
 from pysmartnode import config
@@ -114,9 +114,9 @@ class Bell(Component):
         self._timer_lock.release()
 
     async def _discovery(self):
-        await self._publishDiscovery("binary_sensor", self._topic, "bell", '"ic":"mdi:bell",', "Doorbell", self._frn)
+        await self._publishDiscovery("binary_sensor", self._topic, "bell", '"ic":"mdi:bell",', self._frn or "Doorbell")
         gc.collect()
         if config.RTC_SYNC_ACTIVE is True:
             await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("last_bell"), "last_bell", TIMELAPSE_TYPE,
-                                         "Last Bell", self._frn_l)
+                                         self._frn_l or "Last Bell")
             gc.collect()

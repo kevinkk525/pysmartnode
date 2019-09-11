@@ -200,3 +200,5 @@ class RFPump(RF433):
         # note that _publishDiscovery does expect the state topic but we have the command topic stored.
         name = "{!s}{!s}_{!s}".format(_component_name, self._count, "Repeating_mode")
         await self._publishDiscovery(_component_type, self._topic_mode[:-4], name, DISCOVERY_SWITCH, self._frn_mode)
+
+    # async def on/off will switch the current state of the pump in on_message

@@ -26,6 +26,9 @@ MQTT_TYPE = const(0)  # 0: direct, 1: IOT implementation
 WIFI_LED = None  # set a pin number to have the wifi state displayed by a blinking led. Useful for devices like sonoff
 WIFI_LED_ACTIVE_HIGH = True  # if led is on when output is low, change to False
 
+WEBREPL_ACTIVE = False  # If you want to have the webrepl active. Configures and starts it automatically.
+WEBREPL_PASSWORD = ""
+
 if platform == "esp32_LoBo":
     MDNS_ACTIVE = True
     MDNS_HOSTNAME = "esp32"

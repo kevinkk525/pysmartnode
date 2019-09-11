@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__version__ = "3.8"
-__updated__ = "2019-08-27"
+__updated__ = "2019-09-08"
+__version__ = "3.9"
 
 import gc
 import ujson
@@ -167,6 +167,9 @@ class MQTTHandler(MQTTClient):
                 return True
         return False
 
+    def scheduleUnsubscribe(self, topic=None, component=None):
+        asyncio.get_event_loop().create_task(self.unsubscribe(topic, component))
+
     async def unsubscribe(self, topic=None, component=None):
         if topic is None and component is None:
             raise TypeError("No topic and no component, can't unsubscribe")
@@ -176,25 +179,32 @@ class MQTTHandler(MQTTClient):
             # removing all topics from component in iteration below
         topic = [topic] if type(topic) == str else topic
         for t in topic:
-            if self.isDeviceTopic(t):
-                t = self.getRealTopic(t)
             found = False
             c = config._components
             while c is not None:
                 if hasattr(c, "_topics") is True:
+                    # search if other components subscribed topic
+                    # (expensive although typically not needed as every topic is unlikely
+                    # to be used by other components too)
                     if c != component:
                         ts = c._topics
                         for tc in ts:
+                            if component is None:  # if no component specified, unsubscribe topic from every component
+                                if tc == t:
+                                    del c._topics[t]
+                                    break
                             if self.isDeviceTopic(tc):
                                 tc = self.getRealTopic(tc)
-                                if self.matchesSubscription(t, tc) is True:
+                                if self.matchesSubscription(
+                                        t if self.isDeviceTopic(t) is False else self.getRealTopic(t), tc) is True:
                                     found = True
                                     break
                     else:  # remove topic from component topic dict
                         del c._topics[t]
-                        c._topics = t
                 c = c._next_component
             if found is False:
+                if self.isDeviceTopic(t):
+                    t = self.getRealTopic(t)
                 await super().unsubscribe(t)  # no component is still subscribed to topic
 
     def scheduleSubscribe(self, topic, qos=0, check_retained_state_topic=True):

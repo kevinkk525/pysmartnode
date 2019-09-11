@@ -8,6 +8,7 @@ __version__ = "0.5"
 from pysmartnode import config
 import uasyncio as asyncio
 from pysmartnode.utils import sys_vars
+from .definitions import *
 import gc
 
 # This module is used to create components that interact with mqtt.
@@ -18,45 +19,6 @@ import gc
 # don't need to use this module as a basis.
 
 _mqtt = config.getMQTT()
-
-# The discovery base should be a json string to keep the RAM requirement low and only need
-# to use format to enter the dynamic values so that the string is only loaded into RAM once
-# during the discovery method call.
-# Defining every base sensor in this module instead of in every custom component reduces RAM
-# requirements of modules that are not frozen to firmware.
-# For more variables see: https://www.home-assistant.io/docs/mqtt/discovery/
-DISCOVERY_BASE = '{{' \
-                 '"~":"{!s}",' \
-                 '"name":"{!s}",' \
-                 '"stat_t":"~",' \
-                 '"avty_t":"{!s}/{!s}/status",' \
-                 '"uniq_id":"{!s}_{!s}",' \
-                 '{!s}' \
-                 '"dev":{!s}' \
-                 '}}'
-#                 '"pl_avail":"online",' \
-#                 '"pl_not_avail":"offline",' \
-#                 standard values
-
-DISCOVERY_BASE_NO_AVAIL = '{{' \
-                          '"~":"{!s}",' \
-                          '"name":"{!s}",' \
-                          '"stat_t":"~",' \
-                          '"uniq_id":"{!s}_{!s}",' \
-                          '{!s}' \
-                          '"dev":{!s}' \
-                          '}}'
-
-DISCOVERY_SENSOR = '"dev_cla":"{!s}",' \
-                   '"unit_of_meas":"{!s}",' \
-                   '"val_tpl":"{!s}",'
-
-TIMELAPSE_TYPE = '"dev_cla":"timestamp",' \
-                 '"ic":"mdi:timelapse",'
-
-DISCOVERY_BINARY_SENSOR = '"dev_cla":"{!s}",'  # "pl_on":"ON", "pl_off":"OFF",' are default
-
-DISCOVERY_SWITCH = '"cmd_t":"~/set",'  # '"stat_on":"ON","stat_off":"OFF",' are default
 
 
 class Component:
@@ -87,7 +49,7 @@ class Component:
 
     async def on_reconnect(self):
         """
-        Subclass to process a reconnect.
+        Subclass method to process a reconnect.
         Useful if you need to send a message on reconnect.
         Resubscribing to topics is done by mqtt_handler and doesn't need to be done manually.
         """
