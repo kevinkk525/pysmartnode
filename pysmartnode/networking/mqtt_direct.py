@@ -4,11 +4,12 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-09-10"
-__version__ = "4.0"
+__updated__ = "2019-09-12"
+__version__ = "4.1"
 
 import gc
 import ujson
+import time
 
 gc.collect()
 
@@ -16,22 +17,20 @@ from pysmartnode import config
 from sys import platform
 from pysmartnode import logging
 from pysmartnode.utils import sys_vars
-
-if platform == "esp8266" and config.MQTT_MINIMAL_VERSION is True:
-    print("Minimal MQTTClient")
-    from micropython_mqtt_as.mqtt_as_minimal import MQTTClient, Lock
-else:
-    print("Full MQTTClient")
-    from micropython_mqtt_as.mqtt_as import MQTTClient, Lock
-gc.collect()
+from pysmartnode.utils.event import Event
+from micropython import const
+from micropython_mqtt_as.mqtt_as import MQTTClient, Lock
 import uasyncio as asyncio
 import os
 import sys
+
+gc.collect()
 
 _log = logging.getLogger("MQTT")
 gc.collect()
 
 type_gen = type((lambda: (yield))())  # Generator type
+_DEFAULT_TIMEOUT = const(2635200)  # 1 month, basically math.huge
 
 
 class MQTTHandler(MQTTClient):
@@ -69,6 +68,8 @@ class MQTTHandler(MQTTClient):
         self._reconnected_subs = []
         self._wifi_coro = None
         self._wifi_subs = []
+        self._queue = Event()
+        asyncio.get_event_loop().create_task(self._processor())
         gc.collect()
 
     def registerWifiCallback(self, cb):
@@ -80,23 +81,10 @@ class MQTTHandler(MQTTClient):
         self._reconnected_subs.append(cb)
 
     async def _connectCaller(self):
-        # catches the error if on esp8266 no wifi credentials were stored on the device. Also error handling
-        if sys.platform == "esp8266":
-            import network
-            ap_if = network.WLAN(network.AP_IF)
-            ap_if.active(False)
-            s = network.WLAN(network.STA_IF)
-            s.active(True)
-            if s.isconnected() is False:
-                s.connect()  # ESP8266 remembers connection.
-                while s.status() == network.STAT_CONNECTING:  # Break out on fail or success. Check once per sec.
-                    await asyncio.sleep(1)
-                if s.isconnected() is False:
-                    s.connect(config.WIFI_SSID, config.WIFI_PASSPHRASE)
-                    await asyncio.sleep(1)
         while True:
             try:
                 await self.connect()
+                return
             except OSError as e:
                 _log.error("Error connecting to wifi: {!s}".format(e), local_only=True)
                 # not connected after trying.. not much we can do without a connection except trying again.
@@ -107,16 +95,17 @@ class MQTTHandler(MQTTClient):
     async def _wifiChanged(self, state):
         if self._wifi_coro is not None:
             asyncio.cancel(self._wifi_coro)
-        self._wifi_coro = self._wifi_handler(state)
+        self._wifi_coro = self._wifi_changed(state)
         asyncio.get_event_loop().create_task(self._wifi_coro)
 
-    async def _wifi_handler(self, state):
+    async def _wifi_changed(self, state):
         if config.DEBUG:
             _log.info("WIFI state {!s}".format(state), local_only=True)
         for cb in self._wifi_subs:
             res = cb(self)
             if type(res) == type_gen:
                 await res
+        self._wifi_coro = None
 
     async def _connected(self, client):
         if self._connected_coro is not None:
@@ -124,7 +113,9 @@ class MQTTHandler(MQTTClient):
         self._connected_coro = self._connected_handler(client)
         asyncio.get_event_loop().create_task(self._connected_coro)
 
-    async def _connected_handler(self):
+    async def _connected_handler(self, client):
+        await self.publish(self.getDeviceTopic("status"), "online", 1, True)
+        # if it hangs here because connection is lost, it will get canceled when reconnected.
         if self.__receive_config is not None:
             # only log on first connection, not on reconnect as nothing has changed here
             await _log.asyncLog("info", str(os.name if platform == "linux" else os.uname()))
@@ -133,14 +124,15 @@ class MQTTHandler(MQTTClient):
             # do not try to resubscribe on first connect as components will do it
             await _log.asyncLog("debug", "Reconnected")
             await self._subscribeTopics()
-            for cb in self._reconnected_subs:
-                res = cb(self)
-                if type(res) == type_gen:
-                    await res
         if self.__receive_config is True:
             asyncio.get_event_loop().create_task(self._receiveConfig())
         else:
             self.__receive_config = None  # first connect processed
+        for cb in self._reconnected_subs:
+            res = cb(client)
+            if type(res) == type_gen:
+                await res
+        self._connected_coro = None
 
     async def _receiveConfig(self):
         self.__receive_config = None
@@ -195,8 +187,6 @@ class MQTTHandler(MQTTClient):
                     await super().subscribe(t, qos=1)
             if config.MQTT_DISCOVERY_ON_RECONNECT is True and config.MQTT_DISCOVERY_ENABLED is True:
                 await c._discovery()
-            if hasattr(c, "on_reconnect") is True:
-                await c.on_reconnect()
             c = c._next_component
 
     def _convertToDeviceTopic(self, topic):
@@ -225,10 +215,10 @@ class MQTTHandler(MQTTClient):
                 return True
         return False
 
-    def scheduleUnsubscribe(self, topic=None, component=None):
-        asyncio.get_event_loop().create_task(self.unsubscribe(topic, component))
+    def scheduleUnsubscribe(self, topic=None, component=None, timeout=_DEFAULT_TIMEOUT, wait_for_wifi=True):
+        asyncio.get_event_loop().create_task(self.unsubscribe(topic, component, timeout, wait_for_wifi))
 
-    async def unsubscribe(self, topic=None, component=None):
+    async def unsubscribe(self, topic=None, component=None, timeout=_DEFAULT_TIMEOUT, wait_for_wifi=True):
         if topic is None and component is None:
             raise TypeError("No topic and no component, can't unsubscribe")
         _log.debug("unsubscribing topic {!s} from component {}".format(topic, component), local_only=True)
@@ -236,6 +226,7 @@ class MQTTHandler(MQTTClient):
             topic = component._topics if hasattr(component, "_topics") else [None]
             # removing all topics from component in iteration below
         topic = [topic] if type(topic) == str else topic
+        st = time.ticks_ms()
         for t in topic:
             found = False
             c = config._components
@@ -258,18 +249,31 @@ class MQTTHandler(MQTTClient):
                                     found = True
                                     break
                     else:  # remove topic from component topic dict
-                        del c._topics[t]
+                        if t in c._topics:
+                            del c._topics[t]
                 c = c._next_component
             if found is False:
+                # no component is still subscribed to topic
                 if self.isDeviceTopic(t):
                     t = self.getRealTopic(t)
-                await super().unsubscribe(t)  # no component is still subscribed to topic
+                if wait_for_wifi is False and self.isconnected() is False:
+                    continue
+                timeout = timeout - (time.ticks_ms() - st) / 1000  # the whole process can't take longer than timeout.
+                if await self._preprocessor(super().unsubscribe, (t,), timeout) is False:
+                    _log.error("Couldn't unsubscribe topic {!s} from broker".format(t), local_only=True)
+                st = time.ticks_ms()
+        return True  # always True because at least internally it has been unsubscribed.
 
-    def scheduleSubscribe(self, topic, qos=0, check_retained_state_topic=True):
-        asyncio.get_event_loop().create_task(self.subscribe(topic, qos, check_retained_state_topic))
+    def scheduleSubscribe(self, topic, qos=0, check_retained_state_topic=True, timeout=_DEFAULT_TIMEOUT,
+                          wait_for_wifi=True):
+        asyncio.get_event_loop().create_task(
+            self.subscribe(topic, qos, check_retained_state_topic, timeout, wait_for_wifi))
 
-    async def subscribe(self, topic, qos=1, check_retained_state_topic=True):
+    async def subscribe(self, topic, qos=1, check_retained_state_topic=True, timeout=_DEFAULT_TIMEOUT,
+                        wait_for_wifi=True):
         _log.debug("Subscribing to topic {}".format(topic), local_only=True)
+        if wait_for_wifi is False and self.isconnected() is False:
+            return False
         if check_retained_state_topic:
             if topic.endswith("/set"):
                 # subscribe to topic without /set to get retained message for this topic state
@@ -282,18 +286,23 @@ class MQTTHandler(MQTTClient):
                     state_topic_new = self._convertToDeviceTopic(state_topic)
                 if self.isDeviceTopic(state_topic):
                     state_topic_new = self.getRealTopic(state_topic)
-                await super().subscribe(state_topic_new, qos)
+                st = time.ticks_ms()
+                if await self._preprocessor(super().subscribe, (state_topic_new, qos), timeout) is False:
+                    return False
                 await asyncio.sleep_ms(500)
                 # gives retained state topic time to be received and processed before
                 # unsubscribing and adding /set subscription
-                await self.unsubscribe(state_topic, None)
+                timeout = timeout - (time.ticks_ms() - st) / 1000  # the whole process can't take longer than timeout.
+                st = time.ticks_ms()
+                await self.unsubscribe(state_topic, None, timeout)
                 if state_topic in self._temp:
                     self._temp.remove(state_topic)
+                timeout = timeout - (time.ticks_ms() - st) / 1000
         if self._isDeviceSubscription(topic):
             topic = self._convertToDeviceTopic(topic)
         if self.isDeviceTopic(topic):
             topic = self.getRealTopic(topic)
-        await super().subscribe(topic, qos)
+        return await self._preprocessor(super().subscribe, (topic, qos), timeout)
 
     @staticmethod
     def getDeviceTopic(attrib, is_request=False):
@@ -337,7 +346,9 @@ class MQTTHandler(MQTTClient):
                         found = True
             c = c._next_component
         if found is False:
-            _log.warn("Subscribed topic {!s} not found".format(topic))
+            _log.warn("Subscribed topic {!s} not found, unsubscribing from server".format(topic))
+            self.scheduleUnsubscribe(topic, timeout=10, wait_for_wifi=False)
+            # unsubscribe to prevent it from spamming. Could also be still subscribed because unsubscribe timeout out.
 
     async def _execute_callback(self, cb, topic, msg, retained):
         try:
@@ -354,15 +365,61 @@ class MQTTHandler(MQTTClient):
         except Exception as e:
             _log.error("Error executing {!s}mqtt topic {!r}: {!s}".format("retained " if retained else "", topic, e))
 
-    async def publish(self, topic, msg, qos=0, retain=False):
+    async def publish(self, topic, msg, qos=0, retain=False, timeout=_DEFAULT_TIMEOUT, wait_for_wifi=True):
+        """
+        publish a message to mqtt
+        :param topic: str
+        :param msg: json convertable object
+        :param qos: 0 or 1
+        :param retain: bool
+        :param timeout: seconds, after timeout False will be returned and publish canceled. defaults to 1mo (math.huge)
+        :param wait_for_wifi: wait for wifi to be available.
+        Depending on application this might not be desired as it could block further processing but
+        due to restraint resources and complexity you don't want to launch a new coroutine for each publish.
+        :return:
+        """
+        if wait_for_wifi is False and self.isconnected() is False:
+            return False
         if type(msg) == dict or type(msg) == list:
             msg = ujson.dumps(msg)
         elif type(msg) != str:
             msg = str(msg)
         if self.isDeviceTopic(topic):
             topic = self.getRealTopic(topic)
-        await super().publish(topic.encode(), msg.encode(), retain, qos)
+        msg = (topic.encode(), msg.encode(), retain, qos)
         gc.collect()
+        return await self._preprocessor(super().publish, msg, timeout)
 
-    def schedulePublish(self, topic, msg, qos=0, retain=False):
-        asyncio.get_event_loop().create_task(self.publish(topic, msg, qos, retain))
+    def schedulePublish(self, topic, msg, qos=0, retain=False, timeout=_DEFAULT_TIMEOUT, wait_for_wifi=True):
+        asyncio.get_event_loop().create_task(self.publish(topic, msg, qos, retain, timeout, wait_for_wifi))
+
+    async def _preprocessor(self, coro, msg, timeout):
+        st = time.ticks_ms()
+        qd = False
+        while time.ticks_ms() - st < timeout * 1000:
+            if qd is False:
+                if self._queue.is_set() is False:
+                    self._queue.set((coro, msg))
+                    qd = True
+            else:
+                if self._queue.is_set() is False or self._queue.value()[1] != msg:
+                    return True  # processed correctly
+            await asyncio.sleep_ms(20)
+        return False  # message might still go through eventually if already in processing
+
+    async def _processor(self):
+        while True:
+            await self._queue
+            coro, args = self._queue.value()
+            try:
+                await coro(*args)
+            except Exception as e:
+                await _log.asyncLog("error", e)
+            finally:
+                self._queue.clear()
+            # not working with asyncio.cancel here because cancelling a publish could break it in the middle
+            # of sending or receiving data which could lead to various problems.
+            # Therefore a cancelled task might still go through as cancellation only really works as long as
+            # a different request is being processed.
+            # However if a timeout is used then the calling method will not expect it to have been gone through
+            # and can act accordingly.
