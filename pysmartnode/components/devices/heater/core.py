@@ -56,8 +56,8 @@ log = logging.getLogger("Heater")  # not _log as submodules import it
 gc.collect()
 
 _heater = None
-_component_name = "heater"
-_component_type = "sensor"
+COMPONENT_NAME = "heater"
+_COMPONENT_TYPE = "sensor"
 
 
 class Heater(Component):
@@ -116,19 +116,19 @@ class Heater(Component):
 
     async def _discovery(self):
         name = "heater_target_temp"
-        await self._publishDiscovery(_component_type, self.__target_temp_cmd_topic[:-4], name, DISCOVERY_SWITCH,
+        await self._publishDiscovery(_COMPONENT_TYPE, self.__target_temp_cmd_topic[:-4], name, DISCOVERY_SWITCH,
                                      self._frn_temp or " Target Temperature")
         gc.collect()
         name = "heater_mode"
-        await self._publishDiscovery(_component_type, self.__mode_cmd_topic[:-4], name, DISCOVERY_SWITCH,
+        await self._publishDiscovery(_COMPONENT_TYPE, self.__mode_cmd_topic[:-4], name, DISCOVERY_SWITCH,
                                      self._frn_mode or "Mode")
         gc.collect()
         name = "heater_power"
-        await self._publishDiscovery(_component_type, self.__power_topic, name, "",
+        await self._publishDiscovery(_COMPONENT_TYPE, self.__power_topic, name, "",
                                      self._frn_power or "Power")
         gc.collect()
         name = "heater_status"
-        await self._publishDiscovery(_component_type, self.__status_topic, name, "",
+        await self._publishDiscovery(_COMPONENT_TYPE, self.__status_topic, name, "",
                                      self._frn_status or "Power")
         gc.collect()
 

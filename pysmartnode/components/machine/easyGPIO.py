@@ -29,8 +29,8 @@ from pysmartnode.utils.component import Component, DISCOVERY_SWITCH
 
 _mqtt = config.getMQTT()
 
-_component_name = "GPIO"
-_component_type = "switch"
+COMPONENT_NAME = "GPIO"
+_COMPONENT_TYPE = "switch"
 
 gc.collect()
 
@@ -44,8 +44,8 @@ class GPIO(Component):
 
     async def _discovery(self):
         for pin in self._d:
-            name = "{!s}_{!s}".format(_component_name, pin)
-            await self._publishDiscovery(_component_type, self._topic.replace("#", pin), name, DISCOVERY_SWITCH)
+            name = "{!s}_{!s}".format(COMPONENT_NAME, pin)
+            await self._publishDiscovery(_COMPONENT_TYPE, self._topic.replace("#", pin), name, DISCOVERY_SWITCH)
 
     async def on_message(self, topic, msg, retain):
         _log = logging.getLogger("easyGPIO")

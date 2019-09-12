@@ -96,8 +96,8 @@ async def _registerComponents(data, _log):
                     if module is not None:
                         if hasattr(module, "__version__"):
                             version = getattr(module, "__version__")
-                        if hasattr(module, "_component_name"):
-                            module_name = getattr(module, "_component_name")
+                        if hasattr(module, "COMPONENT_NAME"):
+                            module_name = getattr(module, "COMPONENT_NAME")
                         else:
                             module_name = component["package"]
                         if hasattr(module, component["component"]):

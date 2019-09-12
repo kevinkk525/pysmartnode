@@ -22,6 +22,8 @@ from pysmartnode import config
 
 gc.collect()
 
+COMPONENT_NAME = "WifiLED"
+
 
 class WIFILED(Component):
     def __init__(self, pin, active_high=True):

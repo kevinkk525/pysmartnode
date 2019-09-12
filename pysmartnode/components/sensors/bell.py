@@ -35,9 +35,9 @@ import machine
 import time
 import uasyncio as asyncio
 
-_component_name = "Bell"
+COMPONENT_NAME = "Bell"
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 
 gc.collect()
@@ -47,7 +47,7 @@ class Bell(Component):
     def __init__(self, pin, debounce_time, on_time=None, irq_direction=None, mqtt_topic=None, friendly_name=None,
                  friendly_name_last=None):
         super().__init__()
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic(_component_name)
+        self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
         self._PIN_BELL_IRQ_DIRECTION = irq_direction or machine.Pin.IRQ_FALLING
         self._debounce_time = debounce_time
         self._on_time = on_time or 500

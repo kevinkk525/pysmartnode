@@ -50,12 +50,12 @@ import onewire
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-_component_name = "DS18"
+COMPONENT_NAME = "DS18"
 # define the type of the component according to the homeassistant specifications
-_component_type = "sensor"
+_COMPONENT_TYPE = "sensor"
 ####################
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
@@ -192,8 +192,8 @@ class DS18(Component):
                                        "{{ value|float }}")  # value_template
         rom = self._ds.rom2str(self._r)
         topic = self._topic or _mqtt.getDeviceTopic("DS18/{!s}".format(rom))
-        name = "{!s}_{!s}".format(_component_name, rom)
-        await self._publishDiscovery(_component_type, topic, name, sens, self._frn or "Temperature")
+        name = "{!s}_{!s}".format(COMPONENT_NAME, rom)
+        await self._publishDiscovery(_COMPONENT_TYPE, topic, name, sens, self._frn or "Temperature")
         del rom, topic, name, sens
         gc.collect()
 

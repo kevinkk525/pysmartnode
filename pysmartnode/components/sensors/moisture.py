@@ -36,8 +36,8 @@ import uasyncio as asyncio
 import gc
 from pysmartnode.utils.component import Component, DISCOVERY_SENSOR, DISCOVERY_BINARY_SENSOR
 
-_component_name = "Moisture"
-_component_type = "sensor"
+COMPONENT_NAME = "Moisture"
+_COMPONENT_TYPE = "sensor"
 
 _mqtt = config.getMQTT()
 Lock = config.Lock
@@ -180,16 +180,16 @@ class Moisture(Component):
             im = 1
         for i in range(im):
             if self._pub_cv:
-                name = "{!s}{!s}CV".format(_component_name, i)
+                name = "{!s}{!s}CV".format(COMPONENT_NAME, i)
                 sens = DISCOVERY_BINARY_SENSOR.format("moisture")  # device_class
                 t = "{!s}/{!s}/conv".format(self._topic, i)
                 await self._publishDiscovery("binary_sensor", t, name, sens, self._frn_cv or "Moisture")
-            name = "{!s}{!s}".format(_component_name, i)
+            name = "{!s}{!s}".format(COMPONENT_NAME, i)
             t = "{!s}/{!s}".format(self._topic, i)
             sens = DISCOVERY_SENSOR.format("humidity",  # device_class
                                            "%",  # unit_of_measurement
                                            "{{ value|float }}")  # value_template
-            await self._publishDiscovery(_component_type, t, name, sens, self._frn or "Moisture rel.")
+            await self._publishDiscovery(_COMPONENT_TYPE, t, name, sens, self._frn or "Moisture rel.")
             del name, sens, t
             gc.collect()
 

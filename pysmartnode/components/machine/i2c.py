@@ -4,7 +4,7 @@ Created on 28.10.2017
 @author: Kevin Köck
 '''
 
-_component_name = "I2C"
+COMPONENT_NAME = "I2C"
 
 """
 example config:

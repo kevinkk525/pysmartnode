@@ -53,7 +53,7 @@ import uasyncio as asyncio
 
 loaded_components = {"machine": machine}  # so that button actions can be from these classes, e.g. machine.reset()
 
-_component_name = "Button"
+COMPONENT_NAME = "Button"
 
 _log = logging.getLogger("button")
 

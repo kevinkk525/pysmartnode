@@ -27,17 +27,17 @@ import gc
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-_component_name = "MySensor"
+COMPONENT_NAME = "MySensor"
 ####################
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
 
 class MySensor:
     def __init__(self, topic=None):
-        topic = topic or _mqtt.getDeviceTopic(_component_name)
+        topic = topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
         _mqtt.scheduleSubscribe(topic + "/set", self._setTemp)
         self.temp = None
 

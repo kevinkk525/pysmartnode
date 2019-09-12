@@ -30,13 +30,13 @@ from pysmartnode.utils.component import Switch, DISCOVERY_SWITCH
 from .popen_base import Popen
 
 ####################
-_component_name = "RF433Switch"
+COMPONENT_NAME = "RF433Switch"
 # define the type of the component according to the homeassistant specifications
-_component_type = "switch"
+_COMPONENT_TYPE = "switch"
 ####################
 
 _mqtt = config.getMQTT()
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 
 gc.collect()
 
@@ -60,7 +60,7 @@ class RF433(Switch):
         global _count
         self._count = _count
         _count += 1
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}{!s}".format(_component_name, self._count),
+        self._topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}{!s}".format(COMPONENT_NAME, self._count),
                                                          is_request=True)
         self._subscribe(self._topic, self.on_message)
         self._frn = friendly_name
@@ -94,6 +94,6 @@ class RF433(Switch):
                         return False
 
     async def _discovery(self):
-        name = "{!s}{!s}".format(_component_name, self._count)
-        await self._publishDiscovery(_component_type, self._topic[:-4], name, DISCOVERY_SWITCH, self._frn)
+        name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
+        await self._publishDiscovery(_COMPONENT_TYPE, self._topic[:-4], name, DISCOVERY_SWITCH, self._frn)
         # note that _publishDiscovery does expect the state topic but we have the command topic stored.

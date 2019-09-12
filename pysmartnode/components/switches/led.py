@@ -37,7 +37,7 @@ _mqtt = config.getMQTT()
 # choose a component name that will be used for logging (not in leightweight_log),
 # a default mqtt topic that can be changed by received or local component configuration
 # as well as for the component name in homeassistant.
-_component_name = "LEDNotification"
+COMPONENT_NAME = "LEDNotification"
 ####################
 
 gc.collect()
@@ -55,7 +55,7 @@ class LEDNotification(ComponentButton):
         global _count
         self._count = _count
         _count += 1
-        super().__init__(_component_name, mqtt_topic)
+        super().__init__(COMPONENT_NAME, mqtt_topic)
         self._frn = friendly_name
         gc.collect()
 

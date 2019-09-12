@@ -5,8 +5,8 @@
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2019-07-05"
-__version__ = "0.4"
+__updated__ = "2019-09-12"
+__version__ = "0.5"
 
 import gc
 
@@ -25,7 +25,7 @@ gc.collect()
 ####################
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-_component_name = "STATS"
+COMPONENT_NAME = "STATS"
 ####################
 
 _mqtt = config.getMQTT()
@@ -48,9 +48,8 @@ class STATS(Component):
 
     async def _init(self):
         await super()._init()
-        await self.on_reconnect()
         await _mqtt.publish(_mqtt.getDeviceTopic("version"), config.VERSION, 1, True)
-        await config._log.asyncLog("info", "Added component '{!s}', version {!s}".format(_component_name,
+        await config._log.asyncLog("info", "Added component '{!s}', version {!s}".format(COMPONENT_NAME,
                                                                                          __version__))
         # published to keep in line with every other component registered through pysmartnode/utils/registerComponents
         if config.RTC_SYNC_ACTIVE is True:
@@ -62,10 +61,10 @@ class STATS(Component):
                                 "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3],
                                                                                t[4],
                                                                                t[5]), 1, True)
-        await self._loop()
+        await self._loop()  # can be started here as everything depends on mqtt
 
     async def _loop(self):
-        await asyncio.sleep(12)
+        await asyncio.sleep(20)
         if platform != "linux":
             s = network.WLAN(network.STA_IF)
         else:
@@ -95,6 +94,3 @@ class STATS(Component):
                                            "{{value|int}}")  # value_template
             await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("rssi"), "rssi", sens,
                                          "Signal Strength")
-
-    async def on_reconnect(self):
-        await _mqtt.publish(_mqtt.getDeviceTopic("status"), "online", 1, True)

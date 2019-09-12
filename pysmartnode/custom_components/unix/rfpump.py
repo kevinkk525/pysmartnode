@@ -37,13 +37,13 @@ import uasyncio as asyncio
 from pysmartnode.components.unix.rf433switch import RF433, DISCOVERY_SWITCH
 
 ####################
-_component_name = "RFPump"
+COMPONENT_NAME = "RFPump"
 # define the type of the component according to the homeassistant specifications
-_component_type = "switch"
+_COMPONENT_TYPE = "switch"
 ####################
 
 _mqtt = config.getMQTT()
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 
 _count = 0
 
@@ -68,17 +68,17 @@ class RFPump(RF433):
         global _count
         self._count = _count
         _count += 1
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}{!s}".format(_component_name, self._count),
+        self._topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}{!s}".format(COMPONENT_NAME, self._count),
                                                          is_request=True)
         self._log = _log
 
         self._off_coro = None
         mqtt_topic_on_time = mqtt_topic_on_time or _mqtt.getDeviceTopic(
-            "{!s}{!s}/on_time".format(_component_name, self._count), is_request=True)
+            "{!s}{!s}/on_time".format(COMPONENT_NAME, self._count), is_request=True)
         mqtt_topic_off_time = mqtt_topic_off_time or _mqtt.getDeviceTopic(
-            "{!s}{!s}/off_time".format(_component_name, self._count), is_request=True)
+            "{!s}{!s}/off_time".format(COMPONENT_NAME, self._count), is_request=True)
         mqtt_topic_mode = mqtt_topic_mode or _mqtt.getDeviceTopic(
-            "{!s}{!s}/mode".format(_component_name, self._count), is_request=True)
+            "{!s}{!s}/mode".format(COMPONENT_NAME, self._count), is_request=True)
         self._subscribe(self._topic, self.on_message)
         self._subscribe(mqtt_topic_on_time, self.changeOnTime)
         self._subscribe(mqtt_topic_off_time, self.changeOffTime)
@@ -195,10 +195,10 @@ class RFPump(RF433):
         return True
 
     async def _discovery(self):
-        name = "{!s}{!s}".format(_component_name, self._count)
-        await self._publishDiscovery(_component_type, self._topic[:-4], name, DISCOVERY_SWITCH, self._frn)
+        name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
+        await self._publishDiscovery(_COMPONENT_TYPE, self._topic[:-4], name, DISCOVERY_SWITCH, self._frn)
         # note that _publishDiscovery does expect the state topic but we have the command topic stored.
-        name = "{!s}{!s}_{!s}".format(_component_name, self._count, "Repeating_mode")
-        await self._publishDiscovery(_component_type, self._topic_mode[:-4], name, DISCOVERY_SWITCH, self._frn_mode)
+        name = "{!s}{!s}_{!s}".format(COMPONENT_NAME, self._count, "Repeating_mode")
+        await self._publishDiscovery(_COMPONENT_TYPE, self._topic_mode[:-4], name, DISCOVERY_SWITCH, self._frn_mode)
 
     # async def on/off will switch the current state of the pump in on_message

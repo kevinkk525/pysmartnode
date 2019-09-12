@@ -38,12 +38,12 @@ from dht import DHT22 as Sensor
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-_component_name = "DHT22"
+COMPONENT_NAME = "DHT22"
 # define the type of the component according to the homeassistant specifications
-_component_type = "sensor"
+_COMPONENT_TYPE = "sensor"
 ####################
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
@@ -56,7 +56,7 @@ class DHT22(Component):
                  interval=None, mqtt_topic=None, friendly_name=None):
         super().__init__()
         self._interval = interval or config.INTERVAL_SEND_SENSOR
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic(_component_name)
+        self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
 
         ##############################
         # adapt to your sensor by extending/removing unneeded values like in the constructor arguments
@@ -107,7 +107,7 @@ class DHT22(Component):
         try:
             values = await self._dht_read()
         except Exception as e:
-            await _log.asyncLog("error", "Error reading sensor {!s}: {!s}".format(_component_name, e))
+            await _log.asyncLog("error", "Error reading sensor {!s}: {!s}".format(COMPONENT_NAME, e))
             return None
         if values[0] is not None and values[1] is not None:
             for i in range(0, len(values)):
@@ -118,7 +118,7 @@ class DHT22(Component):
                     return None if get_value_number != 0 else (None, None)
                 values[i] += offs
         else:
-            await _log.asyncLog("warn", "Sensor {!s} got no value".format(_component_name))
+            await _log.asyncLog("warn", "Sensor {!s} got no value".format(COMPONENT_NAME))
             return None if get_value_number != 0 else (None, None)
         if publish:
             if get_value_number == 0:
@@ -148,5 +148,5 @@ class DHT22(Component):
         sens = DISCOVERY_SENSOR.format("temperature",  # device_class
                                        "°C",  # unit_of_measurement
                                        "{{ value|float }}")  # value_template
-        name = "{!s}{!s}".format(_component_name, self._count)
-        await self._publishDiscovery(_component_type, self._topic, name, sens, self._frn or "Temperature")
+        name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
+        await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens, self._frn or "Temperature")

@@ -41,15 +41,15 @@ import machine
 import time
 import gc
 
-_component_name = "hcsr04"
+COMPONENT_NAME = "hcsr04"
 # define the type of the component according to the homeassistant specifications
-_component_type = "sensor"
+_COMPONENT_TYPE = "sensor"
 
 DISCOVERY_DISTANCE = '"unit_of_meas":"cm",' \
                      '"val_tpl":"{!s}",' \
                      '"ic":"mdi:axis-arrow",'
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
@@ -108,8 +108,8 @@ class HCSR04(Component):
     async def _discovery(self):
         # interval change can't be discovered as homeassistant doesn't offer a type
         sens = DISCOVERY_DISTANCE.format("{{ value|float }}" if self._valt is None else self._valt)
-        name = "{!s}{!s}".format(_component_name, self._count)
-        await self._publishDiscovery(_component_type, self._topic, name, sens, self._frn or "Distance")
+        name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
+        await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens, self._frn or "Distance")
 
     async def _changeInterval(self, topic, msg, retain):
         self.interval = float(msg)

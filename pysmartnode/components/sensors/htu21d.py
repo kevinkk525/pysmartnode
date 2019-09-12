@@ -38,9 +38,9 @@ from pysmartnode.libraries.htu21d.htu21d_async import HTU21D as htu
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-_component_name = "HTU"
+COMPONENT_NAME = "HTU"
 # define the type of the component according to the homeassistant specifications
-_component_type = "sensor"
+_COMPONENT_TYPE = "sensor"
 ####################
 
 _mqtt = config.getMQTT()
@@ -62,7 +62,7 @@ class HTU21D(htu, Component):
         _count += 1
         self._frn_temp = friendly_name_temp
         self._frn_humid = friendly_name_humid
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}/{!s}".format(_component_name, self._count))
+        self._topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}/{!s}".format(COMPONENT_NAME, self._count))
         ##############################
         # adapt to your sensor by extending/removing unneeded values
         self._prec_temp = int(precision_temp)
@@ -99,11 +99,11 @@ class HTU21D(htu, Component):
         # are going to be published from the same topic.
         for v in (("T", "Temperature", "°C", "{{ value_json.temperature}}", self._frn_temp),
                   ("H", "Humidity", "%", "{{ value_json.humidity}}", self._frn_humid)):
-            name = "{!s}{!s}{!s}".format(_component_name, self._count, v[0])
+            name = "{!s}{!s}{!s}".format(COMPONENT_NAME, self._count, v[0])
             sens = DISCOVERY_SENSOR.format(v[1].lower(),  # device_class
                                            v[2],  # unit_of_measurement
                                            v[3])  # value_template
-            await self._publishDiscovery(_component_type, component_topic, name, sens, v[4] or v[1])
+            await self._publishDiscovery(_COMPONENT_TYPE, component_topic, name, sens, v[4] or v[1])
             del name, sens
             gc.collect()
 
@@ -113,8 +113,8 @@ class HTU21D(htu, Component):
         try:
             value = await coro()
         except Exception as e:
-            await logging.getLogger(_component_name).asyncLog("error",
-                                                              "Error reading sensor {!s}: {!s}".format(_component_name,
+            await logging.getLogger(COMPONENT_NAME).asyncLog("error",
+                                                              "Error reading sensor {!s}: {!s}".format(COMPONENT_NAME,
                                                                                                        e))
             return None
         if value is not None:
@@ -128,8 +128,8 @@ class HTU21D(htu, Component):
         temp = await self._read(self._temp, self._prec_temp, self._offs_temp, publish)
         if temp is not None and temp < -48:  # on a device without a connected HTU I sometimes get about -48.85
             if publish:
-                await logging.getLogger(_component_name).asyncLog("warn",
-                                                                  "Sensor {!s} got no value".format(_component_name))
+                await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
+                                                                  "Sensor {!s} got no value".format(COMPONENT_NAME))
             return None
         return temp
 
@@ -137,8 +137,8 @@ class HTU21D(htu, Component):
         humid = await self._read(self._humid, self._prec_humid, self._offs_humid, publish)
         if humid is not None and humid <= 5:  # on a device without a connected HTU I sometimes get about 4
             if publish:
-                await logging.getLogger(_component_name).asyncLog("warn",
-                                                                  "Sensor {!s} got no value".format(_component_name))
+                await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
+                                                                  "Sensor {!s} got no value".format(COMPONENT_NAME))
             return None
         return humid
 
@@ -146,8 +146,8 @@ class HTU21D(htu, Component):
         temp = await self.temperature(publish=False)
         humid = await self.humidity(publish=False)
         if temp is None or humid is None:
-            await logging.getLogger(_component_name).asyncLog("warn",
-                                                              "Sensor {!s} got no value".format(_component_name))
+            await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
+                                                              "Sensor {!s} got no value".format(COMPONENT_NAME))
         elif publish:
             await _mqtt.publish(self._topic, {
                 "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),

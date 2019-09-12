@@ -41,12 +41,12 @@ import machine
 import time
 from pysmartnode.utils.component import Component, DISCOVERY_BINARY_SENSOR
 
-_component_name = "WaterSensor"
-_component_type = "binary_sensor"
+COMPONENT_NAME = "WaterSensor"
+_COMPONENT_TYPE = "binary_sensor"
 _count = 0
 _instances = []
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
@@ -93,9 +93,9 @@ class WaterSensor(Component):
                 await asyncio.sleep(interval_reading)
 
     async def _discovery(self):
-        name = "{!s}{!s}".format(_component_name, self._count)
+        name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
         sens = DISCOVERY_BINARY_SENSOR.format("moisture")  # device_class
-        await self._publishDiscovery(_component_type, self._t, name, sens, self._frn or "Moisture")
+        await self._publishDiscovery(_COMPONENT_TYPE, self._t, name, sens, self._frn or "Moisture")
         gc.collect()
 
     async def _read(self, publish=True):

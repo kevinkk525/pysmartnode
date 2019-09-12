@@ -45,11 +45,11 @@ from pysmartnode.libraries.pms5003 import pms5003 as sensorModule
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-_component_name = "PMS5003"
-_component_type = "sensor"
+COMPONENT_NAME = "PMS5003"
+_COMPONENT_TYPE = "sensor"
 ####################
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
@@ -61,7 +61,7 @@ class PMS5003(sensorModule.PMS5003, Component):
         Component.__init__(self)
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         self._int_pm = interval_passive_mode or self._interval
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic(_component_name)
+        self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
         if type(friendly_name) is not None:
             if type(friendly_name) == list:
                 if len(friendly_name) != 12:
@@ -100,10 +100,10 @@ class PMS5003(sensorModule.PMS5003, Component):
                 "1/0.1L", "1/0.1L", "1/0.1L", ]
         for i in range(len(values)):
             value = values[i]
-            name = "{!s}/{!s}".format(_component_name, value)
+            name = "{!s}/{!s}".format(COMPONENT_NAME, value)
             sens = DISCOVERY_PM.format(meas[i],  # unit_of_measurement
                                        "{{ value_json.{!s} }}".format(value))  # value_template
-            await self._publishDiscovery(_component_type, self._topic, name, sens, self._frn[i] or value)
+            await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens, self._frn[i] or value)
             del name, sens
             gc.collect()
 

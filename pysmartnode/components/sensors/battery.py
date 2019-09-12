@@ -38,10 +38,10 @@ from pysmartnode.components.machine.adc import ADC
 from pysmartnode.utils.component import Component, DISCOVERY_SENSOR
 import time
 
-_component_name = "Battery"
-_component_type = "sensor"
+COMPONENT_NAME = "Battery"
+_COMPONENT_TYPE = "sensor"
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
@@ -53,7 +53,7 @@ class Battery(Component):
         super().__init__()
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         self._interval_watching = interval_watching
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic(_component_name)
+        self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
         self._precision = int(precision_voltage)
         self._adc = ADC(adc)  # unified ADC interface
         self._voltage_max = voltage_max
@@ -80,13 +80,13 @@ class Battery(Component):
         try:
             value = self._adc.readVoltage()
         except Exception as e:
-            _log.error("Error reading sensor {!s}: {!s}".format(_component_name, e))
+            _log.error("Error reading sensor {!s}: {!s}".format(COMPONENT_NAME, e))
             return None
         if value is not None:
             value *= self._multiplier
             value = round(value, self._precision)
         if value is None:
-            _log.warn("Sensor {!s} got no value".format(_component_name))
+            _log.warn("Sensor {!s} got no value".format(COMPONENT_NAME))
         elif publish:
             await _mqtt.publish(self._topic, ("{0:." + str(self._precision) + "f}").format(value))
         return value
@@ -144,12 +144,12 @@ class Battery(Component):
         sens = DISCOVERY_SENSOR.format("battery",  # device_class
                                        "%",  # unit_of_measurement
                                        "{{ value_json.relative }}")  # value_template
-        await self._publishDiscovery(_component_type, self._topic, _component_name + "r", sens,
+        await self._publishDiscovery(_COMPONENT_TYPE, self._topic, COMPONENT_NAME + "r", sens,
                                      self._frn or "Battery %")
         sens = '"unit_of_meas":"V",' \
                '"val_tpl":"{{ value_json.absolute }}",' \
                '"ic":"mdi:car-battery"'
-        await self._publishDiscovery(_component_type, self._topic, _component_name + "a", sens,
+        await self._publishDiscovery(_COMPONENT_TYPE, self._topic, COMPONENT_NAME + "a", sens,
                                      self._frn_abs or "Battery Volt")
         del sens
         gc.collect()
