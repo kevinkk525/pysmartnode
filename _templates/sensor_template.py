@@ -39,12 +39,12 @@ from htu21d import HTU21D as Sensor
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-_component_name = "HTU"
+COMPONENT_NAME = "HTU"
 # define the type of the component according to the homeassistant specifications
-_component_type = "sensor"
+_COMPONENT_TYPE = "sensor"
 ####################
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
@@ -58,7 +58,7 @@ class MySensor(Component):
                  friendly_name_temp=None, friendly_name_humid=None):
         super().__init__()
         self._interval = interval or config.INTERVAL_SEND_SENSOR
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic(_component_name)
+        self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
         self._frn_temp = friendly_name_temp
         self._frn_humid = friendly_name_humid
 
@@ -96,6 +96,8 @@ class MySensor(Component):
         while True:
             await gen()
             await asyncio.sleep(interval)
+        # only start a loop in _init if its only purpose is to publish to mqtt because
+        # otherwise the code might never get started if connection to network/mqtt fails.
 
     async def _discovery(self):
         component_topic = self._topic  # get the state topic of custom component topic
@@ -104,13 +106,13 @@ class MySensor(Component):
 
         for v in (("T", "Temperature", "°C", "{{ value_json.temperature}}", self._frn_temp),
                   ("H", "Humidity", "%", "{{ value_json.humidity}}", self._frn_humid)):
-            name = "{!s}{!s}{!s}".format(_component_name, self._count, v[0])
+            name = "{!s}{!s}{!s}".format(COMPONENT_NAME, self._count, v[0])
             # note that the name needs to be unique for temperature and humidity as they are
             # different components in the homeassistant gui.
             sens = DISCOVERY_SENSOR.format(v[1].lower(),  # device_class
                                            v[2],  # unit_of_measurement
                                            v[3])  # value_template
-            await self._publishDiscovery(_component_type, component_topic, name, sens, v[4] or v[1])
+            await self._publishDiscovery(_COMPONENT_TYPE, component_topic, name, sens, v[4] or v[1])
             del name, sens
             gc.collect()
 
@@ -120,13 +122,13 @@ class MySensor(Component):
         try:
             value = await coro()
         except Exception as e:
-            _log.error("Error reading sensor {!s}: {!s}".format(_component_name, e))
+            _log.error("Error reading sensor {!s}: {!s}".format(COMPONENT_NAME, e))
             return None
         if value is not None:
             value = round(value, prec)
             value += offs
         if value is None:
-            _log.warn("Sensor {!s} got no value".format(_component_name))
+            _log.warn("Sensor {!s} got no value".format(COMPONENT_NAME))
         elif publish:
             await _mqtt.publish(self._topic, ("{0:." + str(prec) + "f}").format(value))
         return value

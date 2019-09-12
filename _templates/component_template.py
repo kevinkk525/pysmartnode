@@ -31,16 +31,21 @@ import gc
 # choose a component name that will be used for logging (not in leightweight_log),
 # a default mqtt topic that can be changed by received or local component configuration
 # as well as for the component name in homeassistant.
-_component_name = "MyComponent"
+COMPONENT_NAME = "MyComponent"
 # define the type of the component according to the homeassistant specifications
-_component_type = "switch"
+_COMPONENT_TYPE = "switch"
 ####################
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
 _count = 0
+
+
+# This template is for a very general component.
+# It might be better to either use the templates for a specific type of
+# component like a sensor or a switch.
 
 
 class MyComponent(Component):
@@ -48,7 +53,11 @@ class MyComponent(Component):
                  mqtt_topic=None, mqtt_topic2=None,
                  friendly_name=None):
         super().__init__()
-        self._command_topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}/{!s}".format(_component_name, _count),
+        # This makes it possible to use multiple instances of MyComponent
+        global _count
+        self._count = _count
+        _count += 1
+        self._command_topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}/{!s}".format(COMPONENT_NAME, self._count),
                                                                  is_request=True)
         # This will generate a topic like: home/31f29s/MyComponent/0/set
 
@@ -58,29 +67,26 @@ class MyComponent(Component):
 
         self.my_value = my_value
 
-        # This makes it possible to use multiple instances of MyComponent
-        global _count
-        self._count = _count
-        _count += 1
-
         self._frn = friendly_name  # will default to unique name in discovery if None
 
         gc.collect()
 
     async def _init(self):
         await super()._init()
-        # Any loops can be started here for the component, this is just an example
+        # Only start loops here that publish values because the loop might never get
+        # executed if the network/mqtt connection fails.
+        # Start a new uasyncio task if you need additional loops.
         while True:
             await asyncio.sleep(5)
             await _mqtt.publish(self._command_topic[:-4], "ON", qos=1)  # publishing to state_topic
 
     async def _discovery(self):
-        name = "{!s}{!s}".format(_component_name, self._count)
+        name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
         component_topic = _mqtt.getDeviceTopic(name)
         # component topic could be something completely user defined. No need to follow the pattern:
         component_topic = self._command_topic[:-4]  # get the state topic of custom component topic
         friendly_name = self._frn  # define a friendly name for the homeassistant gui. Doesn't need to be unique
-        await self._publishDiscovery(_component_type, component_topic, name, DISCOVERY_SWITCH, friendly_name)
+        await self._publishDiscovery(_COMPONENT_TYPE, component_topic, name, DISCOVERY_SWITCH, friendly_name)
         del name, component_topic, friendly_name
         gc.collect()
 

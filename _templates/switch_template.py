@@ -26,7 +26,7 @@ from pysmartnode.utils.component.switch import ComponentSwitch
 # choose a component name that will be used for logging (not in leightweight_log),
 # the default mqtt topic that can be changed by received or local component configuration
 # as well as for the component name in homeassistant.
-_component_name = "Switch"
+COMPONENT_NAME = "Switch"
 ####################
 
 _mqtt = config.getMQTT()
@@ -40,14 +40,18 @@ class Switch(ComponentSwitch):
         self._count = _count
         _count += 1
         # mqtt_topic can be adapted otherwise a default mqtt_topic will be generated if None is passed
-        super().__init__(_component_name, mqtt_topic, instance_name=None, wait_for_lock=True)
+        super().__init__(COMPONENT_NAME, mqtt_topic, instance_name=None, wait_for_lock=True)
         self._frn = friendly_name
+        # If the device needs extra code, launch a new coroutine.
 
     async def _init(self):
         # in this case not even needed as no additional init is being done.
-        # self._off will be called automatically.
+        # self._off will be called automatically before any mqtt/networking code.
         # You can remove this if you don't add additional code
         await super()._init()
+        # Don't use this to start code not related to mqtt or networking as it might never
+        # be executed if the device can't get connected to wifi or mqtt but you might want
+        # your device to work regardless of network status.
 
     #####################
     # Change these methods according to your device.

@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-04-26 
 
-__updated__ = "2019-06-04"
-__version__ = "0.5"
+__updated__ = "2019-09-12"
+__version__ = "0.6"
 
 from pysmartnode import config
 import uasyncio as asyncio
@@ -46,14 +46,6 @@ class Component:
 
     def _subscribe(self, topic, cb):
         self._topics[topic] = cb
-
-    async def on_reconnect(self):
-        """
-        Subclass method to process a reconnect.
-        Useful if you need to send a message on reconnect.
-        Resubscribing to topics is done by mqtt_handler and doesn't need to be done manually.
-        """
-        pass
 
     async def _discovery(self):
         """Implement in subclass. Is only called by self._init unless config.MQTT_DISCOVERY_ON_RECONNECT is True."""
