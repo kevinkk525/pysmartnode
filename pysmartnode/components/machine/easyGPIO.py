@@ -29,7 +29,7 @@ from pysmartnode.utils.component import Component, DISCOVERY_SWITCH
 
 _mqtt = config.getMQTT()
 
-COMPONENT_NAME = "GPIO"
+COMPONENT_NAME = "easayGPIO"
 _COMPONENT_TYPE = "switch"
 
 gc.collect()
@@ -38,7 +38,7 @@ gc.collect()
 class GPIO(Component):
     def __init__(self, topic=None, discover_pins=None):
         super().__init__()
-        self._topic = topic or _mqtt.getDeviceTopic("GPIO/#")
+        self._topic = topic or _mqtt.getDeviceTopic("GPIO/+/set")
         self._subscribe(self._topic, self.on_message)
         self._d = discover_pins or []
 

@@ -81,6 +81,10 @@ class MQTTHandler(MQTTClient):
         self._reconnected_subs.append(cb)
 
     async def _connectCaller(self):
+        if platform == "esp8266":
+            import network
+            ap = network.WLAN(network.AP_IF)
+            ap.active(False)
         while True:
             try:
                 await self.connect()
@@ -203,16 +207,34 @@ class MQTTHandler(MQTTClient):
     def matchesSubscription(topic, subscription, ignore_command=False):
         if topic == subscription:
             return True
-        if subscription.endswith("/#"):
-            lens = len(subscription)
-            if topic[:lens - 2] == subscription[:-2]:
-                if len(topic) == lens - 2 or topic[lens - 2] == "/":
-                    # check if identifier matches subscription or has sublevel
-                    # (home/test/# does not listen to home/testing)
-                    return True
+        atopic = bytearray(topic)
+        asubscription = bytearray(subscription)
         if ignore_command is True and subscription.endswith("/set"):
-            if topic == subscription[:-4]:
+            if atopic == memoryview(asubscription)[:-4]:
                 return True
+        if subscription.endswith("/#"):
+            lens = len(asubscription)
+            if memoryview(atopic)[:lens - 2] == memoryview(asubscription)[:-2]:
+                if len(atopic) == lens - 2 or memoryview(atopic)[lens - 2:lens - 1] == b"/":
+                    # check if identifier matches subscription or has sublevel
+                    # (home/test/# does not listen to home/testing but to home/test)
+                    return True
+        pl = subscription.find("/+/")
+        if pl != -1:
+            st = topic.find("/", pl + 1) + 1
+            if memoryview(asubscription)[:pl + 1] == memoryview(atopic)[:pl + 1]:
+                if ignore_command is True:
+                    if memoryview(asubscription)[-5:] == b"+/set" and st == 0:  # st==0 no subtopics
+                        return True
+                    elif memoryview(asubscription)[-4:] == b"/set":
+                        ed = len(asubscription) - 4
+                    else:
+                        ed = len(asubscription)
+                else:
+                    ed = len(asubscription)
+                if memoryview(asubscription)[pl + 3:ed] == memoryview(atopic)[st:]:
+                    return True
+            return False
         return False
 
     def scheduleUnsubscribe(self, topic=None, component=None, timeout=_DEFAULT_TIMEOUT, wait_for_wifi=True):
