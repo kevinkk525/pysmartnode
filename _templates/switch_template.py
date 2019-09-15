@@ -16,8 +16,8 @@ example config:
 }
 """
 
-__updated__ = "2019-09-08"
-__version__ = "1.2"
+__updated__ = "2019-09-14"
+__version__ = "1.3"
 
 from pysmartnode import config
 from pysmartnode.utils.component.switch import ComponentSwitch
@@ -46,11 +46,13 @@ class Switch(ComponentSwitch):
 
     async def _init(self):
         # in this case not even needed as no additional init is being done.
-        # self._off will be called automatically before any mqtt/networking code.
         # You can remove this if you don't add additional code
+
+        # await self._off()      # can be called if you want the device to shut down first before any networking
         await super()._init()
-        # Don't use this to start code not related to mqtt or networking as it might never
-        # be executed if the device can't get connected to wifi or mqtt but you might want
+
+        # Don't use this coroutine to start code not related to mqtt or networking as it might
+        # never be executed if the device can't get connected to wifi or mqtt but you might want
         # your device to work regardless of network status.
 
     #####################

@@ -133,10 +133,10 @@ class MQTTHandler(Mqtt):
         except AttributeError:
             _log.warn("Topic {!s} does not exist".format(topic))
 
-    def scheduleSubscribe(self, topic, callback_coro, qos=0, check_retained_state_topic=True):
-        asyncio.get_event_loop().create_task(self.subscribe(topic, callback_coro, qos, check_retained_state_topic))
+    def scheduleSubscribe(self, topic, callback_coro, qos=0):
+        asyncio.get_event_loop().create_task(self.subscribe(topic, callback_coro, qos))
 
-    async def subscribe(self, topic, callback_coro, qos=0, check_retained_state_topic=True):
+    async def subscribe(self, topic, callback_coro, qos=0):
         _log.debug("Subscribing to topic {}".format(topic), local_only=True)
         if type(callback_coro) is None:
             await _log.asyncLog("error", "Can't subscribe with callback of type None to topic {!s}".format(topic))
@@ -145,7 +145,7 @@ class MQTTHandler(Mqtt):
         #    topic = self._convertToDeviceTopic(topic)
         if self._isDeviceTopic(topic):
             topic = self.getRealTopic(topic)
-        await super().subscribe(topic, callback_coro, qos, check_retained_state_topic)
+        await super().subscribe(topic, callback_coro, qos)
 
     async def _publishDeviceStats(self):
         if self.__receive_config is not None:  # only works if not yielded before

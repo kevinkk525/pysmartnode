@@ -31,7 +31,7 @@ def _importComponents(_log):
         return True
 
 
-async def loadComponentsFile(_log, registerComponentsAsync):
+async def loadComponentsFile(_log, registerComponent):
     if not sys_vars.hasFilesystem():
         comps = _importComponents(_log)
         if comps is False:
@@ -58,12 +58,10 @@ async def loadComponentsFile(_log, registerComponentsAsync):
         f.close()
         gc.collect()
         for component in order:
-            tmp = {"_order": [component]}
             try:
-                f = open("components/{!s}.json".format(component), "r")
-                tmp[component] = ujson.loads(f.read())
-                f.close()
-                await registerComponentsAsync(tmp)
+                with open("components/{!s}.json".format(component), "r") as f:
+                    componentdata = ujson.load(f)
+                registerComponent(component, componentdata)
             except Exception as e:
                 _log.error("Error loading component file {!s}, {!s}".format(component, e))
             gc.collect()

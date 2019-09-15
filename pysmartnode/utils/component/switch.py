@@ -2,15 +2,18 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-09-12"
-__version__ = "0.2"
+__updated__ = "2019-09-14"
+__version__ = "0.3"
 
 from pysmartnode.utils.component import Component
 from .definitions import DISCOVERY_SWITCH
 from pysmartnode import config
 import gc
+import uasyncio as asyncio
+from micropython import const
 
 _mqtt = config.getMQTT()
+_TIMEOUT = const(10)  # will wait for a single reconnect but should be short enough if no network available
 
 
 class ComponentSwitch(Component):
@@ -39,19 +42,28 @@ class ComponentSwitch(Component):
         gc.collect()
 
     async def _init(self):
-        await self._off()  # first turn device off, then subscribe to restore previous state
-        self._subscribe(self._topic, self.on_message)
+        t = self._topic[:-4]
+        self._subscribe(t, self.on_message)  # get retained state topic
         await super()._init()
+        await asyncio.sleep_ms(500)
+        await _mqtt.unsubscribe(t, self)
+        del t
+        self._subscribe(self._topic, self.on_message)
+        await _mqtt.subscribe(self._topic)
 
     async def on_message(self, topic, msg, retain):
         """
         Standard callback to change the device state from mqtt.
         Can be subclassed if extended functionality is needed.
         """
+        if topic == memoryview(self._topic)[:-4] and retain is False:
+            return False
         if msg in _mqtt.payload_on:
-            await self.on()
+            if self._state is False:
+                await self.on()
         elif msg in _mqtt.payload_off:
-            await self.off()
+            if self._state is True:
+                await self.off()
         else:
             raise TypeError("Payload {!s} not supported".format(msg))
         return False  # will not publish the requested state to mqtt as already done by on()/off()
@@ -64,7 +76,7 @@ class ComponentSwitch(Component):
             res = await self._on()  # if _on() returns True the value should be published
             if res is True:
                 self._state = True
-                await _mqtt.publish(self._topic[:-4], "ON", qos=1, retain=True)
+                await _mqtt.publish(self._topic[:-4], "ON", qos=1, retain=True, timeout=_TIMEOUT)
             return res
 
     async def off(self):
@@ -75,7 +87,7 @@ class ComponentSwitch(Component):
             res = await self._off()  # if _off() returns True the value should be published
             if res is True:
                 self._state = False
-                await _mqtt.publish(self._topic[:-4], "OFF", qos=1, retain=True)
+                await _mqtt.publish(self._topic[:-4], "OFF", qos=1, retain=True, timeout=_TIMEOUT)
             return res
 
     async def toggle(self):

@@ -114,8 +114,8 @@ class HTU21D(htu, Component):
             value = await coro()
         except Exception as e:
             await logging.getLogger(COMPONENT_NAME).asyncLog("error",
-                                                              "Error reading sensor {!s}: {!s}".format(COMPONENT_NAME,
-                                                                                                       e))
+                                                             "Error reading sensor {!s}: {!s}".format(COMPONENT_NAME,
+                                                                                                      e))
             return None
         if value is not None:
             value = round(value, prec)
@@ -129,7 +129,7 @@ class HTU21D(htu, Component):
         if temp is not None and temp < -48:  # on a device without a connected HTU I sometimes get about -48.85
             if publish:
                 await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
-                                                                  "Sensor {!s} got no value".format(COMPONENT_NAME))
+                                                                 "Sensor {!s} got no value".format(COMPONENT_NAME))
             return None
         return temp
 
@@ -138,7 +138,7 @@ class HTU21D(htu, Component):
         if humid is not None and humid <= 5:  # on a device without a connected HTU I sometimes get about 4
             if publish:
                 await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
-                                                                  "Sensor {!s} got no value".format(COMPONENT_NAME))
+                                                                 "Sensor {!s} got no value".format(COMPONENT_NAME))
             return None
         return humid
 
@@ -147,7 +147,7 @@ class HTU21D(htu, Component):
         humid = await self.humidity(publish=False)
         if temp is None or humid is None:
             await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
-                                                              "Sensor {!s} got no value".format(COMPONENT_NAME))
+                                                             "Sensor {!s} got no value".format(COMPONENT_NAME))
         elif publish:
             await _mqtt.publish(self._topic, {
                 "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),

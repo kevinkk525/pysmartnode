@@ -89,8 +89,7 @@ async def _receiveConfig(log):
         _pyconfig._components = awaitConfig
     # mqtt not fully initialized when class was created created
     for i in range(1, 4):
-        await _mqtt.subscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id), qos=1,
-                              check_retained_state_topic=False)
+        await _mqtt.subscribe("{!s}/login/{!s}".format(_mqtt.mqtt_home, _mqtt.client_id), qos=1)
         log.debug("waiting for config", local_only=True)
         await _mqtt.publish("{!s}/login/{!s}/set".format(_mqtt.mqtt_home, _mqtt.client_id), _pyconfig.VERSION, qos=1)
         t = time.ticks_ms()

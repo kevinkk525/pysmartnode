@@ -63,7 +63,6 @@ class MQTTHandler(MQTTClient):
         self.__receive_config = receive_config
         # True=receive config, None=config received
         self._awaiting_config = False
-        self._temp = []  # temporary storage for retained state topics
         self._connected_coro = None
         self._reconnected_subs = []
         self._wifi_coro = None
@@ -171,6 +170,8 @@ class MQTTHandler(MQTTClient):
                     # on esp8266 components are split in small files and loaded after each other
                     # to keep RAM requirements low, only if filesystem is enabled
                     if sys_vars.hasFilesystem():
+                        del result
+                        gc.collect()
                         loop.create_task(config._loadComponentsFile())
                     else:
                         loop.create_task(config._registerComponentsAsync(result))
@@ -195,7 +196,7 @@ class MQTTHandler(MQTTClient):
 
     def _convertToDeviceTopic(self, topic):
         if topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.client_id)):
-            return topic.replace("{!s}/{!s}/".format(self.mqtt_home, self.client_id), ".")
+            return topic.replace("{!s}/{!s}/".format(self.mqtt_home, self.client_id), "./")
         raise TypeError("Topic is not a device subscription: {!s}".format(topic))
 
     def _isDeviceSubscription(self, topic):
@@ -281,80 +282,49 @@ class MQTTHandler(MQTTClient):
                 if wait_for_wifi is False and self.isconnected() is False:
                     continue
                 timeout = timeout - (time.ticks_ms() - st) / 1000  # the whole process can't take longer than timeout.
-                if await self._preprocessor(super().unsubscribe, (t,), timeout) is False:
+                if await self._preprocessor(super().unsubscribe, (t,), timeout, wait_for_wifi) is False:
                     _log.error("Couldn't unsubscribe topic {!s} from broker".format(t), local_only=True)
                 st = time.ticks_ms()
         return True  # always True because at least internally it has been unsubscribed.
 
-    def scheduleSubscribe(self, topic, qos=0, check_retained_state_topic=True, timeout=_DEFAULT_TIMEOUT,
-                          wait_for_wifi=True):
-        asyncio.get_event_loop().create_task(
-            self.subscribe(topic, qos, check_retained_state_topic, timeout, wait_for_wifi))
+    def scheduleSubscribe(self, topic, qos=0, timeout=_DEFAULT_TIMEOUT, wait_for_wifi=True):
+        asyncio.get_event_loop().create_task(self.subscribe(topic, qos, timeout, wait_for_wifi))
 
-    async def subscribe(self, topic, qos=1, check_retained_state_topic=True, timeout=_DEFAULT_TIMEOUT,
-                        wait_for_wifi=True):
+    async def subscribe(self, topic, qos=1, timeout=_DEFAULT_TIMEOUT, wait_for_wifi=True):
         _log.debug("Subscribing to topic {}".format(topic), local_only=True)
         if wait_for_wifi is False and self.isconnected() is False:
             return False
-        if check_retained_state_topic:
-            if topic.endswith("/set"):
-                # subscribe to topic without /set to get retained message for this topic state
-                # this is done additionally to the retained topic with /set in order to recreate
-                # the current state and then get new instructions in /set
-                state_topic = topic[:-4]
-                self._temp.append(state_topic)
-                state_topic_new = state_topic
-                if self._isDeviceSubscription(state_topic):
-                    state_topic_new = self._convertToDeviceTopic(state_topic)
-                if self.isDeviceTopic(state_topic):
-                    state_topic_new = self.getRealTopic(state_topic)
-                st = time.ticks_ms()
-                if await self._preprocessor(super().subscribe, (state_topic_new, qos), timeout) is False:
-                    return False
-                await asyncio.sleep_ms(500)
-                # gives retained state topic time to be received and processed before
-                # unsubscribing and adding /set subscription
-                timeout = timeout - (time.ticks_ms() - st) / 1000  # the whole process can't take longer than timeout.
-                st = time.ticks_ms()
-                await self.unsubscribe(state_topic, None, timeout)
-                if state_topic in self._temp:
-                    self._temp.remove(state_topic)
-                timeout = timeout - (time.ticks_ms() - st) / 1000
         if self._isDeviceSubscription(topic):
             topic = self._convertToDeviceTopic(topic)
         if self.isDeviceTopic(topic):
             topic = self.getRealTopic(topic)
-        return await self._preprocessor(super().subscribe, (topic, qos), timeout)
+        return await self._preprocessor(super().subscribe, (topic, qos), timeout, wait_for_wifi)
 
     @staticmethod
     def getDeviceTopic(attrib, is_request=False):
         if is_request:
             attrib += "/set"
-        return ".{}".format(attrib)
+        return "./{}".format(attrib)
 
     @staticmethod
     def isDeviceTopic(topic):
-        return topic.startswith(".")
+        return topic.startswith("./")
 
     def getRealTopic(self, device_topic):
-        if device_topic.startswith(".") is False:
+        if device_topic.startswith("./") is False:
             raise ValueError("Topic {!s} is no device topic".format(device_topic))
-        return "{}/{}/{}".format(self.mqtt_home, self.client_id, device_topic[1:])
+        return "{}/{}/{}".format(self.mqtt_home, self.client_id, device_topic[2:])
 
     def _execute_sync(self, topic, msg, retained):
         _log.debug("mqtt execution: {!s} {!s} {!s}".format(topic, msg, retained), local_only=True)
         topic = topic.decode()
-        if self._isDeviceSubscription(topic):
-            topic = self._convertToDeviceTopic(topic)
         msg = msg.decode()
         try:
             msg = ujson.loads(msg)
         except ValueError:
             pass  # maybe not a json string, no way of knowing
-        if topic in self._temp and retained is True:  # checking retained state topic
-            topic_subs = topic + "/set"
-        else:
-            topic_subs = topic
+        if self._isDeviceSubscription(topic):
+            topic = self._convertToDeviceTopic(topic)
         c = config._components
         loop = asyncio.get_event_loop()
         found = False
@@ -362,7 +332,7 @@ class MQTTHandler(MQTTClient):
             if hasattr(c, "_topics") is True:
                 t = c._topics  # _topics is dict
                 for tt in t:
-                    if self.matchesSubscription(topic_subs, tt) is True:
+                    if self.matchesSubscription(topic, tt) is True:
                         loop.create_task(self._execute_callback(t[tt], topic, msg, retained))
                         _log.debug("execute_callback {!s} {!s} {!s}".format(t[tt], topic, msg), local_only=True)
                         found = True
@@ -410,15 +380,17 @@ class MQTTHandler(MQTTClient):
             topic = self.getRealTopic(topic)
         msg = (topic.encode(), msg.encode(), retain, qos)
         gc.collect()
-        return await self._preprocessor(super().publish, msg, timeout)
+        return await self._preprocessor(super().publish, msg, timeout, wait_for_wifi)
 
     def schedulePublish(self, topic, msg, qos=0, retain=False, timeout=_DEFAULT_TIMEOUT, wait_for_wifi=True):
         asyncio.get_event_loop().create_task(self.publish(topic, msg, qos, retain, timeout, wait_for_wifi))
 
-    async def _preprocessor(self, coro, msg, timeout):
+    async def _preprocessor(self, coro, msg, timeout, wait_for_wifi):
         st = time.ticks_ms()
         qd = False
         while time.ticks_ms() - st < timeout * 1000:
+            if wait_for_wifi is False and self.isconnected() is False:
+                return False
             if qd is False:
                 if self._queue.is_set() is False:
                     self._queue.set((coro, msg))
