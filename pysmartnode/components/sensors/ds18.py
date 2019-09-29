@@ -33,8 +33,8 @@ example config:
 # Specific DS18 unit. 
 """
 
-__updated__ = "2019-06-04"
-__version__ = "2.4"
+__updated__ = "2019-09-29"
+__version__ = "2.5"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -98,15 +98,18 @@ class DS18_Controller(ds18x20.DS18X20):
         await asyncio.sleep(1)
         while True:
             async with self._lock:
-                await asyncio.sleep_ms(100)  # just in case lock has been released before single sensor has been read
+                await asyncio.sleep_ms(
+                    100)  # just in case lock has been released before single sensor has been read
                 self.convert_temp()  # This way all sensors convert temp only once instead of for every sensor
                 await asyncio.sleep_ms(750)
                 for ds in _instances:
                     await ds.temperature(single_sensor=False)
             await asyncio.sleep(interval)
 
-    async def read(self, rom: bytearray, topic: str, prec: int, offs: float, publish=True, single_sensor=True) -> float:
-        # Won't scan for available sensors. Missing or defective ones are recognized when reading temperature
+    async def read(self, rom: bytearray, topic: str, prec: int, offs: float, publish=True,
+                   single_sensor=True, timeout=5) -> float:
+        # Won't scan for available sensors.
+        # Missing or defective ones are recognized when reading temperature
         if single_sensor:
             async with self._lock:
                 self.convert_temp()
@@ -124,18 +127,22 @@ class DS18_Controller(ds18x20.DS18X20):
             await _log.asyncLog("error", "Sensor rom {!s} got no value, {!s}".format(rom, err))
         if value is not None:
             if value == 85.0:
-                await _log.asyncLog("error", "Sensor rom {!s} got value 85.00 [not working correctly]".format(rom))
+                await _log.asyncLog("error",
+                                    "Sensor rom {!s} got value 85.00 [not working correctly]".format(
+                                        rom))
                 value = None
             try:
                 value = round(value, prec)
                 value += offs
             except Exception as e:
-                await _log.asyncLog("error", "Error rounding value {!s} of rom {!s}".format(value, rom))
+                await _log.asyncLog("error",
+                                    "Error rounding value {!s} of rom {!s}".format(value, rom))
                 value = None
         if publish:
             if value is not None:
                 topic = topic or _mqtt.getDeviceTopic("DS18/{!s}".format(self.rom2str(rom)))
-                await _mqtt.publish(topic, ("{0:." + str(prec) + "f}").format(value))
+                await _mqtt.publish(topic, ("{0:." + str(prec) + "f}").format(value),
+                                    timeout=timeout, await_connection=False)
         return value
 
     @staticmethod
@@ -165,11 +172,12 @@ class DS18(Component):
         :param rom: str or bytearray, device specific ROM
         :param controller: DS18 object. If ds18 are connected on different pins, different DS18 objects are needed
         """
-        super().__init__()
+        super().__init__(COMPONENT_NAME, __version__)
         if controller is None:
             global _ds18_controller
             if _ds18_controller is None:
-                raise TypeError("No DS18 object, create the onewire ds18 controller instance first")
+                raise TypeError(
+                    "No DS18 object, create the onewire ds18 controller instance first")
             self._ds = _ds18_controller
         else:
             self._ds = controller
@@ -179,7 +187,8 @@ class DS18(Component):
         _instances.append(self)
 
         ##############################
-        # adapt to your sensor by extending/removing unneeded values like in the constructor arguments
+        # adapt to your sensor by extending/removing unneeded values like in
+        # the constructor arguments
         self._prec_temp = int(precision_temp)
         ###
         self._offs_temp = float(offset_temp)
@@ -193,7 +202,8 @@ class DS18(Component):
         rom = self._ds.rom2str(self._r)
         topic = self._topic or _mqtt.getDeviceTopic("DS18/{!s}".format(rom))
         name = "{!s}_{!s}".format(COMPONENT_NAME, rom)
-        await self._publishDiscovery(_COMPONENT_TYPE, topic, name, sens, self._frn or "Temperature")
+        await self._publishDiscovery(_COMPONENT_TYPE, topic, name, sens,
+                                     self._frn or "Temperature")
         del rom, topic, name, sens
         gc.collect()
 
@@ -202,11 +212,13 @@ class DS18(Component):
 
     __repr__ = __str__
 
-    async def temperature(self, publish=True, single_sensor=True) -> float:
+    async def temperature(self, publish=True, single_sensor=True, timeout=5) -> float:
         """
         Read temperature of DS18 unit
         :param publish: bool, publish the read value
         :param single_sensor: only used by the controller to optimize reading of multiple sensors.
+        :param timeout: int, for publishing
         :return: float
         """
-        return await self._ds.read(self._r, self._topic, self._prec_temp, self._offs_temp, publish, single_sensor)
+        return await self._ds.read(self._r, self._topic, self._prec_temp, self._offs_temp, publish,
+                                   single_sensor, timeout)

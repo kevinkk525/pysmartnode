@@ -76,7 +76,8 @@ def registerComponent(componentname, component, _log):
                 module = __import__(component["package"], globals(),
                                     locals(), [component["component"]], 0)
             except Exception as e:
-                _log.critical("Error importing package {!s}, error: {!s}".format(component["package"], e))
+                _log.critical(
+                    "Error importing package {!s}, error: {!s}".format(component["package"], e))
                 module = None
             gc.collect()
             err = False
@@ -99,21 +100,25 @@ def registerComponent(componentname, component, _log):
                         obj = obj(*args, **kwargs)
                         # only support functions (no coroutines) to prevent network block in user/component code
                     except Exception as e:
-                        _log.error("Error during creation of object {!r}, {!r}, version {!s}: {!s}".format(
-                            component["component"], componentname, version, e))
+                        _log.error(
+                            "Error during creation of object {!r}, {!r}, version {!s}: {!s}".format(
+                                component["component"], componentname, version, e))
                         obj = None
                         err = True
                     if obj is not None:
                         COMPONENTS[componentname] = obj
-                        _log.info("Added module {!r} version {!s} as component {!r}".format(
-                            module_name, version, componentname))
+                        # _log.info("Added module {!r} version {!s} as component {!r}".format(
+                        #    module_name, version, componentname))
                     elif err is False:  # but no obj because no obj got created as component was a function
-                        _log.info("Added module {!s} version {!s}, component {!r} as service".format(
-                            module_name, version, componentname))  # function. Prpbably unused since 5.0.0.
+                        _log.info(
+                            "Added module {!s} version {!s}, component {!r} as service".format(
+                                module_name, version,
+                                componentname))  # function. Prpbably unused since 5.0.0.
                     else:
                         res = False
                 else:
-                    _log.critical("error during import of module {!s}".format(component["component"]))
+                    _log.critical(
+                        "error during import of module {!s}".format(component["component"]))
                     res = False
     gc.collect()
     __printRAM(mem_start)

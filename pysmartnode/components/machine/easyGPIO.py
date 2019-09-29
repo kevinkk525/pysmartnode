@@ -17,8 +17,8 @@ example config:
 makes esp8266 listen to requested gpio changes or return pin.value() if message is published without payload
 """
 
-__updated__ = "2019-06-04"
-__version__ = "1.1"
+__updated__ = "2019-09-29"
+__version__ = "1.2"
 
 import gc
 import machine
@@ -26,6 +26,7 @@ from pysmartnode.components.machine.pin import Pin
 from pysmartnode import config
 from pysmartnode import logging
 from pysmartnode.utils.component import Component, DISCOVERY_SWITCH
+import uasyncio as asyncio
 
 _mqtt = config.getMQTT()
 
@@ -37,15 +38,26 @@ gc.collect()
 
 class GPIO(Component):
     def __init__(self, topic=None, discover_pins=None):
-        super().__init__()
+        super().__init__(COMPONENT_NAME, __version__)
         self._topic = topic or _mqtt.getDeviceTopic("GPIO/+/set")
         self._subscribe(self._topic, self.on_message)
         self._d = discover_pins or []
 
+    async def _init(self):
+        t = self._topic[:-4]
+        self._subscribe(t, self.on_message)  # get retained state topic
+        await super()._init()
+        await asyncio.sleep(2)
+        await _mqtt.unsubscribe(t, self)
+        del t
+        self._subscribe(self._topic, self.on_message)
+        await _mqtt.subscribe(self._topic)
+
     async def _discovery(self):
         for pin in self._d:
             name = "{!s}_{!s}".format(COMPONENT_NAME, pin)
-            await self._publishDiscovery(_COMPONENT_TYPE, self._topic.replace("#", pin), name, DISCOVERY_SWITCH)
+            await self._publishDiscovery(_COMPONENT_TYPE, self._topic.replace("+", pin), name,
+                                         DISCOVERY_SWITCH)
 
     async def on_message(self, topic, msg, retain):
         _log = logging.getLogger("easyGPIO")
@@ -74,7 +86,8 @@ class GPIO(Component):
             except:
                 pass
             if value is None:
-                await _log.logAsync("error", "pin {!r} got no supported value {!r}".format(pin, msg))
+                await _log.logAsync("error",
+                                    "pin {!r} got no supported value {!r}".format(pin, msg))
                 return False
             Pin(pin, machine.Pin.OUT).value(value)
             return True

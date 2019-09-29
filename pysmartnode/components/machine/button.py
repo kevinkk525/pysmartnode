@@ -29,7 +29,7 @@ Example configuration:
     {
       pin: 0
       # pull: null
-      pressed_component: testswitch
+      released_component: testswitch
       # double_pressed_component: testswitch
       # double_pressed_method: "on"
       long_pressed_component: machine
@@ -41,24 +41,26 @@ can lead to uasyncio queue overflow and crash the device.
 This is due to how aswitch from Peter Hinch works.
 """
 
-__updated__ = "2019-09-10"
-__version__ = "0.2"
+__updated__ = "2019-09-29"
+__version__ = "0.3"
 
 from pysmartnode import logging
 from pysmartnode.utils.aswitch import Pushbutton
+from pysmartnode.utils.component import Component
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.utils.event import Event
 import machine
 import uasyncio as asyncio
 
-loaded_components = {"machine": machine}  # so that button actions can be from these classes, e.g. machine.reset()
+loaded_components = {
+    "machine": machine}  # so that button actions can be from these classes, e.g. machine.reset()
 
 COMPONENT_NAME = "Button"
 
 _log = logging.getLogger("button")
 
 
-class Button(Pushbutton):
+class Button(Pushbutton, Component):
     def __init__(self, pin, pull=None, pressed_component=None, pressed_method="on",
                  released_component=None, released_method="off",
                  double_pressed_component=None, double_pressed_method="on",
@@ -88,7 +90,8 @@ class Button(Pushbutton):
         if type(long_pressed_component) == str:
             long_pressed_component = loaded_components[long_pressed_component]
         pin = Pin(pin, machine.Pin.IN, pull)
-        super().__init__(pin, suppress=False)
+        Pushbutton.__init__(self, pin, suppress=False)
+        Component.__init__(self, COMPONENT_NAME, __version__)
         if pressed_component is not None:
             self.press_func(getattr(pressed_component, pressed_method))
         if released_component is not None:
@@ -100,7 +103,7 @@ class Button(Pushbutton):
 
 
 class ToggleButton(Button):
-    def __init__(self, pin, pull=None, pressed_component=None,
+    def __init__(self, pin, pull=None, released_component=None,
                  double_pressed_component=None, double_pressed_method="on",
                  long_pressed_component=None, long_pressed_method="on"):
         """
@@ -108,19 +111,20 @@ class ToggleButton(Button):
         just extended functionality.
         :param pin: pin number or name
         :param pull: None for no pullup or pull_down, otherwise value of pull configuration
-        :param pressed_component: component name of component to be turned on when button pressed
+        :param released_component: component name of component to be turned on when button pressed
         :param double_pressed_component: component name of component to be turned on when button double pressed
         :param double_pressed_method: string of the method of the component that is to be called
         :param long_pressed_component: component name of component to be turned on when button long pressed
         :param long_pressed_method: string of the method of the component that is to be called
         """
-        self._component = pressed_component
+        self._component = released_component
         self._event = Event()
         # Synchronous method _event.set() to prevent queue overflows from pressing button too often
         # Can still happen if double_press or long_press events are used due to the created coroutines
         # in aswitch.py
-        super().__init__(pin, pull, self._event, "set",
+        super().__init__(pin, pull,
                          None, "off",
+                         self._event, "set",
                          double_pressed_component, double_pressed_method,
                          long_pressed_component, long_pressed_method)
         asyncio.get_event_loop().create_task(self._watcher())

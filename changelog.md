@@ -1,6 +1,16 @@
 # Changelog
 
 ---------------------------------------------------
+### Version 5.2.0
+* [WIFI] reworked duplicate wifi code, optimized wifi/mqtt handling
+* [WIFI_LED] now also blinks on wifi (dis-)connect and mqtt reconnect
+* [MQTT] Introduction of operation timeout and connection checks to prevent code from being blocked by network issues
+* [MQTT] important bugfix if receive_config = False
+* [MQTT] multiple optimizations, generalizations, code safety improvements
+* [MQTT] changed API from async def publish(self, topic, msg, qos=0, retain=False) back to async def publish(self, topic, msg, retain=False, qos=0) to stay compatible to umqtt library although differently from paho-mqtt
+* [COMPONENTS] optimized and extended Switch and Button classes
+
+---------------------------------------------------
 ### Version 5.1.0
 * [MQTT] Bugfixes in unsubscribe()
 * [WEBREPL] It is now possible to configure the webrepl in config.py and it will automatically be started.

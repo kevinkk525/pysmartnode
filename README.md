@@ -143,7 +143,6 @@ Platform dependent options are
     * RTC_TIMEZONE_OFFSET: as esp32 does not support timezones, add your offset here to match your time
 - for esp8266:
     * LIGHTWEIGHT_LOG: if a logging module with less RAM demands should be used (saves ~500B) but doesn't send module names in the log
-    * MQTT_MINIMAL_VERSION: if a mqtt module should be used that is stripped to only the needed things (saves ~200B)
     * RTC_SYNC_ACTIVE: if RTC time sync should be done (saves ~600B)
     * RTC_TIMEZONE_OFFSET: as esp8266 does not support timezones, add your offset here to match your time
     * USE_SOFTWARE_WATCHDOG: Needed for micropython versions before 1.11 as uasyncio could get stuck for 1h 11minutes but not the interrupts. This makes using a software watchdog possible to reset hanging units (uses ~600B)

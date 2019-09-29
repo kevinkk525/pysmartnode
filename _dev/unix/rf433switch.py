@@ -20,8 +20,8 @@ example config:
 }
 """
 
-__updated__ = "2019-09-08"
-__version__ = "0.3"
+__updated__ = "2019-09-29"
+__version__ = "0.4"
 
 import gc
 from pysmartnode import config

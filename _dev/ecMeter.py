@@ -10,8 +10,9 @@ example config:
     constructor_args: {
         r1: 200                # Resistor1, Ohms
         ra: 30                 # Microcontroller Pin Resistance
-        adc: 2                  # ADC pin number, where the EC cable is connected 
+        adc: 2                  # ADC pin number, where the EC cable is connected
         power_pin: 4            # Power pin, where the EC cable is connected
+        ground_pin: 23          # Ground pin, don't connect EC cable to GND
         ppm_conversion: 0.64    # depends on supplier/country conversion values, see notes
         temp_coef: 0.019        # this changes depending on what chemical are measured, see notes
         k: 2.88                 # Cell Constant, 2.88 for US plug, 1.76 for EU plug, can be calculated/calibrated
@@ -39,15 +40,15 @@ The value temp_coef depends on the chemical solution.
 
 ** How to connect:
 Put R1 between the power pin and the adc pin.
-Connect the ec cable to the adc pin and gnd.
+Connect the ec cable to the adc pin and ground pin.
 
 ** Inspiration from:
 https://hackaday.io/project/7008-fly-wars-a-hackers-solution-to-world-hunger/log/24646-three-dollar-ec-ppm-meter-arduino
 https://www.hackster.io/mircemk/arduino-electrical-conductivity-ec-ppm-tds-meter-c48201
 """
 
-__updated__ = "2019-05-10"
-__version__ = "1.0"
+__updated__ = "2019-09-29"
+__version__ = "1.2"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -59,10 +60,10 @@ import machine
 import time
 from pysmartnode.utils.component import Component
 
-_component_name = "ECmeter"
-_component_type = "sensor"
+COMPONENT_NAME = "ECmeter"
+_COMPONENT_TYPE = "sensor"
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
@@ -70,18 +71,20 @@ _count = 0
 
 
 # TODO: add some connectivity checks of the "sensor"
+# TODO: make it work without constantly connected GND
 
 class EC(Component):
     DEBUG = False
 
-    def __init__(self, r1, ra, adc, power_pin, ppm_conversion, temp_coef, k, temp_sensor,
-                 precision_ec=3, interval=None, topic_ec=None, topic_ppm=None,
+    def __init__(self, r1, ra, adc, power_pin, ground_pin, ppm_conversion, temp_coef, k,
+                 temp_sensor, precision_ec=3, interval=None, topic_ec=None, topic_ppm=None,
                  friendly_name_ec=None, friendly_name_ppm=None):
-        super().__init__()
+        super().__init__(COMPONENT_NAME, __version__)
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         self._prec_ec = int(precision_ec)
         self._adc = ADC(adc)
         self._ppin = Pin(power_pin, machine.Pin.OUT)
+        self._gpin = Pin(ground_pin, machine.Pin.IN)  # changing to OUTPUT GND when needed
         self._r1 = r1
         self._ra = ra
         self._ppm_conversion = ppm_conversion
@@ -90,8 +93,9 @@ class EC(Component):
         self._temp = temp_sensor
         if hasattr(temp_sensor, "temperature") is False:
             raise AttributeError(
-                "Temperature sensor {!s}, type {!s} has no async method temperature()".format(temp_sensor,
-                                                                                              type(temp_sensor)))
+                "Temperature sensor {!s}, type {!s} has no async method temperature()".format(
+                    temp_sensor,
+                    type(temp_sensor)))
         gc.collect()
         self._ec25 = None
         self._ppm = None
@@ -116,19 +120,21 @@ class EC(Component):
     async def _discovery(self):
         sens = '"unit_of_meas":"mS",' \
                '"val_tpl":"{{ value|float }}",'
-        name = "{!s}{!s}{!s}".format(_component_name, self._count, "EC25")
-        await self._publishDiscovery(_component_type, self._topic_ec, name, sens, self._frn_ec or "EC25")
+        name = "{!s}{!s}{!s}".format(COMPONENT_NAME, self._count, "EC25")
+        await self._publishDiscovery(_COMPONENT_TYPE, self._topic_ec, name, sens,
+                                     self._frn_ec or "EC25")
         del sens, name
         gc.collect()
         sens = '"unit_of_meas":"ppm",' \
                '"val_tpl":"{{ value|int }}",'
-        name = "{!s}{!s}{!s}".format(_component_name, self._count, "PPM")
-        await self._publishDiscovery(_component_type, self._topic_ppm, name, sens, self._frn_ppm or "PPM")
+        name = "{!s}{!s}{!s}".format(COMPONENT_NAME, self._count, "PPM")
+        await self._publishDiscovery(_COMPONENT_TYPE, self._topic_ppm, name, sens,
+                                     self._frn_ppm or "PPM")
         del sens, name
         gc.collect()
 
-    async def _read(self, publish=True):
-        if time.ticks_ms() - self._time < 5000:
+    async def _read(self, publish=True, timeout=5):
+        if time.ticks_diff(time.ticks_ms(), self._time) < 5000:
             self._time = time.ticks_ms()
             await asyncio.sleep(5)
         temp = await self._temp.temperature(publish=False)
@@ -140,10 +146,13 @@ class EC(Component):
                 self._ec25 = None
                 self._ppm = None
                 return None, None
+        self._gpin.init(mode=machine.Pin.OUT)
+        self._gpin.value(0)
         self._ppin.value(1)
         vol = self._adc.readVoltage()
         # vol = self._adc.readVoltage()
         # micropython on esp is probably too slow to need this. It was intended for arduino
+        self._gpin.init(mode=machine.Pin.IN)
         if self.DEBUG is True:
             print("Temp", temp)
             print("V", vol)
@@ -156,7 +165,7 @@ class EC(Component):
             if vol <= 0.5:
                 _log.warn("Voltage <=0.5, change resistor")
             rc = (vol * (self._r1 + self._ra)) / (self._adc.maxVoltage() - vol)
-            # rc = rc - self._ra # sensor connected to ground, not a pin, therefore no Ra
+            rc = rc - self._ra
             ec = 1000 / (rc * self._k)
             ec25 = ec / (1 + self._temp_coef * (temp - 25.0))
             ppm = int(ec25 * self._ppm_conversion * 1000)
@@ -171,16 +180,17 @@ class EC(Component):
         self._time = time.ticks_ms()
 
         if publish:
-            await _mqtt.publish(self._topic_ec, ("{0:." + str(self._prec_ec) + "f}").format(ec25))
-            await _mqtt.publish(self._topic_ppm, ppm)
+            await _mqtt.publish(self._topic_ec, ("{0:." + str(self._prec_ec) + "f}").format(ec25),
+                                timeout=timeout, await_connection=False)
+            await _mqtt.publish(self._topic_ppm, ppm, timeout=timeout, await_connection=False)
         return ec25, ppm
 
-    async def ec(self, publish=True):
+    async def ec(self, publish=True, timeout=5):
         if time.ticks_ms() - self._time > 5000:
-            await self._read(publish)
+            await self._read(publish, timeout)
         return self._ec25
 
-    async def ppm(self, publish=True):
-        if time.ticks_ms() - self._time > 5000:
-            await self._read(publish)
+    async def ppm(self, publish=True, timeout=5):
+        if time.ticks_diff(time.ticks_ms(), self._time) > 5000:
+            await self._read(publish, timeout)
         return self._ppm

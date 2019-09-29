@@ -5,8 +5,8 @@
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2019-09-12"
-__version__ = "0.5"
+__updated__ = "2019-09-29"
+__version__ = "0.6"
 
 import gc
 
@@ -43,24 +43,23 @@ VERSION_TYPE = '"ic":"mdi:language-python-text",'
 
 class STATS(Component):
     def __init__(self):
-        super().__init__()
+        super().__init__(COMPONENT_NAME, __version__)
         self._interval = config.INTERVAL_SEND_SENSOR
 
     async def _init(self):
         await super()._init()
-        await _mqtt.publish(_mqtt.getDeviceTopic("version"), config.VERSION, 1, True)
-        await config._log.asyncLog("info", "Added component '{!s}', version {!s}".format(COMPONENT_NAME,
-                                                                                         __version__))
-        # published to keep in line with every other component registered through pysmartnode/utils/registerComponents
+        await _mqtt.publish(_mqtt.getDeviceTopic("version"), config.VERSION, qos=1, retain=True)
         if config.RTC_SYNC_ACTIVE is True:
             for _ in range(5):
                 if time.localtime()[0] == 2000:  # not synced
                     await asyncio.sleep(1)
             t = time.localtime()  # polling earlier might not have synced.
             await _mqtt.publish(_mqtt.getDeviceTopic("last_boot"),
-                                "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3],
+                                "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2],
+                                                                               t[3],
                                                                                t[4],
-                                                                               t[5]), 1, True)
+                                                                               t[5]), qos=1,
+                                retain=True)
         await self._loop()  # can be started here as everything depends on mqtt
 
     async def _loop(self):
@@ -72,21 +71,29 @@ class STATS(Component):
         while True:
             gc.collect()
             logging.getLogger("RAM").info(gc.mem_free(), local_only=True)
-            await config.getMQTT().publish(_mqtt.getDeviceTopic("ram_free"), gc.mem_free())
+            await config.getMQTT().publish(_mqtt.getDeviceTopic("ram_free"), gc.mem_free(),
+                                           timeout=10)
             if s is not None:
                 try:
-                    await config.getMQTT().publish(_mqtt.getDeviceTopic("rssi"), s.status("rssi"))
+                    await config.getMQTT().publish(_mqtt.getDeviceTopic("rssi"), s.status("rssi"),
+                                                   timeout=10)
                 except Exception as e:
-                    await logging.getLogger("STATS").asyncLog("error", "Error checking rssi: {!s}".format(e))
+                    await logging.getLogger("STATS").asyncLog("error",
+                                                              "Error checking rssi: {!s}".format(
+                                                                  e))
                     s = None
             await asyncio.sleep(self._interval)
 
     async def _discovery(self):
-        await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("ram_free"), "ram_free", RAM_TYPE, "RAM free")
-        await self._publishDiscovery("binary_sensor", _mqtt.getDeviceTopic("status"), "status", CONN_TYPE, "Status")
-        await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("last_boot"), "last_boot", TIMELAPSE_TYPE,
+        await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("ram_free"), "ram_free",
+                                     RAM_TYPE, "RAM free")
+        await self._publishDiscovery("binary_sensor", _mqtt.getDeviceTopic("status"), "status",
+                                     CONN_TYPE, "Status")
+        await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("last_boot"), "last_boot",
+                                     TIMELAPSE_TYPE,
                                      "Last Boot")
-        await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("version"), "sw_version", VERSION_TYPE,
+        await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("version"), "sw_version",
+                                     VERSION_TYPE,
                                      "SW-Version")
         if platform != "linux":
             sens = DISCOVERY_SENSOR.format("signal_strength",  # device_class

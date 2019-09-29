@@ -23,8 +23,8 @@ example config:
 }
 """
 
-__updated__ = "2019-04-29"
-__version__ = "2.0"
+__updated__ = "2019-09-29"
+__version__ = "2.1"
 
 import gc
 from pysmartnode import config
@@ -54,7 +54,7 @@ class HTU21D(htu, Component):
                  temp_offset, humid_offset,
                  mqtt_topic=None, interval=None,
                  friendly_name_temp=None, friendly_name_humid=None):
-        Component.__init__(self)
+        Component.__init__(self, COMPONENT_NAME, __version__)
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         # This makes it possible to use multiple instances of MySensor
         global _count
@@ -62,7 +62,8 @@ class HTU21D(htu, Component):
         _count += 1
         self._frn_temp = friendly_name_temp
         self._frn_humid = friendly_name_humid
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}/{!s}".format(COMPONENT_NAME, self._count))
+        self._topic = mqtt_topic or _mqtt.getDeviceTopic(
+            "{!s}/{!s}".format(COMPONENT_NAME, self._count))
         ##############################
         # adapt to your sensor by extending/removing unneeded values
         self._prec_temp = int(precision_temp)
@@ -103,54 +104,63 @@ class HTU21D(htu, Component):
             sens = DISCOVERY_SENSOR.format(v[1].lower(),  # device_class
                                            v[2],  # unit_of_measurement
                                            v[3])  # value_template
-            await self._publishDiscovery(_COMPONENT_TYPE, component_topic, name, sens, v[4] or v[1])
+            await self._publishDiscovery(_COMPONENT_TYPE, component_topic, name, sens,
+                                         v[4] or v[1])
             del name, sens
             gc.collect()
 
-    async def _read(self, coro, prec, offs, publish=True):
+    async def _read(self, coro, prec, offs, publish=True, timeout=5):
         if coro is None:
             raise TypeError("Sensor generator is of type None")
         try:
             value = await coro()
         except Exception as e:
             await logging.getLogger(COMPONENT_NAME).asyncLog("error",
-                                                             "Error reading sensor {!s}: {!s}".format(COMPONENT_NAME,
-                                                                                                      e))
+                                                             "Error reading sensor {!s}: {!s}".format(
+                                                                 COMPONENT_NAME,
+                                                                 e))
             return None
         if value is not None:
             value = round(value, prec)
             value += offs
         if publish and value is not None:
-            await _mqtt.publish(self._topic, ("{0:." + str(prec) + "f}").format(value))
+            await _mqtt.publish(self._topic, ("{0:." + str(prec) + "f}").format(value),
+                                timeout=timeout, await_connection=False)
         return value
 
-    async def temperature(self, publish=True):
-        temp = await self._read(self._temp, self._prec_temp, self._offs_temp, publish)
-        if temp is not None and temp < -48:  # on a device without a connected HTU I sometimes get about -48.85
+    async def temperature(self, publish=True, timeout=5):
+        temp = await self._read(self._temp, self._prec_temp, self._offs_temp, publish, timeout)
+        if temp is not None and temp < -48:
+            # on a device without a connected HTU I sometimes get about -48.85
             if publish:
                 await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
-                                                                 "Sensor {!s} got no value".format(COMPONENT_NAME))
+                                                                 "Sensor {!s} got no value".format(
+                                                                     COMPONENT_NAME))
             return None
         return temp
 
-    async def humidity(self, publish=True):
-        humid = await self._read(self._humid, self._prec_humid, self._offs_humid, publish)
-        if humid is not None and humid <= 5:  # on a device without a connected HTU I sometimes get about 4
+    async def humidity(self, publish=True, timeout=5):
+        humid = await self._read(self._humid, self._prec_humid, self._offs_humid, publish, timeout)
+        if humid is not None and humid <= 5:
+            # on a device without a connected HTU I sometimes get about 4
             if publish:
                 await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
-                                                                 "Sensor {!s} got no value".format(COMPONENT_NAME))
+                                                                 "Sensor {!s} got no value".format(
+                                                                     COMPONENT_NAME))
             return None
         return humid
 
-    async def tempHumid(self, publish=True):
+    async def tempHumid(self, publish=True, timeout=5):
         temp = await self.temperature(publish=False)
         humid = await self.humidity(publish=False)
         if temp is None or humid is None:
             await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
-                                                             "Sensor {!s} got no value".format(COMPONENT_NAME))
+                                                             "Sensor {!s} got no value".format(
+                                                                 COMPONENT_NAME))
         elif publish:
             await _mqtt.publish(self._topic, {
                 "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),
-                "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(humid)})
+                "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(humid)},
+                                timeout=timeout, await_connection=False)
             # formating prevents values like 51.500000000001 on esp32_lobo
         return {"temperature": temp, "humiditiy": humid}

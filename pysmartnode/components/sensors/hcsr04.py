@@ -29,8 +29,8 @@ example config:
 # interval change can't be discovered as homeassistant doesn't offer a type
 """
 
-__updated__ = "2019-06-04"
-__version__ = "0.3"
+__updated__ = "2019-09-29"
+__version__ = "0.4"
 
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.utils.component import Component
@@ -76,7 +76,7 @@ class HCSR04(Component):
         :param value_template: optional template can be used to measure the reverse distance (e.g. water level)
         :param friendly_name: friendly name for homeassistant gui by mqtt discovery, defaults to "Distance"
         """
-        super().__init__()
+        super().__init__(COMPONENT_NAME, __version__)
         self._frn = friendly_name
         self._valt = value_template
         self._tr = Pin(pin_trigger, mode=machine.Pin.OUT)
@@ -87,7 +87,8 @@ class HCSR04(Component):
         self._pr = int(precision)
         self._off = float(offset)
         self._topic = mqtt_topic or _mqtt.getDeviceTopic("hcsr04")
-        self._topic_int = mqtt_topic_interval or _mqtt.getDeviceTopic("hcsr04/interval", is_request=True)
+        self._topic_int = mqtt_topic_interval or _mqtt.getDeviceTopic("hcsr04/interval",
+                                                                      is_request=True)
         self.interval = interval or config.INTERVAL_SEND_SENSOR  # can be changed anytime
         global _count
         self._count = _count
@@ -109,7 +110,8 @@ class HCSR04(Component):
         # interval change can't be discovered as homeassistant doesn't offer a type
         sens = DISCOVERY_DISTANCE.format("{{ value|float }}" if self._valt is None else self._valt)
         name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
-        await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens, self._frn or "Distance")
+        await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens,
+                                     self._frn or "Distance")
 
     async def _changeInterval(self, topic, msg, retain):
         self.interval = float(msg)
@@ -133,7 +135,7 @@ class HCSR04(Component):
                 raise OSError("Object too far")
             raise e
 
-    async def _read(self, temp=None, ignore_errors=False, publish=True) -> float:
+    async def _read(self, temp=None, ignore_errors=False, publish=True, timeout=5) -> float:
         """
         Returns distance in cm.
         Optionally compensated by temperature in °C.
@@ -143,7 +145,8 @@ class HCSR04(Component):
             if self._temp is not None:
                 temp = await self._temp.temperature(publish=False)
                 if temp is None:
-                    await _log.asyncLog("warn", "Couldn't read temp sensor, using fallback calculation")
+                    await _log.asyncLog("warn",
+                                        "Couldn't read temp sensor, using fallback calculation")
         val = []
         warnings = 0  # probably not going to happen that both warning types occur at the same time
         warning = "minimum distance reached or different problem"
@@ -160,7 +163,8 @@ class HCSR04(Component):
             await asyncio.sleep_ms(10)
         if warnings > 10:  # half sensor readings are bad
             if ignore_errors is False:
-                await _log.asyncLog("error", "Too many bad sensor readings, error: {!s}".format(warning))
+                await _log.asyncLog("error",
+                                    "Too many bad sensor readings, error: {!s}".format(warning))
             return None
         # removing extreme values
         val.remove(max(val))
@@ -185,10 +189,11 @@ class HCSR04(Component):
             await _log.asyncLog("error", "Error rounding value {!s}".format(dt))
             return dt
         if publish:
-            await _mqtt.publish(self._topic, ("{0:." + str(self._pr) + "f}").format(dt))
+            await _mqtt.publish(self._topic, ("{0:." + str(self._pr) + "f}").format(dt),
+                                timeout=timeout, await_connection=False)
         return dt
 
-    async def distance(self, temp=None, ignore_errors=False, publish=True) -> float:
+    async def distance(self, temp=None, ignore_errors=False, publish=True, timeout=5) -> float:
         """
         Returns distance in cm, optionally temperature compensated
         :param temp: temperature value for compensation, optional
@@ -196,4 +201,4 @@ class HCSR04(Component):
         :param publish: if value should be published
         :return:
         """
-        return await self._read(temp, ignore_errors, publish)
+        return await self._read(temp, ignore_errors, publish, timeout)

@@ -28,8 +28,8 @@ Put a Resistor (~10kR) between the power pin (or permanent power) and the adc pi
 Connect the wires to the adc pin and gnd.
 """
 
-__updated__ = "2019-05-16"
-__version__ = "1.1"
+__updated__ = "2019-09-29"
+__version__ = "1.2"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -56,7 +56,7 @@ class WaterSensor(Component):
 
     def __init__(self, adc, power_pin=None, cutoff_voltage=None, interval=None,
                  interval_reading=1, topic=None, friendly_name=None):
-        super().__init__()
+        super().__init__(COMPONENT_NAME, __version__)
         self._ir = interval_reading
         self._adc = ADC(adc)
         self._ppin = Pin(power_pin, machine.Pin.OUT) if power_pin is not None else None
@@ -75,7 +75,8 @@ class WaterSensor(Component):
 
     async def _init(self):
         await super()._init()
-        if self._count == 0:  # only the first sensor reads all sensors to prevent uasyncio queue overflow
+        if self._count == 0:
+            # only the first sensor reads all sensors to prevent uasyncio queue overflow
             interval_reading = self._ir - 0.05 * len(_instances)
             if interval_reading < 0:
                 interval_reading = 0
@@ -88,8 +89,8 @@ class WaterSensor(Component):
                     if WaterSensor.DEBUG:
                         print("Water measurement took", (b - a) / 1000, "ms")
                     await asyncio.sleep_ms(50)
-                    # using multiple sensors connected to Arduinos it would result in long blocking calls
-                    # because a single call to a pin takes ~17ms
+                    # using multiple sensors connected to Arduinos it would result in
+                    # long blocking calls because a single call to a pin takes ~17ms
                 await asyncio.sleep(interval_reading)
 
     async def _discovery(self):
@@ -98,7 +99,7 @@ class WaterSensor(Component):
         await self._publishDiscovery(_COMPONENT_TYPE, self._t, name, sens, self._frn or "Moisture")
         gc.collect()
 
-    async def _read(self, publish=True):
+    async def _read(self, publish=True, timeout=5):
         p = self._ppin
         if p is not None:
             p.value(1)
@@ -109,18 +110,22 @@ class WaterSensor(Component):
             p.value(0)
         if vol >= self._cv:
             state = False
-            if publish is True and (time.ticks_diff(time.ticks_ms(), self._tm) > self._int or self._lv != state):
-                await _mqtt.publish(self._t, "OFF", qos=1, retain=True)  # dry
+            if publish is True and (
+                    time.ticks_diff(time.ticks_ms(), self._tm) > self._int or self._lv != state):
+                await _mqtt.publish(self._t, "OFF", qos=1, retain=True, timeout=timeout,
+                                    await_connection=False)  # dry
                 self._tm = time.ticks_ms()
             self._lv = state
             return False
         else:
             state = True
-            if publish is True and (time.ticks_diff(time.ticks_ms(), self._tm) > self._int or self._lv != state):
-                await _mqtt.publish(self._t, "ON", qos=1, retain=True)  # wet
+            if publish is True and (
+                    time.ticks_diff(time.ticks_ms(), self._tm) > self._int or self._lv != state):
+                await _mqtt.publish(self._t, "ON", qos=1, retain=True, timeout=timeout,
+                                    await_connection=False)  # wet
                 self._tm = time.ticks_ms()
             self._lv = state
             return True
 
-    async def water(self, publish=True):
-        return await self._read(publish)
+    async def water(self, publish=True, timeout=5):
+        return await self._read(publish, timeout)

@@ -21,8 +21,8 @@ example config:
 }
 """
 
-__updated__ = "2019-09-10"
-__version__ = "3.0"
+__updated__ = "2019-09-29"
+__version__ = "3.1"
 
 import gc
 
@@ -48,7 +48,8 @@ _count = 0
 
 
 class Buzzer(ComponentButton):
-    def __init__(self, pin, pwm_values, on_time=500, iters=1, freq=1000, mqtt_topic=None, friendly_name=None):
+    def __init__(self, pin, pwm_values, on_time=500, iters=1, freq=1000, mqtt_topic=None,
+                 friendly_name=None):
         self.pin = PyPin(pin, Pin.OUT)
         self.on_time = on_time
         self.values = pwm_values
@@ -59,7 +60,7 @@ class Buzzer(ComponentButton):
         global _count
         self._count = _count
         _count += 1
-        super().__init__(COMPONENT_NAME, mqtt_topic)
+        super().__init__(COMPONENT_NAME, __version__, mqtt_topic)
         self._frn = friendly_name
         gc.collect()
 

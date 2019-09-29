@@ -16,8 +16,8 @@ example config:
 
 # A button is basically a switch with a single-shot action that deactivates itself afterwards.
 
-__updated__ = "2019-09-14"
-__version__ = "0.2"
+__updated__ = "2019-09-29"
+__version__ = "0.3"
 
 from pysmartnode import config
 from pysmartnode.utils.component.button import ComponentButton
@@ -35,23 +35,22 @@ _count = 0
 
 class Button(ComponentButton):
     def __init__(self, mqtt_topic=None, friendly_name=None):
-        # This makes it possible to use multiple instances of Button. It is needed for every default value.
+        # This makes it possible to use multiple instances of Button.
+        # It is needed for every default value for mqtt.
         global _count
         self._count = _count
         _count += 1
-        # mqtt_topic can be adapted otherwise a default mqtt_topic will be generated if None is passed
-        super().__init__(COMPONENT_NAME, mqtt_topic, instance_name=None, wait_for_lock=False)
+        # mqtt_topic can be adapted otherwise a default mqtt_topic will be generated if None
+        super().__init__(COMPONENT_NAME, __version__, mqtt_topic, instance_name=None,
+                         wait_for_lock=False)
         self._frn = friendly_name
-        # With a button there is no self._off() so if the device needs to be shut off at start,
-        # launch a new coroutine.
+        # If the device needs extra code, launch a new coroutine.
 
     async def _init(self):
-        # in this case not even needed as no additional init is being done.
-        # You can remove this if you don't add additional code.
-
         # if you need to shut down/initialize the button before any networking, it can be done
         # before super()._init() or in __init__().
         await super()._init()
+
         # Don't use this coroutine to start code not related to mqtt or networking as it might
         # never be executed if the device can't get connected to wifi or mqtt but you might want
         # your device to work regardless of network status.
@@ -62,5 +61,7 @@ class Button(ComponentButton):
     async def _on(self):
         """Turn device on."""
         pass
-        # no return needed because of single-shot action. If turning device on fails, it should be handled in the method
+        # no return needed because of single-shot action.
+        # If turning device on fails, it should be handled inside this method
+
     #####################

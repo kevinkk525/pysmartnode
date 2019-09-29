@@ -8,8 +8,8 @@ Best to be activated in config.py so it can display the status before receving/l
 Therefore no example configuration given.
 """
 
-__updated__ = "2019-09-10"
-__version__ = "1.0"
+__updated__ = "2019-09-29"
+__version__ = "1.1"
 
 import gc
 import machine
@@ -27,23 +27,29 @@ COMPONENT_NAME = "WifiLED"
 
 class WIFILED(Component):
     def __init__(self, pin, active_high=True):
-        super().__init__()
+        super().__init__(COMPONENT_NAME, __version__)
         self.pin = Pin(pin, machine.Pin.OUT, value=0 if active_high else 1)
         self._active_high = active_high
         mqtt = config.getMQTT()
         mqtt.registerWifiCallback(self._wifiChanged)
         mqtt.registerConnectedCallback(self._reconnected)
         self.lock = config.Lock()
+        asyncio.get_event_loop().create_task(self._loop())
+        # discovery although not used could block if no network,
+        # mqtt not needed but will log that this component is used
 
     async def _init(self):
-        # await super()._init()  # discovery although not used could block if no network, mqtt not needed
+        await super()._init()
+
+    async def _loop(self):
         sta = network.WLAN(network.STA_IF)
         while sta.isconnected() is True:
             await self.async_flash(20, 1)
             st = time.ticks_ms()
             while time.ticks_ms() - st < 30000:
                 await asyncio.sleep(1)
-        await asyncio.sleep(5)  # to let wifi subscription blink first and wifi reconnect if it was just a brief outage
+        await asyncio.sleep(5)
+        # to let wifi subscription blink first and wifi reconnect if it was just a brief outage
         while sta.isconnected() is False:
             await self.async_flash(500, 3)
             await asyncio.sleep(5)

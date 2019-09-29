@@ -25,8 +25,8 @@ example config:
 }
 """
 
-__updated__ = "2019-05-16"
-__version__ = "1.0"
+__updated__ = "2019-09-29"
+__version__ = "1.1"
 
 import machine
 from pysmartnode.components.machine.pin import Pin
@@ -53,7 +53,7 @@ class Moisture(Component):
                  publish_converted_value=False,
                  mqtt_topic=None, interval=None,
                  friendly_name=None, friendly_name_cv=None):
-        super().__init__()
+        super().__init__(COMPONENT_NAME, __version__)
         self._adc = ADC(adc_pin)
         if power_pin is None:
             self._ppin = None
@@ -91,7 +91,8 @@ class Moisture(Component):
         if voltage is None:
             return None
         air_voltage = self._air_v if type(self._air_v) != list else self._air_v[sensor_type]
-        water_voltage = self._water_v if type(self._water_v) != list else self._water_v[sensor_type]
+        water_voltage = self._water_v if type(self._water_v) != list else self._water_v[
+            sensor_type]
         if sensor_type == 0:  # std sensor
             if voltage > (water_voltage - air_voltage) / 2 + air_voltage:
                 return "ON"  # wet
@@ -109,7 +110,8 @@ class Moisture(Component):
         if voltage is None:
             return None
         air_voltage = self._air_v if type(self._air_v) != list else self._air_v[sensor_type]
-        water_voltage = self._water_v if type(self._water_v) != list else self._water_v[sensor_type]
+        water_voltage = self._water_v if type(self._water_v) != list else self._water_v[
+            sensor_type]
         if sensor_type == 0:  # std sensor:
             diff = water_voltage - air_voltage
             if voltage < air_voltage:
@@ -127,7 +129,7 @@ class Moisture(Component):
         else:
             raise NotImplementedError("Sensor type {!s} not implemented".format(sensor_type))
 
-    async def _read(self, publish=True) -> list:
+    async def _read(self, publish=True, timeout=5) -> list:
         res = []
         i = 0
         amux = not isinstance(self._adc, pyADC)
@@ -155,10 +157,12 @@ class Moisture(Component):
                     voltage /= 3
                     res.append(self._getPercentage(sensor, voltage))
                 if publish:
-                    await _mqtt.publish(self._topic + "/" + str(i), res[-1])
+                    await _mqtt.publish(self._topic + "/" + str(i), res[-1], timeout=timeout,
+                                        await_connection=False)
                     if self._pub_cv:
                         await _mqtt.publish(self._topic + "/" + str(i) + "/conv",
-                                            self._getConverted(sensor, voltage))
+                                            self._getConverted(sensor, voltage), timeout=timeout,
+                                            await_connection=False)
                 if self._ppin is not None:
                     if type(self._ppin) == list:
                         self._ppin[sensor].value(0)
@@ -183,19 +187,21 @@ class Moisture(Component):
                 name = "{!s}{!s}CV".format(COMPONENT_NAME, i)
                 sens = DISCOVERY_BINARY_SENSOR.format("moisture")  # device_class
                 t = "{!s}/{!s}/conv".format(self._topic, i)
-                await self._publishDiscovery("binary_sensor", t, name, sens, self._frn_cv or "Moisture")
+                await self._publishDiscovery("binary_sensor", t, name, sens,
+                                             self._frn_cv or "Moisture")
             name = "{!s}{!s}".format(COMPONENT_NAME, i)
             t = "{!s}/{!s}".format(self._topic, i)
             sens = DISCOVERY_SENSOR.format("humidity",  # device_class
                                            "%",  # unit_of_measurement
                                            "{{ value|float }}")  # value_template
-            await self._publishDiscovery(_COMPONENT_TYPE, t, name, sens, self._frn or "Moisture rel.")
+            await self._publishDiscovery(_COMPONENT_TYPE, t, name, sens,
+                                         self._frn or "Moisture rel.")
             del name, sens, t
             gc.collect()
 
-    async def humidity(self, publish=True) -> list:
+    async def humidity(self, publish=True, timeout=5) -> list:
         """
         Returns a list of all sensor values.
         Does currently not conform to new API definitions.
         """
-        return await self._read(publish=publish)
+        return await self._read(publish=publish, timeout=timeout)

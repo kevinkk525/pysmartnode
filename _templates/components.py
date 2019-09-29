@@ -7,6 +7,8 @@ Created on 01.06.2018
 __version__ = "1.3"
 __updated__ = "2019-07-07"
 
+# TODO: update as some methods are not supported or recommended anymore
+
 # Template for using components.py as a local component configuration or a starting point for own scripts
 
 # Adapt dictionary to your needs or use alternatives below,
@@ -60,29 +62,6 @@ async def main():
 
     config.addNamedComponent("mycomponent", someinstance)
     # This is optional, it just puts your component in the dictionary where all registered components are
-
-    ####################################################################################################################
-    #
-    # WARNING: The following are helper functions only used with modules that are not built on top of utils/component.py
-    #          as a base class and therefore also don't support home-assistant mqtt discovery and mqtt subscriptions.
-    #          These are non-standard workarounds. It is better to re-implement those libraries properly.
-    #          However if it is a sensor and mqtt discovery and mqtt subscriptions are not needed, this could be useful.
-    #
-    ####################################################################################################################
-
-    from pysmartnode.utils.wrappers.callRegular import callRegular, callRegularPublish
-
-    loop.create_task(callRegular(someinstance.getTemperature, interval=600))
-    # This is an alternative if <someinstance> does not provide a coroutine that checks temperature periodically.
-    # callRegular() calls a coroutine or function periodically in the given interval.
-    # The someinstance function still has to take care of publishing its values.
-    # This can be done by using the mqtt.publish coroutine or the mqtt.schedulePublish synchronous function
-
-    loop.create_task(callRegularPublish(someinstance.getTemperature, ".mymodule/temperature",
-                                        interval=None, retain=None, qos=None))
-    # This function allows you to periodically read a sensor and publish its value to the given
-    # mqtt topic without any additional effort. (mqtt topic starting with "." is "<home>/<device-id>/").
-    # Interval None defaults to pysmartnode.config.INTERVAL_SEND_SENSOR
 
     ####################################################################################################################
 

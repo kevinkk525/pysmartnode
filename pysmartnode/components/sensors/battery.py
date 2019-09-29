@@ -25,8 +25,8 @@ example config:
 }
 """
 
-__version__ = "0.2"
-__updated__ = "2018-08-18"
+__version__ = "0.3"
+__updated__ = "2019-09-29"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -50,7 +50,7 @@ class Battery(Component):
     def __init__(self, adc, voltage_max, voltage_min, multiplier_adc, cutoff_pin=None,
                  precision_voltage=2, interval_watching=1,
                  interval=None, mqtt_topic=None, friendly_name=None, friendly_name_abs=None):
-        super().__init__()
+        super().__init__(COMPONENT_NAME, __version__)
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         self._interval_watching = interval_watching
         self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
@@ -67,6 +67,7 @@ class Battery(Component):
         gc.collect()
         self._event_low = None
         self._event_high = None
+        asyncio.get_event_loop().create_task(self._loop())
 
     def getVoltageMax(self):
         """Getter for consumers"""
@@ -76,7 +77,7 @@ class Battery(Component):
         """Getter for consumers"""
         return self._voltage_min
 
-    async def _read(self, publish=True):
+    async def _read(self, publish=True, timeout=5):
         try:
             value = self._adc.readVoltage()
         except Exception as e:
@@ -88,19 +89,24 @@ class Battery(Component):
         if value is None:
             _log.warn("Sensor {!s} got no value".format(COMPONENT_NAME))
         elif publish:
-            await _mqtt.publish(self._topic, ("{0:." + str(self._precision) + "f}").format(value))
+            await _mqtt.publish(self._topic, ("{0:." + str(self._precision) + "f}").format(value),
+                                timeout=timeout,
+                                await_connection=False)
         return value
 
-    async def voltage(self, publish=True):
-        return await self._read(publish=publish)
+    async def voltage(self, publish=True, timeout=5):
+        return await self._read(publish=publish, timeout=timeout)
 
     async def _init(self):
         await super()._init()
+
+    async def _loop(self):
         interval = self._interval
         interval_watching = self._interval_watching
         t = time.ticks_ms()
         while True:
-            # reset enets on next reading so consumers don't need to do it as there might be multiple consumers awaiting
+            # reset events on next reading so consumers don't need to do it as there
+            # might be multiple consumers awaiting
             if self._event_low is not None:
                 self._event_low.release()
             if self._event_high is not None:
@@ -116,13 +122,15 @@ class Battery(Component):
                     self._event_high.set(data=voltage)
                     # no log as consumer has to take care of logging or doing something
                 else:
-                    _log.warn("Battery voltage of {!s} exceeds maximum of {!s}".format(voltage, self._voltage_max))
+                    _log.warn("Battery voltage of {!s} exceeds maximum of {!s}".format(voltage,
+                                                                                       self._voltage_max))
             elif voltage < self._voltage_min:
                 if self._event_low is not None:
                     self._event_low.set(data=voltage)
                     # no log as consumer has to take care of logging or doing something
                 else:
-                    _log.warn("Battery voltage of {!s} lower than minimum of {!s}".format(voltage, self._voltage_min))
+                    _log.warn("Battery voltage of {!s} lower than minimum of {!s}".format(voltage,
+                                                                                          self._voltage_min))
                 if self._cutoff_pin is not None:
                     if self._cutoff_pin.value() == 1:
                         _log.critical("Cutting off power did not work!")

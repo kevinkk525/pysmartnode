@@ -41,8 +41,6 @@ loop = asyncio.get_event_loop()
 
 
 async def _resetReason():
-    # may be empty if eps8266 resets during reboot because of various reasons
-    # (e.g. some of mine often keep rebooting 5 times until the start correctly and rtc.memory is empty then)
     if sys.platform == "esp8266" and rtc.memory() != b"":
         await _log.asyncLog("critical", "Reset reason: {!s}".format(rtc.memory().decode()))
         rtc.memory(b"")
@@ -60,14 +58,33 @@ async def _resetReason():
         await _log.asyncLog("critical", "Reset reason: WDT reset")
 
 
+async def _receiveConfig():
+    await asyncio.sleep(2)
+    _log.debug("RAM before import receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
+    import pysmartnode.components.machine.remoteConfig
+    gc.collect()
+    _log.debug("RAM after import receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
+    conf = pysmartnode.components.machine.remoteConfig.RemoteConfig()
+    gc.collect()
+    _log.debug("RAM after creating receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
+    while conf.done() is False:
+        await asyncio.sleep(1)
+    gc.collect()
+    _log.debug("RAM before deleting receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
+    config.removeComponent(conf)
+    del conf
+    del pysmartnode.components.machine.remoteConfig
+    del sys.modules["pysmartnode.components.machine.remoteConfig"]
+    gc.collect()
+    _log.debug("RAM after deleting receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
+
+
 services_started = False
 
 
 def start_services(client):
     global services_started
     if services_started is False:
-        import network
-        s = network.WLAN(network.STA_IF)
         if sys.platform == "esp32_LoBo":
             import pysmartnode.networking.wifi_esp32_lobo
             del pysmartnode.networking.wifi_esp32_lobo
@@ -80,8 +97,15 @@ def start_services(client):
             import pysmartnode.networking.wifi_esp8266
             del pysmartnode.networking.wifi_esp8266
             del sys.modules["pysmartnode.networking.wifi_esp8266"]
+        if config.MQTT_RECEIVE_CONFIG is True:
+            loop.create_task(_receiveConfig())
+        else:
+            loop.create_task(config._loadComponentsFile())
         services_started = True
-        print("Connected, local ip {!r}".format(s.ifconfig()[0]))
+        if sys.platform != "linux":
+            import network
+            s = network.WLAN(network.STA_IF)
+            print("Connected, local ip {!r}".format(s.ifconfig()[0]))
 
 
 def main():
@@ -95,8 +119,11 @@ def main():
         wdt = WDT(timeout=config.MQTT_KEEPALIVE * 2)
         config.addNamedComponent("wdt", wdt)
 
-    if config.MQTT_RECEIVE_CONFIG is False:
-        loop.create_task(config._loadComponentsFile())
+    if hasattr(config, "WIFI_LED") and config.WIFI_LED is not None:
+        from pysmartnode.components.machine.wifi_led import WIFILED
+
+        wl = WIFILED(config.WIFI_LED, config.WIFI_LED_ACTIVE_HIGH)
+        config.addNamedComponent("wifi_led", wl)
 
     config.getMQTT().registerConnectedCallback(start_services)
 

@@ -44,7 +44,6 @@ elif platform == "esp32":
     RTC_TIMEZONE_OFFSET = 2  # offset from GMT timezone as ntptime on esp8266 does not support timezones
 elif platform == "esp8266":
     LIGTWEIGHT_LOG = True  # uses a smaller class for logging on esp8266 omitting module names, saves ~500Bytes
-    MQTT_MINIMAL_VERSION = True  # saves ~200B if used as frozen bytecode
     USE_SOFTWARE_WATCHDOG = False  # uses ~700B of RAM, started with timeout=2xMQTT_KEEPALIVE, use if you experience outages
     RTC_SYNC_ACTIVE = False  # uses ~600B additional RAM on esp8266
     RTC_TIMEZONE_OFFSET = 2  # offset from GMT timezone as ntptime on esp8266 does not support timezones

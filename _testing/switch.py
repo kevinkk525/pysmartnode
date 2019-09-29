@@ -20,9 +20,9 @@ class Switch(_Switch):
         log.info("State: {!s}".format(self._state), local_only=True)
 
     async def _on(self):
-        log.info("State: {!s}".format(not self._state), local_only=True)
+        log.info("State: {!s}".format(True if self._state is False else False), local_only=True)
         return True
 
     async def _off(self):
-        log.info("State: {!s}".format(not self._state), local_only=True)
+        log.info("State: {!s}".format(False if self._state is True else True), local_only=True)
         return True

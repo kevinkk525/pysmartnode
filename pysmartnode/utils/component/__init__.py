@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-04-26 
 
-__updated__ = "2019-09-12"
-__version__ = "0.6"
+__updated__ = "2019-09-29"
+__version__ = "0.7"
 
 from pysmartnode import config
 import uasyncio as asyncio
@@ -21,6 +21,8 @@ import gc
 _mqtt = config.getMQTT()
 
 
+# TODO: implement "name" for usage in friendly_name, component registration, etc?
+
 class Component:
     """
     Use this class as a base for components. Subclass to extend. See the template for examples.
@@ -29,15 +31,22 @@ class Component:
 
     # prevent multiple discoveries from running concurrently and creating Out-Of-Memory errors
 
-    def __init__(self):
+    def __init__(self, component_name, version):
         self._topics = {}
-        # No RAM allocation for topic strings as they are passed by reference if saved in a variable in subclass.
+        # No RAM allocation for topic strings as they are passed by reference if saved
+        # in a variable in subclass.
         # self._topics is used by mqtt to know which component a message is for.
         self._next_component = None  # needed to keep a list of registered components
         config.addComponent(self)  # adds component to the chain of components (_next_component)
         asyncio.get_event_loop().create_task(self._init())
+        self.COMPONENT_NAME = component_name
+        self.VERSION = version
 
     async def _init(self):
+        await config._log.asyncLog("info",
+                                   "Added module {!r} version {!s} as component {!r}".format(
+                                       self.COMPONENT_NAME, self.VERSION,
+                                       config.getComponentName(self)))
         for t in self._topics:
             await _mqtt.subscribe(t, qos=1)
         if config.MQTT_DISCOVERY_ENABLED is True:
@@ -52,9 +61,11 @@ class Component:
         pass
 
     @staticmethod
-    async def _publishDiscovery(component_type, component_topic, unique_name, discovery_type, friendly_name=None):
+    async def _publishDiscovery(component_type, component_topic, unique_name, discovery_type,
+                                friendly_name=None):
         topic = Component._getDiscoveryTopic(component_type, unique_name)
-        msg = Component._composeDiscoveryMsg(component_topic, unique_name, discovery_type, friendly_name)
+        msg = Component._composeDiscoveryMsg(component_topic, unique_name, discovery_type,
+                                             friendly_name)
         await _mqtt.publish(topic, msg, qos=1, retain=True)
         del msg, topic
         gc.collect()
@@ -72,17 +83,20 @@ class Component:
         :return: str
         """
         friendly_name = friendly_name or name
-        component_topic = component_topic if _mqtt.isDeviceTopic(component_topic) is False else _mqtt.getRealTopic(
+        component_topic = component_topic if _mqtt.isDeviceTopic(
+            component_topic) is False else _mqtt.getRealTopic(
             component_topic)
         if no_avail is True:
             return DISCOVERY_BASE_NO_AVAIL.format(component_topic,  # "~" component state topic
                                                   friendly_name,  # name
                                                   sys_vars.getDeviceID(), name,  # unique_id
-                                                  component_type_discovery,  # component type specific values
+                                                  component_type_discovery,
+                                                  # component type specific values
                                                   sys_vars.getDeviceDiscovery())  # device
         return DISCOVERY_BASE.format(component_topic,  # "~" component state topic
                                      friendly_name,  # name
-                                     config.MQTT_HOME, sys_vars.getDeviceID(),  # availability_topic
+                                     config.MQTT_HOME, sys_vars.getDeviceID(),
+                                     # availability_topic
                                      sys_vars.getDeviceID(), name,  # unique_id
                                      component_type_discovery,  # component type specific values
                                      sys_vars.getDeviceDiscovery())  # device

@@ -22,8 +22,8 @@ example config:
 }
 """
 
-__updated__ = "2019-05-09"
-__version__ = "0.4"
+__updated__ = "2019-09-29"
+__version__ = "0.5"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -51,7 +51,8 @@ _count = 0
 
 
 class DHT22(Component):
-    def __init__(self, pin, precision_temp=2, precision_humid=1,  # extend or shrink according to your sensor
+    def __init__(self, pin, precision_temp=2, precision_humid=1,
+                 # extend or shrink according to your sensor
                  offset_temp=0, offset_humid=0,  # also here
                  interval=None, mqtt_topic=None, friendly_name=None):
         super().__init__()
@@ -59,7 +60,8 @@ class DHT22(Component):
         self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
 
         ##############################
-        # adapt to your sensor by extending/removing unneeded values like in the constructor arguments
+        # adapt to your sensor by extending/removing unneeded values like in
+        # the constructor arguments
         self._prec_temp = int(precision_temp)
         self._prec_humid = int(precision_humid)
         ###
@@ -100,21 +102,23 @@ class DHT22(Component):
             return None, None
         return temp, humid
 
-    async def _read(self, prec, offs, get_value_number=0, publish=True):
+    async def _read(self, prec, offs, get_value_number=0, publish=True, timeout=5):
         if get_value_number > 2:
             _log.error("DHT22 get_value_number can't be >2")
             return None
         try:
             values = await self._dht_read()
         except Exception as e:
-            await _log.asyncLog("error", "Error reading sensor {!s}: {!s}".format(COMPONENT_NAME, e))
+            await _log.asyncLog("error",
+                                "Error reading sensor {!s}: {!s}".format(COMPONENT_NAME, e))
             return None
         if values[0] is not None and values[1] is not None:
             for i in range(0, len(values)):
                 try:
                     values[i] = round(values[i], prec)
                 except Exception as e:
-                    await _log.asyncLog("error", "DHT22 can't round value: {!s}, {!s}".format(values[i], e))
+                    await _log.asyncLog("error",
+                                        "DHT22 can't round value: {!s}, {!s}".format(values[i], e))
                     return None if get_value_number != 0 else (None, None)
                 values[i] += offs
         else:
@@ -124,23 +128,27 @@ class DHT22(Component):
             if get_value_number == 0:
                 await _mqtt.publish(self._topic, {
                     "temperature": ("{0:." + str(self._prec_temp) + "f}").format(values[0]),
-                    "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(values[1])})
+                    "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(values[1])},
+                                    timeout=timeout, await_connection=False)
                 # formating prevents values like 51.500000000001 on esp32_lobo
             else:
-                await _mqtt.publish(self._topic, ("{0:." + str(prec) + "f}").format(values[get_value_number]))
-        return {"temperature": values[0], "humiditiy": values[1]} if get_value_number == 0 else values[get_value_number]
+                await _mqtt.publish(self._topic, ("{0:." + str(prec) + "f}").format(values[
+                                                                                        get_value_number]),
+                                    timeout=timeout, await_connection=False)
+        return {"temperature": values[0], "humiditiy": values[1]} if get_value_number == 0 else \
+            values[get_value_number]
 
     ##############################
     # remove or add functions below depending on the values of your sensor
 
-    async def temperature(self, publish=True):
-        return await self._read(self._prec_temp, self._offs_temp, 1, publish)
+    async def temperature(self, publish=True, timeout=5):
+        return await self._read(self._prec_temp, self._offs_temp, 1, publish, timeout)
 
-    async def humidity(self, publish=True):
-        return await self._read(self._prec_humid, self._offs_humid, 2, publish)
+    async def humidity(self, publish=True, timeout=5):
+        return await self._read(self._prec_humid, self._offs_humid, 2, publish, timeout)
 
-    async def tempHumid(self, publish=True):
-        return await self._read(self._prec_humid, self._offs_humid, 0, publish)
+    async def tempHumid(self, publish=True, timeout=5):
+        return await self._read(self._prec_humid, self._offs_humid, 0, publish, timeout)
 
     ##############################
 
@@ -149,4 +157,5 @@ class DHT22(Component):
                                        "°C",  # unit_of_measurement
                                        "{{ value|float }}")  # value_template
         name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
-        await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens, self._frn or "Temperature")
+        await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens,
+                                     self._frn or "Temperature")

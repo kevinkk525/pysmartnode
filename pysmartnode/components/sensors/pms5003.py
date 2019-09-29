@@ -26,8 +26,8 @@ example config:
 Sensor can only be used with esp32 as esp8266 has only 1 uart at 115200 (9600 needed) 
 """
 
-__updated__ = "2019-05-16"
-__version__ = "1.3"
+__updated__ = "2019-09-29"
+__version__ = "1.4"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -58,19 +58,21 @@ class PMS5003(sensorModule.PMS5003, Component):
     def __init__(self, uart_number, uart_tx, uart_rx, set_pin=None, reset_pin=None,
                  interval_passive_mode=None, active_mode=True, eco_mode=True,
                  interval=None, mqtt_topic=None, friendly_name: list = None):
-        Component.__init__(self)
+        Component.__init__(self, COMPONENT_NAME, __version__)
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         self._int_pm = interval_passive_mode or self._interval
         self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
         if type(friendly_name) is not None:
             if type(friendly_name) == list:
                 if len(friendly_name) != 12:
-                    _log.warn("Length of friendly name is wrong, expected 12 got {!s}".format(len(friendly_name)))
+                    _log.warn("Length of friendly name is wrong, expected 12 got {!s}".format(
+                        len(friendly_name)))
                     self._frn = None
                 else:
                     self._frn = friendly_name
             else:
-                _log.warn("Friendly name got unsupported type {!s}, expect list".format(type(friendly_name)))
+                _log.warn("Friendly name got unsupported type {!s}, expect list".format(
+                    type(friendly_name)))
                 self._frn = None
         else:
             self._frn = None
@@ -78,7 +80,8 @@ class PMS5003(sensorModule.PMS5003, Component):
 
         ##############################
         # create sensor object
-        sensorModule.PMS5003.__init__(self, uart, config.Lock(), set_pin, reset_pin, interval_passive_mode,
+        sensorModule.PMS5003.__init__(self, uart, config.Lock(), set_pin, reset_pin,
+                                      interval_passive_mode,
                                       active_mode=active_mode, eco_mode=eco_mode)
         gc.collect()
 
@@ -103,14 +106,15 @@ class PMS5003(sensorModule.PMS5003, Component):
             name = "{!s}/{!s}".format(COMPONENT_NAME, value)
             sens = DISCOVERY_PM.format(meas[i],  # unit_of_measurement
                                        "{{ value_json.{!s} }}".format(value))  # value_template
-            await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens, self._frn[i] or value)
+            await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens,
+                                         self._frn[i] or value)
             del name, sens
             gc.collect()
 
     ##############################
     # remove or add functions below depending on the values of your sensor
 
-    async def airQuality(self, publish=True) -> dict:
+    async def airQuality(self, publish=True, timeout=5) -> dict:
         """Method for publishing values.
         There is a method for each value in the base class."""
         if self._active and self._timestamp is not None:  # timestamp is None if no value received yet
@@ -129,7 +133,7 @@ class PMS5003(sensorModule.PMS5003, Component):
                 "particles_100um": self._particles_100um
             }
             if publish:
-                await _mqtt.publish(self._topic, values)
+                await _mqtt.publish(self._topic, values, timeout=timeout, await_connection=False)
             return values
         else:
             return None

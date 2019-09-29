@@ -21,8 +21,8 @@ example config:
 }
 """
 
-__updated__ = "2019-09-08"
-__version__ = "1.0"
+__updated__ = "2019-09-29"
+__version__ = "1.1"
 
 import gc
 from pysmartnode import config
@@ -44,9 +44,10 @@ gc.collect()
 
 
 class Bell(Component):
-    def __init__(self, pin, debounce_time, on_time=None, irq_direction=None, mqtt_topic=None, friendly_name=None,
+    def __init__(self, pin, debounce_time, on_time=None, irq_direction=None, mqtt_topic=None,
+                 friendly_name=None,
                  friendly_name_last=None):
-        super().__init__()
+        super().__init__(COMPONENT_NAME, __version__)
         self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
         self._PIN_BELL_IRQ_DIRECTION = irq_direction or machine.Pin.IRQ_FALLING
         self._debounce_time = debounce_time
@@ -55,9 +56,9 @@ class Bell(Component):
         self._last_activation = 0
         self._frn = friendly_name
         self._frn_l = friendly_name_last
+        asyncio.get_event_loop().create_task(self._loop())
 
-    async def _init(self):
-        await super()._init()
+    async def _loop(self):
         if self._PIN_BELL_IRQ_DIRECTION == machine.Pin.IRQ_FALLING:
             self._pin_bell = Pin(self._pin_bell, machine.Pin.IN, machine.Pin.PULL_UP)
         else:
@@ -80,9 +81,10 @@ class Bell(Component):
                 self._event_bell.clear()
                 return
             else:
-                await _mqtt.publish(self._topic, "ON", qos=1)
+                on = await _mqtt.publish(self._topic, "ON", qos=1, timeout=2,
+                                         await_connection=False)
                 await asyncio.sleep_ms(self._on_time)
-                await _mqtt.publish(self._topic, "OFF", qos=1, retain=True)
+                await _mqtt.publish(self._topic, "OFF", qos=1, retain=True, await_connection=on)
                 if config.RTC_SYNC_ACTIVE:
                     t = time.localtime()
                     await _mqtt.publish(_mqtt.getDeviceTopic("last_bell"),
@@ -90,7 +92,7 @@ class Bell(Component):
                                                                                        t[1], t[2],
                                                                                        t[3], t[4],
                                                                                        t[5]),
-                                        qos=1, retain=True)
+                                        qos=1, retain=True, timeout=2, await_connection=False)
                 self._event_bell.clear()
                 if diff > 500:
                     _log.warn("Bell rang {!s}ms ago, activated ringing".format(diff))
@@ -114,9 +116,11 @@ class Bell(Component):
         self._timer_lock.release()
 
     async def _discovery(self):
-        await self._publishDiscovery("binary_sensor", self._topic, "bell", '"ic":"mdi:bell",', self._frn or "Doorbell")
+        await self._publishDiscovery("binary_sensor", self._topic, "bell", '"ic":"mdi:bell",',
+                                     self._frn or "Doorbell")
         gc.collect()
         if config.RTC_SYNC_ACTIVE is True:
-            await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("last_bell"), "last_bell", TIMELAPSE_TYPE,
+            await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("last_bell"), "last_bell",
+                                         TIMELAPSE_TYPE,
                                          self._frn_l or "Last Bell")
             gc.collect()
