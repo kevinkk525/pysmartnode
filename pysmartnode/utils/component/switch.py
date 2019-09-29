@@ -42,6 +42,7 @@ class ComponentSwitch(Component):
         # in case switch activates a device that will need a while to finish
         self._wfl = wait_for_lock
         self._name = instance_name
+        self._count = ""  # declare in subclass
         gc.collect()
 
     async def _init(self):

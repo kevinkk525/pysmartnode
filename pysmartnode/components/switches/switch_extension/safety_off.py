@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-28 
 
-__updated__ = "2019-09-28"
-__version__ = "0.1"
+__updated__ = "2019-09-29"
+__version__ = "0.2"
 
 from pysmartnode.components.switches.switch_extension import Switch, ComponentSwitch, _mqtt, \
     COMPONENT_NAME, BaseMode
@@ -20,14 +20,19 @@ class safety_off(BaseMode):
                  component_off):
         self._on_time = 30  # default value to be adapted by mqtt
         count = component._count if hasattr(component, "_count") else ""
-        topic = _mqtt.getDeviceTopic("{!s}{!s}/safety_off/on_time".format(COMPONENT_NAME, count),
-                                     is_request=True)
+        _name = component._name if hasattr(component, "_name") else "{!s}{!s}".format(
+            COMPONENT_NAME, count)
+        topic = _mqtt.getDeviceTopic("{!s}/safety_off/on_time".format(_name), is_request=True)
         extended_switch._subscribe(topic, self._changeOnTime)
-        _mqtt.scheduleSubscribe(topic, qos=1, await_connection=False)
         self._coro = None
+        self.topic = topic
+
+    async def _init(self):
+        await _mqtt.subscribe(self.topic, qos=1, await_connection=False)
 
     async def _changeOnTime(self, topic, msg, retain):
         self._on_time = int(msg)
+        return True
 
     async def on(self, extended_switch, component, component_on, component_off):
         """Turn device on"""

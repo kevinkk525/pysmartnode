@@ -368,19 +368,20 @@ class MQTTHandler(MQTTClient):
             await asyncio.sleep_ms(50)
 
     async def _operationTimeout(self, coro, args):
-        print(time.ticks_ms(), "Coro started")
+        # print(time.ticks_ms(), "Coro started")
         try:
             await coro(*args)
         except asyncio.CancelledError:
-            print(time.ticks_ms(), "Coro Canceled")
+            # print(time.ticks_ms(), "Coro Canceled")
+            pass
         finally:
-            print(time.ticks_ms(), "coro done")
+            # print(time.ticks_ms(), "coro done")
             self._pub_coro = None
 
     async def _preprocessor(self, coroutine, args, timeout=None, await_connection=False):
         coro = None
         start = time.ticks_ms()
-        print(time.ticks_ms(), "Operation queued with timeout:", timeout)
+        # print(time.ticks_ms(), "Operation queued with timeout:", timeout)
         try:
             while timeout is None or time.ticks_diff(time.ticks_ms(), start) < timeout * 1000:
                 if await_connection is False and self._isconnected is False:
@@ -391,15 +392,16 @@ class MQTTHandler(MQTTClient):
                     self._pub_coro = coro
                 elif coro is not None:
                     if self._pub_coro != coro:
-                        print(time.ticks_ms(), "Coro not equal")
+                        # print(time.ticks_ms(), "Coro not equal")
                         return True  # published
                 await asyncio.sleep_ms(20)
         except asyncio.CancelledError:
-            print("preprocessor got canceled")
+            # print("preprocessor got canceled")
+            pass
         finally:
             if coro is not None and self._pub_coro == coro:
                 async with self.lock:
                     asyncio.cancel(coro)
                 return False
-        print(time.ticks_ms(), "timeout reached")
+        # print(time.ticks_ms(), "timeout reached")
         return False

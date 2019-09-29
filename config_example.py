@@ -47,7 +47,7 @@ elif platform == "esp8266":
     USE_SOFTWARE_WATCHDOG = False  # uses ~700B of RAM, started with timeout=2xMQTT_KEEPALIVE, use if you experience outages
     RTC_SYNC_ACTIVE = False  # uses ~600B additional RAM on esp8266
     RTC_TIMEZONE_OFFSET = 2  # offset from GMT timezone as ntptime on esp8266 does not support timezones
-    WIFI_SLEEP_MODE = None  # WIFI_NONE_SLEEP = 0, WIFI_LIGHT_SLEEP = 1, WIFI_MODEM_SLEEP = 2; change to 0 if you have a lot of reconnects. Standard is 2.
+    WIFI_SLEEP_MODE = 0  # WIFI_NONE_SLEEP = 0, WIFI_LIGHT_SLEEP = 1, WIFI_MODEM_SLEEP = 2; changed to 0 for increased stability. Standard is 2. Integrated into mqtt_as.
 elif platform == "linux":
     RTC_SYNC_ACTIVE = True  # This should always be True unless your system doesn't have access to the internet or sync the time
 

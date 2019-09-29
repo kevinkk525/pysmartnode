@@ -4,7 +4,7 @@ Created on 10.08.2017
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-09-10"
+__updated__ = "2019-09-29"
 
 import gc
 
@@ -17,11 +17,14 @@ if hasattr(config, "WEBREPL_ACTIVE") and config.WEBREPL_ACTIVE is True:
     try:
         import webrepl_cfg
     except:
-        with open("webrepl_cfg.py", "w") as f:
-            f.write("PASS = %r\n" % config.WEBREPL_PASSWORD)
-    import webrepl
+        try:
+            with open("webrepl_cfg.py", "w") as f:
+                f.write("PASS = %r\n" % config.WEBREPL_PASSWORD)
+            import webrepl
 
-    webrepl.start()
+            webrepl.start()
+        except Exception as e:
+            config._log.critical("Can't start webrepl: {!s}".format(e))
     # webrepl started here to start it as quickly as possible.
 
 from pysmartnode import logging

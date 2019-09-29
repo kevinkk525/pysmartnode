@@ -30,7 +30,7 @@ to enable the mode.
 """
 
 __updated__ = "2019-09-29"
-__version__ = "0.2"
+__version__ = "0.3"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -40,7 +40,7 @@ from pysmartnode.utils.component.switch import Component, ComponentSwitch, DISCO
 from pysmartnode.config import Lock
 
 ####################
-COMPONENT_NAME = "Switch"
+COMPONENT_NAME = "SwitchExtension"
 # define the type of the component according to the homeassistant specifications
 _COMPONENT_TYPE = "switch"
 ####################
@@ -87,8 +87,7 @@ Mode = BaseMode()
 
 class Switch(Component):
     def __init__(self, component: ComponentSwitch, modes_enabled: list,
-                 mqtt_topic_mode=None, friendly_name=None, friendly_name_mode=None,
-                 component_mqtt_topic=None):
+                 mqtt_topic_mode=None, friendly_name_mode=None):
         super().__init__(COMPONENT_NAME, __version__)
         if type(component) == str:
             self._component = config.getComponent(component)
@@ -108,7 +107,28 @@ class Switch(Component):
         self._component.toggle = self.toggle
         if type(modes_enabled) != list:
             raise TypeError("modes enabled needs to be a list")
+        self._modes_enabled = modes_enabled
+        count = self._component._count if hasattr(self._component, "_count") else ""
+        _name = self._component._name if hasattr(self._component, "_name") else "{!s}{!s}".format(
+            COMPONENT_NAME, count)
+        mqtt_topic_mode = mqtt_topic_mode or _mqtt.getDeviceTopic("{!s}/mode".format(_name),
+                                                                  is_request=True)
+        self._subscribe(mqtt_topic_mode, self.changeMode)
+        self._topic_mode = mqtt_topic_mode
+        self._frn_mode = friendly_name_mode or "{!s} Mode".format(_name)
+        self._mode = Mode  # Mode is default switch behaviour if no mode is enabled
+        name = config.getComponentName(self._component)
+        if name is None:
+            self._log = logging.getLogger("{!s}".format(_name))
+        else:
+            self._log = logging.getLogger("{!s}_{!s}".format(name, "Switch"))
+        del name
+        self._mode_lock = Lock()
+        gc.collect()
+
+    async def _init(self):
         r = []
+        modes_enabled = self._modes_enabled
         self._modes_enabled = []
         for mode in modes_enabled:
             try:
@@ -132,27 +152,14 @@ class Switch(Component):
                 r.append(mode)
                 continue
             self._modes_enabled.append(modeobj)
+            if hasattr(modeobj, "_init"):
+                await modeobj._init()
+            else:
+                await asyncio.sleep_ms(500)
         if len(r) > 0:
             _log.error("Not supported modes found which will be ignored: {!s}".format(r))
         del r
         gc.collect()
-        count = self._component._count if hasattr(self._component, "_count") else ""
-        mqtt_topic_mode = mqtt_topic_mode or _mqtt.getDeviceTopic(
-            "{!s}{!s}/mode".format(COMPONENT_NAME, count), is_request=True)
-        self._subscribe(mqtt_topic_mode, self.changeMode)
-        self._topic_mode = mqtt_topic_mode
-        self._frn_mode = friendly_name_mode or "{!s}{!s} Mode".format(COMPONENT_NAME, count)
-        self._mode = Mode  # Mode is default switch behaviour if no mode is enabled
-        name = config.getComponentName(self._component)
-        if name is None:
-            self._log = logging.getLogger("{!s}{!s}".format(COMPONENT_NAME, count))
-        else:
-            self._log = logging.getLogger("{!s}_{!s}".format(name, "Switch"))
-        del name
-        self._mode_lock = Lock()
-        gc.collect()
-
-    async def _init(self):
         await super()._init()
         for mode in self._modes_enabled:
             # mode switches don't need to get retained state

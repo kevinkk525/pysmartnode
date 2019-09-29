@@ -4,7 +4,7 @@ Created on 26.05.2018
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-09-10"
+__updated__ = "2019-09-29"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -13,11 +13,20 @@ import uasyncio as asyncio
 import sys
 import time
 import machine
+from pysmartnode.utils.sys_vars import getDeviceID
+import network
+
+try:
+    s = network.WLAN(network.STA_IF)
+    s.config(dhcp_hostname="{}{}".format("ESP8266_", getDeviceID()))
+except Exception as e:
+    print(e)  # not important enough to do anything about it
 
 if hasattr(config, "WIFI_SLEEP_MODE") and config.WIFI_SLEEP_MODE is not None:
     import esp
 
-    esp.sleep_type(config.WIFI_SLEEP_MODE)  # optionally disable wifi sleep to improve wifi reliability
+    esp.sleep_type(
+        config.WIFI_SLEEP_MODE)  # optionally disable wifi sleep to improve wifi reliability
 
 if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE is True:
     async def _sync():
@@ -37,7 +46,8 @@ if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE is True:
                 await asyncio.sleep(18000)  # every 5h
             except Exception as e:
                 await logging.getLogger("wifi").asyncLog("error",
-                                                         "Error syncing time: {!s}, retry in {!s}s".format(e, s))
+                                                         "Error syncing time: {!s}, retry in {!s}s".format(
+                                                             e, s))
                 await asyncio.sleep(s)
                 s += 5
                 # should prevent crashes because previous request was not finished and

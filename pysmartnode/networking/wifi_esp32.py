@@ -3,6 +3,14 @@ import gc
 import uasyncio as asyncio
 import time
 import machine
+from pysmartnode.utils.sys_vars import getDeviceID
+import network
+
+try:
+    s = network.WLAN(network.STA_IF)
+    s.config(dhcp_hostname="{}{}".format("ESP32_", getDeviceID()))
+except Exception as e:
+    print(e)  # not important enough to do anything about it
 
 if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE is True:
     async def _sync():

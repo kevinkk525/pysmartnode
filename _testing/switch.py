@@ -15,7 +15,8 @@ log = logging.getLogger("Switch")
 
 class Switch(_Switch):
     def __init__(self):
-        super().__init__("testswitch", mqtt.getDeviceTopic("switch", is_request=True), "switch")
+        super().__init__("testswitch", __version__, mqtt.getDeviceTopic("switch", is_request=True),
+                         "switch")
         self._frn = "Testswitch"
         log.info("State: {!s}".format(self._state), local_only=True)
 

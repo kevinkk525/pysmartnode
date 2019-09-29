@@ -37,8 +37,9 @@ __printRAM(_mem, "Imported .sys_vars")
 
 import uasyncio as asyncio
 
-LEN_ASYNC_QUEUE = 16 if platform == "esp8266" else 32
-loop = asyncio.get_event_loop(runq_len=LEN_ASYNC_QUEUE, waitq_len=LEN_ASYNC_QUEUE)
+LEN_ASYNC_QUEUE = 20 if platform == "esp8266" else 32
+LEN_ASYNC_RQUEUE = 16 if platform == "esp8266" else 32
+loop = asyncio.get_event_loop(runq_len=LEN_ASYNC_RQUEUE, waitq_len=LEN_ASYNC_QUEUE)
 
 gc.collect()
 __printRAM(_mem, "Imported uasyncio")
