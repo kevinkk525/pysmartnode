@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-09-29"
-__version__ = "4.2"
+__updated__ = "2019-09-30"
+__version__ = "4.3"
 
 import gc
 import ujson
@@ -20,7 +20,6 @@ from pysmartnode.utils import sys_vars
 from micropython_mqtt_as.mqtt_as import MQTTClient, Lock
 import uasyncio as asyncio
 import os
-from pysmartnode.utils.wrappers.timeit import timeit
 
 gc.collect()
 
@@ -282,7 +281,6 @@ class MQTTHandler(MQTTClient):
             raise ValueError("Topic {!s} is no device topic".format(device_topic))
         return "{}/{}/{}".format(self.mqtt_home, self.client_id, device_topic[2:])
 
-    @timeit
     def _execute_sync(self, topic, msg, retained):
         _log.debug("mqtt execution: {!s} {!s} {!s}".format(topic, msg, retained), local_only=True)
         topic = topic.decode()
@@ -328,8 +326,7 @@ class MQTTHandler(MQTTClient):
         except Exception as e:
             await _log.asyncLog("error",
                                 "Error executing {!s}mqtt topic {!r}: {!s}".format(
-                                    "retained " if retained else "",
-                                    topic, e))
+                                    "retained " if retained else "", topic, e))
 
     async def publish(self, topic, msg, retain=False, qos=0, timeout=None, await_connection=True):
         """
@@ -357,10 +354,10 @@ class MQTTHandler(MQTTClient):
         gc.collect()
         return await self._preprocessor(super().publish, msg, timeout, await_connection)
 
-    def schedulePublish(self, topic, msg, qos=0, retain=False, timeout=None,
+    def schedulePublish(self, topic, msg, retain=False, qos=0, timeout=None,
                         await_connection=True):
         asyncio.get_event_loop().create_task(
-            self.publish(topic, msg, qos, retain, timeout, await_connection))
+            self.publish(topic, msg, retain, qos, timeout, await_connection))
 
     # Await broker connection. Subclassed to reduce canceling time from 1s to 50ms
     async def _connection(self):
