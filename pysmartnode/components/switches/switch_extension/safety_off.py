@@ -46,7 +46,9 @@ class safety_off(BaseMode):
             else:
                 return False
         else:
-            raise TypeError("Should never happen")
+            raise TypeError("Activated too quickly after deactivation")
+            # can actually happen if on() immediately after requesting off() because
+            # coro will not have exited by then.
 
     async def _wait_off(self, component_off):
         print("wait_off started")

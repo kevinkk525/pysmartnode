@@ -17,8 +17,8 @@ example config:
 makes esp8266 listen to requested gpio changes or return pin.value() if message is published without payload
 """
 
-__updated__ = "2019-09-29"
-__version__ = "1.2"
+__updated__ = "2019-09-30"
+__version__ = "1.3"
 
 import gc
 import machine
@@ -39,7 +39,7 @@ gc.collect()
 class GPIO(Component):
     def __init__(self, topic=None, discover_pins=None):
         super().__init__(COMPONENT_NAME, __version__)
-        self._topic = topic or _mqtt.getDeviceTopic("GPIO/+/set")
+        self._topic = topic or _mqtt.getDeviceTopic("easyGPIO/+/set")
         self._subscribe(self._topic, self.on_message)
         self._d = discover_pins or []
 
@@ -56,24 +56,24 @@ class GPIO(Component):
     async def _discovery(self):
         for pin in self._d:
             name = "{!s}_{!s}".format(COMPONENT_NAME, pin)
-            await self._publishDiscovery(_COMPONENT_TYPE, self._topic.replace("+", pin), name,
-                                         DISCOVERY_SWITCH)
+            await self._publishDiscovery(_COMPONENT_TYPE, "{}{}".format(self._topic[:-5], pin),
+                                         name, DISCOVERY_SWITCH)
 
     async def on_message(self, topic, msg, retain):
         _log = logging.getLogger("easyGPIO")
         if topic.endswith("/set") is False:
             if retain:
-                pin = topic[topic.rfind("GPIO/") + 5:]
+                pin = topic[topic.rfind("easyGPIO/") + 9:]
             else:
                 # topic without /set ignored if not retained
                 return False
         else:
-            pin = topic[topic.rfind("GPIO/") + 5:topic.rfind("/set")]
+            pin = topic[topic.rfind("easyGPIO/") + 9:-4]
         print("__gpio pin", pin, msg, retain)
         try:
             _p = Pin(pin)
         except Exception as e:
-            await _log.logAsync("pin {!r} does not exist: {!s}".format(pin, e))
+            await _log.asyncLog("pin {!r} does not exist: {!s}".format(pin, e))
             return False
         if msg != "":
             value = None
