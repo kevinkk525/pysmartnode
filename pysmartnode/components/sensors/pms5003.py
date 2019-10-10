@@ -26,8 +26,8 @@ example config:
 Sensor can only be used with esp32 as esp8266 has only 1 uart at 115200 (9600 needed) 
 """
 
-__updated__ = "2019-09-29"
-__version__ = "1.4"
+__updated__ = "2019-10-10"
+__version__ = "1.5"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -117,7 +117,8 @@ class PMS5003(sensorModule.PMS5003, Component):
     async def airQuality(self, publish=True, timeout=5) -> dict:
         """Method for publishing values.
         There is a method for each value in the base class."""
-        if self._active and self._timestamp is not None:  # timestamp is None if no value received yet
+        if self._active and self._timestamp is not None:
+            # timestamp is None if no value received yet
             values = {
                 "pm10_standard":   self._pm10_standard,
                 "pm25_standard":   self._pm25_standard,
@@ -137,6 +138,10 @@ class PMS5003(sensorModule.PMS5003, Component):
             return values
         else:
             return None
+
+    @staticmethod
+    def airQualityTemplate():
+        raise TypeError("Multiple value templates")
 
     ##############################
 

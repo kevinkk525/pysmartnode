@@ -88,10 +88,9 @@ class Bell(Component):
                 if config.RTC_SYNC_ACTIVE:
                     t = time.localtime()
                     await _mqtt.publish(_mqtt.getDeviceTopic("last_bell"),
-                                        "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0],
-                                                                                       t[1], t[2],
-                                                                                       t[3], t[4],
-                                                                                       t[5]),
+                                        "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1],
+                                                                                       t[2], t[3],
+                                                                                       t[4], t[5]),
                                         qos=1, retain=True, timeout=2, await_connection=False)
                 self._event_bell.clear()
                 if diff > 500:
@@ -121,6 +120,5 @@ class Bell(Component):
         gc.collect()
         if config.RTC_SYNC_ACTIVE is True:
             await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("last_bell"), "last_bell",
-                                         TIMELAPSE_TYPE,
-                                         self._frn_l or "Last Bell")
+                                         TIMELAPSE_TYPE, self._frn_l or "Last Bell")
             gc.collect()

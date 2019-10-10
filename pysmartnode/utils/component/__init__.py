@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-04-26 
 
-__updated__ = "2019-09-29"
-__version__ = "0.7"
+__updated__ = "2019-10-10"
+__version__ = "0.8"
 
 from pysmartnode import config
 import uasyncio as asyncio
@@ -100,6 +100,11 @@ class Component:
                                      sys_vars.getDeviceID(), name,  # unique_id
                                      component_type_discovery,  # component type specific values
                                      sys_vars.getDeviceDiscovery())  # device
+
+    @staticmethod
+    def _composeSensorType(device_class, unit_of_measurement, value_template):
+        """Just to make it easier for component developers."""
+        return DISCOVERY_SENSOR.format(device_class, unit_of_measurement, value_template)
 
     @staticmethod
     def _getDiscoveryTopic(component_type, name):

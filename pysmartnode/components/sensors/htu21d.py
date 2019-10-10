@@ -23,13 +23,13 @@ example config:
 }
 """
 
-__updated__ = "2019-09-29"
-__version__ = "2.1"
+__updated__ = "2019-10-10"
+__version__ = "2.2"
 
 import gc
 from pysmartnode import config
 from pysmartnode import logging
-from pysmartnode.utils.component import Component, DISCOVERY_SENSOR
+from pysmartnode.utils.component import Component
 import uasyncio as asyncio
 
 ####################
@@ -41,6 +41,9 @@ from pysmartnode.libraries.htu21d.htu21d_async import HTU21D as htu
 COMPONENT_NAME = "HTU"
 # define the type of the component according to the homeassistant specifications
 _COMPONENT_TYPE = "sensor"
+# define (homeassistant) value templates for all sensor readings
+_VAL_T_TEMPERATURE = "{{ value_json.temperature }}"
+_VAL_T_HUMIDITY = "{{ value_json.humidity }}"
 ####################
 
 _mqtt = config.getMQTT()
@@ -98,10 +101,10 @@ class HTU21D(htu, Component):
         component_topic = self._topic  # get the state topic of custom component topic
         # In this case the component_topic has to be set to self._topic as the humidity and temperature
         # are going to be published from the same topic.
-        for v in (("T", "Temperature", "°C", "{{ value_json.temperature}}", self._frn_temp),
-                  ("H", "Humidity", "%", "{{ value_json.humidity}}", self._frn_humid)):
+        for v in (("T", "Temperature", "°C", _VAL_T_TEMPERATURE, self._frn_temp),
+                  ("H", "Humidity", "%", _VAL_T_HUMIDITY, self._frn_humid)):
             name = "{!s}{!s}{!s}".format(COMPONENT_NAME, self._count, v[0])
-            sens = DISCOVERY_SENSOR.format(v[1].lower(),  # device_class
+            sens = self._composeSensorType(v[1].lower(),  # device_class
                                            v[2],  # unit_of_measurement
                                            v[3])  # value_template
             await self._publishDiscovery(_COMPONENT_TYPE, component_topic, name, sens,
@@ -164,3 +167,13 @@ class HTU21D(htu, Component):
                                 timeout=timeout, await_connection=False)
             # formating prevents values like 51.500000000001 on esp32_lobo
         return {"temperature": temp, "humiditiy": humid}
+
+    @staticmethod
+    def humidityTemplate():
+        """Other components like HVAC might need to know the value template of a sensor"""
+        return _VAL_T_HUMIDITY
+
+    @staticmethod
+    def temperatureTemplate():
+        """Other components like HVAC might need to know the value template of a sensor"""
+        return _VAL_T_TEMPERATURE

@@ -25,8 +25,8 @@ example config:
 }
 """
 
-__updated__ = "2019-09-29"
-__version__ = "1.1"
+__updated__ = "2019-10-10"
+__version__ = "1.2"
 
 import machine
 from pysmartnode.components.machine.pin import Pin
@@ -38,6 +38,7 @@ from pysmartnode.utils.component import Component, DISCOVERY_SENSOR, DISCOVERY_B
 
 COMPONENT_NAME = "Moisture"
 _COMPONENT_TYPE = "sensor"
+_VAL_T_HUMIDITY = "{{ value|float }}"
 
 _mqtt = config.getMQTT()
 Lock = config.Lock
@@ -193,7 +194,7 @@ class Moisture(Component):
             t = "{!s}/{!s}".format(self._topic, i)
             sens = DISCOVERY_SENSOR.format("humidity",  # device_class
                                            "%",  # unit_of_measurement
-                                           "{{ value|float }}")  # value_template
+                                           _VAL_T_HUMIDITY)  # value_template
             await self._publishDiscovery(_COMPONENT_TYPE, t, name, sens,
                                          self._frn or "Moisture rel.")
             del name, sens, t
@@ -205,3 +206,8 @@ class Moisture(Component):
         Does currently not conform to new API definitions.
         """
         return await self._read(publish=publish, timeout=timeout)
+
+    @staticmethod
+    def humidityTemplate():
+        """Other components like HVAC might need to know the value template of a sensor"""
+        return _VAL_T_HUMIDITY

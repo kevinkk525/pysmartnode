@@ -23,14 +23,14 @@ example config:
 }
 """
 
-__updated__ = "2019-09-29"
-__version__ = "1.1"
+__updated__ = "2019-10-10"
+__version__ = "1.2"
 
 from pysmartnode import config
 from pysmartnode.utils.wrappers.async_wrapper import async_wrapper as _async_wrapper
 from pysmartnode import logging
 import uasyncio as asyncio
-from pysmartnode.utils.component import Component, DISCOVERY_SENSOR
+from pysmartnode.utils.component import Component
 import gc
 
 ####################
@@ -42,6 +42,9 @@ from htu21d import HTU21D as Sensor
 COMPONENT_NAME = "HTU"
 # define the type of the component according to the homeassistant specifications
 _COMPONENT_TYPE = "sensor"
+# define (homeassistant) value templates for all sensor readings
+_VAL_T_TEMPERATURE = "{{ value_json.temperature }}"
+_VAL_T_HUMIDITY = "{{ value_json.humidity }}"
 ####################
 
 _log = logging.getLogger(COMPONENT_NAME)
@@ -104,12 +107,12 @@ class MySensor(Component):
         component_topic = self._topic  # get the state topic of custom component topic
         # In this case the component_topic has to be set to self._topic as the humidity
         # and temperature are going to be published to the same topic.
-        for v in (("T", "Temperature", "°C", "{{ value_json.temperature}}", self._frn_temp),
-                  ("H", "Humidity", "%", "{{ value_json.humidity}}", self._frn_humid)):
+        for v in (("T", "Temperature", "°C", _VAL_T_TEMPERATURE, self._frn_temp),
+                  ("H", "Humidity", "%", _VAL_T_HUMIDITY, self._frn_humid)):
             name = "{!s}{!s}{!s}".format(COMPONENT_NAME, self._count, v[0])
             # note that the name needs to be unique for temperature and humidity as they are
             # different components in the homeassistant gui.
-            sens = DISCOVERY_SENSOR.format(v[1].lower(),  # device_class
+            sens = self._composeSensorType(v[1].lower(),  # device_class
                                            v[2],  # unit_of_measurement
                                            v[3])  # value_template
             await self._publishDiscovery(_COMPONENT_TYPE, component_topic, name, sens,
@@ -143,8 +146,18 @@ class MySensor(Component):
     async def temperature(self, publish=True, timeout=5):
         return await self._read(self._temp, self._prec_temp, self._offs_temp, publish, timeout)
 
+    @staticmethod
+    def temperatureTemplate():
+        """Other components like HVAC might need to know the value template of a sensor"""
+        return _VAL_T_TEMPERATURE
+
     async def humidity(self, publish=True, timeout=5):
         return await self._read(self._humid, self._prec_humid, self._offs_humid, publish, timeout)
+
+    @staticmethod
+    def humidityTemplate():
+        """Other components like HVAC might need to know the value template of a sensor"""
+        return _VAL_T_HUMIDITY
 
     async def tempHumid(self, publish=True, timeout=5):
         temp = await self.temperature(publish=False)

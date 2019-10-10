@@ -29,8 +29,8 @@ example config:
 # interval change can't be discovered as homeassistant doesn't offer a type
 """
 
-__updated__ = "2019-09-29"
-__version__ = "0.4"
+__updated__ = "2019-10-10"
+__version__ = "0.5"
 
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.utils.component import Component
@@ -48,6 +48,7 @@ _COMPONENT_TYPE = "sensor"
 DISCOVERY_DISTANCE = '"unit_of_meas":"cm",' \
                      '"val_tpl":"{!s}",' \
                      '"ic":"mdi:axis-arrow",'
+_VAL_T_DISTANCE = "{{ value|float }}"
 
 _log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
@@ -108,7 +109,7 @@ class HCSR04(Component):
 
     async def _discovery(self):
         # interval change can't be discovered as homeassistant doesn't offer a type
-        sens = DISCOVERY_DISTANCE.format("{{ value|float }}" if self._valt is None else self._valt)
+        sens = DISCOVERY_DISTANCE.format(_VAL_T_DISTANCE if self._valt is None else self._valt)
         name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
         await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens,
                                      self._frn or "Distance")
@@ -199,6 +200,10 @@ class HCSR04(Component):
         :param temp: temperature value for compensation, optional
         :param ignore_errors: prevent bad readings from being published to the log in case the application expects those
         :param publish: if value should be published
+        :param timeout: timeout for publishing the value
         :return:
         """
         return await self._read(temp, ignore_errors, publish, timeout)
+
+    def distanceTemplate(self):
+        return _VAL_T_DISTANCE if self._valt is None else self._valt

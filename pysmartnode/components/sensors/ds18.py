@@ -33,15 +33,15 @@ example config:
 # Specific DS18 unit. 
 """
 
-__updated__ = "2019-09-29"
-__version__ = "2.5"
+__updated__ = "2019-10-10"
+__version__ = "2.6"
 
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
 import gc
 from pysmartnode.components.machine.pin import Pin
-from pysmartnode.utils.component import Component, DISCOVERY_SENSOR
+from pysmartnode.utils.component import Component
 
 ####################
 # import your library here
@@ -53,6 +53,8 @@ import onewire
 COMPONENT_NAME = "DS18"
 # define the type of the component according to the homeassistant specifications
 _COMPONENT_TYPE = "sensor"
+# define (homeassistant) value templates for all sensor readings
+_VAL_T_TEMPERATURE = "{{ value|float }}"
 ####################
 
 _log = logging.getLogger(COMPONENT_NAME)
@@ -98,9 +100,10 @@ class DS18_Controller(ds18x20.DS18X20):
         await asyncio.sleep(1)
         while True:
             async with self._lock:
-                await asyncio.sleep_ms(
-                    100)  # just in case lock has been released before single sensor has been read
-                self.convert_temp()  # This way all sensors convert temp only once instead of for every sensor
+                await asyncio.sleep_ms(100)
+                # just in case lock has been released before single sensor has been read
+                self.convert_temp()
+                # This way all sensors convert temp only once instead of for every sensor
                 await asyncio.sleep_ms(750)
                 for ds in _instances:
                     await ds.temperature(single_sensor=False)
@@ -124,19 +127,16 @@ class DS18_Controller(ds18x20.DS18X20):
                 err = e
                 continue
         if value is None:
-            await _log.asyncLog("error", "Sensor rom {!s} got no value, {!s}".format(rom, err))
+            _log.error("Sensor rom {!s} got no value, {!s}".format(rom, err))
         if value is not None:
             if value == 85.0:
-                await _log.asyncLog("error",
-                                    "Sensor rom {!s} got value 85.00 [not working correctly]".format(
-                                        rom))
+                _log.error("Sensor rom {!s} got value 85.00 [not working correctly]".format(rom))
                 value = None
             try:
                 value = round(value, prec)
                 value += offs
             except Exception as e:
-                await _log.asyncLog("error",
-                                    "Error rounding value {!s} of rom {!s}".format(value, rom))
+                _log.error("Error rounding value {!s} of rom {!s}".format(value, rom))
                 value = None
         if publish:
             if value is not None:
@@ -196,9 +196,9 @@ class DS18(Component):
 
     async def _discovery(self):
         # not scanning for available roms
-        sens = DISCOVERY_SENSOR.format("temperature",  # device_class
+        sens = self._composeSensorType("temperature",  # device_class
                                        "°C",  # unit_of_measurement
-                                       "{{ value|float }}")  # value_template
+                                       _VAL_T_TEMPERATURE)  # value_template
         rom = self._ds.rom2str(self._r)
         topic = self._topic or _mqtt.getDeviceTopic("DS18/{!s}".format(rom))
         name = "{!s}_{!s}".format(COMPONENT_NAME, rom)
@@ -222,3 +222,8 @@ class DS18(Component):
         """
         return await self._ds.read(self._r, self._topic, self._prec_temp, self._offs_temp, publish,
                                    single_sensor, timeout)
+
+    @staticmethod
+    def temperatureTemplate():
+        """Other components like HVAC might need to know the value template of a sensor"""
+        return _VAL_T_TEMPERATURE

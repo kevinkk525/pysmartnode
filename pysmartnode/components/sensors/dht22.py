@@ -22,14 +22,14 @@ example config:
 }
 """
 
-__updated__ = "2019-09-29"
-__version__ = "0.5"
+__updated__ = "2019-10-10"
+__version__ = "0.6"
 
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
 from pysmartnode.components.machine.pin import Pin
-from pysmartnode.utils.component import Component, DISCOVERY_SENSOR
+from pysmartnode.utils.component import Component
 import gc
 
 ####################
@@ -41,6 +41,9 @@ from dht import DHT22 as Sensor
 COMPONENT_NAME = "DHT22"
 # define the type of the component according to the homeassistant specifications
 _COMPONENT_TYPE = "sensor"
+# define (homeassistant) value templates for all sensor readings
+_VAL_T_TEMPERATURE = "{{ value_json.temperature }}"
+_VAL_T_HUMIDITY = "{{ value_json.humidity }}"
 ####################
 
 _log = logging.getLogger(COMPONENT_NAME)
@@ -54,10 +57,13 @@ class DHT22(Component):
     def __init__(self, pin, precision_temp=2, precision_humid=1,
                  # extend or shrink according to your sensor
                  offset_temp=0, offset_humid=0,  # also here
-                 interval=None, mqtt_topic=None, friendly_name=None):
-        super().__init__()
+                 interval=None, mqtt_topic=None,
+                 friendly_name_temp=None, friendly_name_humid=None):
+        super().__init__(COMPONENT_NAME, __version__)
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
+        self._frn_temp = friendly_name_temp
+        self._frn_humid = friendly_name_humid
 
         ##############################
         # adapt to your sensor by extending/removing unneeded values like in
@@ -74,7 +80,6 @@ class DHT22(Component):
         global _count
         self._count = _count
         _count += 1
-        self._frn = friendly_name
         gc.collect()
 
     async def _init(self):
@@ -102,60 +107,68 @@ class DHT22(Component):
             return None, None
         return temp, humid
 
-    async def _read(self, prec, offs, get_value_number=0, publish=True, timeout=5):
-        if get_value_number > 2:
-            _log.error("DHT22 get_value_number can't be >2")
-            return None
+    async def _read(self, publish=True, timeout=5):
         try:
-            values = await self._dht_read()
+            temp, humid = await self._dht_read()
         except Exception as e:
             await _log.asyncLog("error",
                                 "Error reading sensor {!s}: {!s}".format(COMPONENT_NAME, e))
-            return None
-        if values[0] is not None and values[1] is not None:
-            for i in range(0, len(values)):
-                try:
-                    values[i] = round(values[i], prec)
-                except Exception as e:
-                    await _log.asyncLog("error",
-                                        "DHT22 can't round value: {!s}, {!s}".format(values[i], e))
-                    return None if get_value_number != 0 else (None, None)
-                values[i] += offs
-        else:
-            await _log.asyncLog("warn", "Sensor {!s} got no value".format(COMPONENT_NAME))
-            return None if get_value_number != 0 else (None, None)
+            return None, None
+        if temp is not None:
+            temp = round(temp, self._prec_temp)
+            temp += self._offs_temp
+        if temp is None:
+            _log.warn("Sensor {!s} got no value".format(COMPONENT_NAME))
+            # not making this await asyncLog as self.temperature is calling this
+            # and might not want a network outage to block a sensor reading.
+        if humid is not None:
+            humid = round(humid, self._prec_humid)
+            humid += self._offs_humid
+        if humid is None:
+            _log.warn("Sensor {!s} got no value".format(COMPONENT_NAME))
+            # not making this await asyncLog as self.temperature is calling this
+            # and might not want a network outage to block a sensor reading.
         if publish:
-            if get_value_number == 0:
-                await _mqtt.publish(self._topic, {
-                    "temperature": ("{0:." + str(self._prec_temp) + "f}").format(values[0]),
-                    "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(values[1])},
-                                    timeout=timeout, await_connection=False)
-                # formating prevents values like 51.500000000001 on esp32_lobo
-            else:
-                await _mqtt.publish(self._topic, ("{0:." + str(prec) + "f}").format(values[
-                                                                                        get_value_number]),
-                                    timeout=timeout, await_connection=False)
-        return {"temperature": values[0], "humiditiy": values[1]} if get_value_number == 0 else \
-            values[get_value_number]
+            await _mqtt.publish(self._topic, {
+                "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),
+                "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(humid)},
+                                timeout=timeout, await_connection=False)
+            # formating prevents values like 51.500000000001 on esp32_lobo
+        return temp, humid
 
     ##############################
     # remove or add functions below depending on the values of your sensor
 
     async def temperature(self, publish=True, timeout=5):
-        return await self._read(self._prec_temp, self._offs_temp, 1, publish, timeout)
+        return (await self._read(publish, timeout))[0]
 
     async def humidity(self, publish=True, timeout=5):
-        return await self._read(self._prec_humid, self._offs_humid, 2, publish, timeout)
+        return (await self._read(publish, timeout))[1]
 
-    async def tempHumid(self, publish=True, timeout=5):
-        return await self._read(self._prec_humid, self._offs_humid, 0, publish, timeout)
+    async def tempHumid(self, publish=True, timeout=5) -> dict:
+        temp, humid = await self._read(publish, timeout)
+        return {"temperature": temp, "humiditiy": humid}
+
+    @staticmethod
+    def temperatureTemplate():
+        """Other components like HVAC might need to know the value template of a sensor"""
+        return _VAL_T_TEMPERATURE
+
+    @staticmethod
+    def humidityTemplate():
+        """Other components like HVAC might need to know the value template of a sensor"""
+        return _VAL_T_HUMIDITY
 
     ##############################
 
     async def _discovery(self):
-        sens = DISCOVERY_SENSOR.format("temperature",  # device_class
-                                       "°C",  # unit_of_measurement
-                                       "{{ value|float }}")  # value_template
-        name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
-        await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens,
-                                     self._frn or "Temperature")
+        for v in (("T", "Temperature", "°C", "{{ value_json.temperature}}", self._frn_temp),
+                  ("H", "Humidity", "%", "{{ value_json.humidity}}", self._frn_humid)):
+            name = "{!s}{!s}{!s}".format(COMPONENT_NAME, self._count, v[0])
+            sens = self._composeSensorType(v[1].lower(),  # device_class
+                                           v[2],  # unit_of_measurement
+                                           v[3])  # value_template
+            await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens,
+                                         v[4] or v[1])
+            del name, sens
+            gc.collect()
