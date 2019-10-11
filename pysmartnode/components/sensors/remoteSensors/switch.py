@@ -6,7 +6,7 @@
 example config:
 {
     package: .sensors.remoteSensors.temperature
-    component: RemoteTemperature
+    component: RemoteSwitch
     constructor_args: {
         command_topic: sometopic      # command topic of the remote sensor
         state_topic: sometopic        # state topic of the remote sensor
@@ -29,7 +29,7 @@ _mqtt = config.getMQTT()
 _TIMEOUT = const(10)  # wait for a single reconnect but should be short enough if not connected
 
 
-class ComponentSwitch(Component):
+class RemoteSwitch(Component):
     """
     Generic Switch class.
     Use it according to the template.
