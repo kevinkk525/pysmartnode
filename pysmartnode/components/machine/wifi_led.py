@@ -35,8 +35,8 @@ class WIFILED(Component):
         # discovery although not used could block if no network,
         # mqtt not needed but will log that this component is used
 
-    async def _init(self):
-        await super()._init()
+    async def _init_network(self):
+        await super()._init_network()
 
     async def _loop(self):
         mqtt = config.getMQTT()

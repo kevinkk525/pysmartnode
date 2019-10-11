@@ -25,8 +25,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-10"
-__version__ = "1.2"
+__updated__ = "2019-10-11"
+__version__ = "1.3"
 
 import machine
 from pysmartnode.components.machine.pin import Pin
@@ -34,7 +34,7 @@ from pysmartnode.components.machine.adc import ADC, pyADC
 from pysmartnode import config
 import uasyncio as asyncio
 import gc
-from pysmartnode.utils.component import Component, DISCOVERY_SENSOR, DISCOVERY_BINARY_SENSOR
+from pysmartnode.utils.component import Component, DISCOVERY_BINARY_SENSOR
 
 COMPONENT_NAME = "Moisture"
 _COMPONENT_TYPE = "sensor"
@@ -53,8 +53,8 @@ class Moisture(Component):
                  power_pin=None, power_warmup=None,
                  publish_converted_value=False,
                  mqtt_topic=None, interval=None,
-                 friendly_name=None, friendly_name_cv=None):
-        super().__init__(COMPONENT_NAME, __version__)
+                 friendly_name=None, friendly_name_cv=None, discover=True):
+        super().__init__(COMPONENT_NAME, __version__, discover)
         self._adc = ADC(adc_pin)
         if power_pin is None:
             self._ppin = None
@@ -81,9 +81,9 @@ class Moisture(Component):
         self._frn = friendly_name
         self._frn_cv = friendly_name_cv
         gc.collect()
+        asyncio.get_event_loop().create_task(self._loop())
 
-    async def _init(self):
-        await super()._init()
+    async def _loop(self):
         while True:
             await self.humidity()
             await asyncio.sleep(self._interval)
@@ -192,7 +192,7 @@ class Moisture(Component):
                                              self._frn_cv or "Moisture")
             name = "{!s}{!s}".format(COMPONENT_NAME, i)
             t = "{!s}/{!s}".format(self._topic, i)
-            sens = DISCOVERY_SENSOR.format("humidity",  # device_class
+            sens = self._composeSensorType("humidity",  # device_class
                                            "%",  # unit_of_measurement
                                            _VAL_T_HUMIDITY)  # value_template
             await self._publishDiscovery(_COMPONENT_TYPE, t, name, sens,
@@ -211,3 +211,6 @@ class Moisture(Component):
     def humidityTemplate():
         """Other components like HVAC might need to know the value template of a sensor"""
         return _VAL_T_HUMIDITY
+
+    def humidityTopic(self):
+        return self._topic

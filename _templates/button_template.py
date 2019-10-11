@@ -16,8 +16,8 @@ example config:
 
 # A button is basically a switch with a single-shot action that deactivates itself afterwards.
 
-__updated__ = "2019-09-29"
-__version__ = "0.3"
+__updated__ = "2019-10-11"
+__version__ = "0.4"
 
 from pysmartnode import config
 from pysmartnode.utils.component.button import ComponentButton
@@ -34,7 +34,11 @@ _count = 0
 
 
 class Button(ComponentButton):
-    def __init__(self, mqtt_topic=None, friendly_name=None):
+    def __init__(self, mqtt_topic=None, friendly_name=None, discover=True):
+        # discover: boolean, if this component should publish its mqtt discovery.
+        # This can be used to prevent combined Components from exposing underlying
+        # hardware components like a power switch
+
         # This makes it possible to use multiple instances of Button.
         # It is needed for every default value for mqtt.
         global _count
@@ -42,18 +46,9 @@ class Button(ComponentButton):
         _count += 1
         # mqtt_topic can be adapted otherwise a default mqtt_topic will be generated if None
         super().__init__(COMPONENT_NAME, __version__, mqtt_topic, instance_name=None,
-                         wait_for_lock=False)
+                         wait_for_lock=False, discover=discover)
         self._frn = friendly_name
         # If the device needs extra code, launch a new coroutine.
-
-    async def _init(self):
-        # if you need to shut down/initialize the button before any networking, it can be done
-        # before super()._init() or in __init__().
-        await super()._init()
-
-        # Don't use this coroutine to start code not related to mqtt or networking as it might
-        # never be executed if the device can't get connected to wifi or mqtt but you might want
-        # your device to work regardless of network status.
 
     #####################
     # Change this method according to your device.

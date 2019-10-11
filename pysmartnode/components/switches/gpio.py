@@ -18,8 +18,8 @@ example config:
 }
 """
 
-__updated__ = "2019-09-29"
-__version__ = "0.8"
+__updated__ = "2019-10-11"
+__version__ = "0.9"
 
 import gc
 import machine
@@ -36,11 +36,11 @@ gc.collect()
 
 
 class GPIO(ComponentSwitch):
-    def __init__(self, pin, active_high=True, mqtt_topic=None, friendly_name=None):
+    def __init__(self, pin, active_high=True, mqtt_topic=None, friendly_name=None, discover=True):
         mqtt_topic = mqtt_topic or _mqtt.getDeviceTopic(
             "{!s}/{!s}".format(COMPONENT_NAME, str(pin)), is_request=True)
         super().__init__(COMPONENT_NAME, __version__, mqtt_topic,
-                         instance_name="{!s}_{!s}".format(COMPONENT_NAME, pin))
+                         instance_name="{!s}_{!s}".format(COMPONENT_NAME, pin), discover=discover)
         self.pin = Pin(pin, machine.Pin.OUT, value=0 if active_high else 1)
         self._frn = friendly_name
         self._active_high = active_high

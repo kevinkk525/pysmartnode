@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-09-29"
-__version__ = "0.4"
+__updated__ = "2019-10-11"
+__version__ = "0.5"
 
 from pysmartnode.utils.component import Component
 from .definitions import DISCOVERY_SWITCH
@@ -23,7 +23,7 @@ class ComponentSwitch(Component):
     """
 
     def __init__(self, component_name, version, command_topic=None, instance_name=None,
-                 wait_for_lock=True):
+                 wait_for_lock=True, discover=True):
         """
         :param component_name: name of the component that is subclassing this switch (used for discovery and topics)
         :param version: version of the component module. will be logged over mqtt
@@ -33,7 +33,11 @@ class ComponentSwitch(Component):
         meaning the previous device request has to finish before the new one is started.
         Otherwise the new one will get ignored.
         """
-        super().__init__(component_name, version)
+        super().__init__(component_name, version, discover=discover)
+        # discover: boolean, if this component should publish its mqtt discovery.
+        # This can be used to prevent combined Components from exposing underlying
+        # hardware components like a power switch
+
         self._state = False
         self._topic = command_topic or _mqtt.getDeviceTopic(
             "{!s}{!s}".format(component_name, self._count),
@@ -45,10 +49,10 @@ class ComponentSwitch(Component):
         self._count = ""  # declare in subclass
         gc.collect()
 
-    async def _init(self):
+    async def _init_network(self):
         t = self._topic[:-4]
         self._subscribe(t, self.on_message)  # get retained state topic
-        await super()._init()
+        await super()._init_network()
         await asyncio.sleep_ms(500)
         await _mqtt.unsubscribe(t, self)
         del t
@@ -112,3 +116,6 @@ class ComponentSwitch(Component):
         await self._publishDiscovery("switch", self._topic[:-4], name, DISCOVERY_SWITCH, self._frn)
         # note that _publishDiscovery does expect the state topic
         # but we have the command topic stored.
+
+    def topic(self):
+        return self._topic

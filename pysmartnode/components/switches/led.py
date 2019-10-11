@@ -20,8 +20,8 @@ example config:
 }
 """
 
-__updated__ = "2019-09-29"
-__version__ = "3.1"
+__updated__ = "2019-10-11"
+__version__ = "3.2"
 
 import gc
 
@@ -47,7 +47,7 @@ _count = 0
 
 class LEDNotification(ComponentButton):
     def __init__(self, pin, on_time=50, off_time=50, iters=20, mqtt_topic=None,
-                 friendly_name=None):
+                 friendly_name=None, discover=True):
         self.pin = Pin(pin, machine.Pin.OUT, value=0)
         self.on_time = on_time
         self.off_time = off_time
@@ -56,7 +56,7 @@ class LEDNotification(ComponentButton):
         global _count
         self._count = _count
         _count += 1
-        super().__init__(COMPONENT_NAME, __version__, mqtt_topic)
+        super().__init__(COMPONENT_NAME, __version__, mqtt_topic, discover=discover)
         self._frn = friendly_name
         gc.collect()
 

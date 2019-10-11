@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-04-26 
 
-__updated__ = "2019-10-10"
-__version__ = "0.8"
+__updated__ = "2019-10-11"
+__version__ = "0.9"
 
 from pysmartnode import config
 import uasyncio as asyncio
@@ -28,28 +28,49 @@ class Component:
     Use this class as a base for components. Subclass to extend. See the template for examples.
     """
     _discovery_lock = config.Lock()
+    _init_queue_start = None
 
     # prevent multiple discoveries from running concurrently and creating Out-Of-Memory errors
+    # or queue overflow errors
 
-    def __init__(self, component_name, version):
+    def __init__(self, component_name, version, discover=True):
         self._topics = {}
         # No RAM allocation for topic strings as they are passed by reference if saved
         # in a variable in subclass.
         # self._topics is used by mqtt to know which component a message is for.
         self._next_component = None  # needed to keep a list of registered components
         config.addComponent(self)  # adds component to the chain of components (_next_component)
-        asyncio.get_event_loop().create_task(self._init())
+
+        # Workaround to prevent every component object from creating a new asyncio task for
+        # network oriented initialization as this would lead to an asyncio queue overflow.
+        self._init_next = None
+        if self._init_queue_start is None:
+            self._init_queue_start = self
+            asyncio.get_event_loop().create_task(self.__initNetworkProcess())
+        else:
+            c = self._init_queue_start
+            while c._init_next is not None:
+                c = c._init_next
+            c._init_next = self
         self.COMPONENT_NAME = component_name
         self.VERSION = version
+        self.__discover = discover
 
-    async def _init(self):
+    async def __initNetworkProcess(self):
+        c = self._init_queue_start
+        while c is not None:
+            await c._init_network()
+            c = c._init_next
+        self._init_queue_start = None
+
+    async def _init_network(self):
         await config._log.asyncLog("info",
                                    "Added module {!r} version {!s} as component {!r}".format(
                                        self.COMPONENT_NAME, self.VERSION,
                                        config.getComponentName(self)))
         for t in self._topics:
             await _mqtt.subscribe(t, qos=1)
-        if config.MQTT_DISCOVERY_ENABLED is True:
+        if config.MQTT_DISCOVERY_ENABLED is True and self.__discover is True:
             async with self._discovery_lock:
                 await self._discovery()
 

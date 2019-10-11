@@ -29,8 +29,8 @@ example config:
 # interval change can't be discovered as homeassistant doesn't offer a type
 """
 
-__updated__ = "2019-10-10"
-__version__ = "0.5"
+__updated__ = "2019-10-11"
+__version__ = "0.6"
 
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.utils.component import Component
@@ -61,7 +61,8 @@ class HCSR04(Component):
     def __init__(self, pin_trigger, pin_echo, timeout=30000, temp_sensor=None,
                  precision=2, offset=0,
                  interval=None, mqtt_topic=None,
-                 mqtt_topic_interval=None, value_template=None, friendly_name=None):
+                 mqtt_topic_interval=None, value_template=None, friendly_name=None,
+                 discover=True):
         """
         HC-SR04 ultrasonic sensor.
         Be sure to connect it to 5V but use a voltage divider to connect the Echo pin to an ESP.
@@ -76,8 +77,9 @@ class HCSR04(Component):
         :param mqtt_topic_interval: interval mqtt topic for changing the reading interval
         :param value_template: optional template can be used to measure the reverse distance (e.g. water level)
         :param friendly_name: friendly name for homeassistant gui by mqtt discovery, defaults to "Distance"
+        :param discover: boolean, if the device should publish its discovery
         """
-        super().__init__(COMPONENT_NAME, __version__)
+        super().__init__(COMPONENT_NAME, __version__, discover)
         self._frn = friendly_name
         self._valt = value_template
         self._tr = Pin(pin_trigger, mode=machine.Pin.OUT)
@@ -95,10 +97,9 @@ class HCSR04(Component):
         self._count = _count
         _count += 1
         self._subscribe(self._topic_int, self._changeInterval)
+        asyncio.get_event_loop().create_task(self._loop(self.distance))
 
-    async def _init(self):
-        await super()._init()
-        gen = self.distance
+    async def _loop(self, gen):
         await asyncio.sleep(1)
         while True:
             await gen()
@@ -207,3 +208,6 @@ class HCSR04(Component):
 
     def distanceTemplate(self):
         return _VAL_T_DISTANCE if self._valt is None else self._valt
+
+    def distanceTopic(self):
+        return self._topic

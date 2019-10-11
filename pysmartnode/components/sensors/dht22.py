@@ -22,8 +22,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-10"
-__version__ = "0.6"
+__updated__ = "2019-10-11"
+__version__ = "0.7"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -80,11 +80,10 @@ class DHT22(Component):
         global _count
         self._count = _count
         _count += 1
+        asyncio.get_event_loop().create_task(self._loop, self.tempHumid)
         gc.collect()
 
-    async def _init(self):
-        await super()._init()
-        gen = self.tempHumid
+    async def _loop(self, gen):
         interval = self._interval
         while True:
             await gen()
@@ -158,6 +157,12 @@ class DHT22(Component):
     def humidityTemplate():
         """Other components like HVAC might need to know the value template of a sensor"""
         return _VAL_T_HUMIDITY
+
+    def temperatureTopic(self):
+        return self._topic
+
+    def humidityTopic(self):
+        return self._topic
 
     ##############################
 

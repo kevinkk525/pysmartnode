@@ -29,8 +29,8 @@ As Homeassistant only supports sensors and switches to be discovered, every mode
 to enable the mode.
 """
 
-__updated__ = "2019-09-29"
-__version__ = "0.3"
+__updated__ = "2019-10-11"
+__version__ = "0.4"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -87,8 +87,8 @@ Mode = BaseMode()
 
 class Switch(Component):
     def __init__(self, component: ComponentSwitch, modes_enabled: list,
-                 mqtt_topic_mode=None, friendly_name_mode=None):
-        super().__init__(COMPONENT_NAME, __version__)
+                 mqtt_topic_mode=None, friendly_name_mode=None, discover=True):
+        super().__init__(COMPONENT_NAME, __version__, discover)
         if type(component) == str:
             self._component = config.getComponent(component)
             if self._component is None:
@@ -107,7 +107,6 @@ class Switch(Component):
         self._component.toggle = self.toggle
         if type(modes_enabled) != list:
             raise TypeError("modes enabled needs to be a list")
-        self._modes_enabled = modes_enabled
         count = self._component._count if hasattr(self._component, "_count") else ""
         _name = self._component._name if hasattr(self._component, "_name") else "{!s}{!s}".format(
             COMPONENT_NAME, count)
@@ -125,10 +124,7 @@ class Switch(Component):
         del name
         self._mode_lock = Lock()
         gc.collect()
-
-    async def _init(self):
         r = []
-        modes_enabled = self._modes_enabled
         self._modes_enabled = []
         for mode in modes_enabled:
             try:
@@ -152,15 +148,16 @@ class Switch(Component):
                 r.append(mode)
                 continue
             self._modes_enabled.append(modeobj)
-            if hasattr(modeobj, "_init"):
-                await modeobj._init()
-            else:
-                await asyncio.sleep_ms(500)
         if len(r) > 0:
             _log.error("Not supported modes found which will be ignored: {!s}".format(r))
         del r
+
+    async def _init_network(self):
+        for mode in self._modes_enabled:
+            if hasattr(mode, "_init"):
+                await mode._init()
         gc.collect()
-        await super()._init()
+        await super()._init_network()
         for mode in self._modes_enabled:
             # mode switches don't need to get retained state
             topic = "{!s}/{!s}/set".format(self._topic_mode[:-4], mode)

@@ -46,8 +46,8 @@ class STATS(Component):
         super().__init__(COMPONENT_NAME, __version__)
         self._interval = config.INTERVAL_SEND_SENSOR
 
-    async def _init(self):
-        await super()._init()
+    async def _init_network(self):
+        await super()._init_network()
         await _mqtt.publish(_mqtt.getDeviceTopic("version"), config.VERSION, qos=1, retain=True)
         if config.RTC_SYNC_ACTIVE is True:
             for _ in range(5):

@@ -18,8 +18,8 @@ example config for MyComponent:
 }
 """
 
-__updated__ = "2019-09-29"
-__version__ = "1.3"
+__updated__ = "2019-10-11"
+__version__ = "1.4"
 
 import uasyncio as asyncio
 from pysmartnode import config
@@ -51,31 +51,40 @@ _count = 0
 class MyComponent(Component):
     def __init__(self, my_value,  # extend or shrink according to your sensor
                  mqtt_topic=None, mqtt_topic2=None,
-                 friendly_name=None):
-        super().__init__(COMPONENT_NAME, __version__)
+                 friendly_name=None, discover=True):
+        super().__init__(COMPONENT_NAME, __version__, discover=discover)
+        # discover: boolean, if this component should publish its mqtt discovery.
+        # This can be used to prevent combined Components from exposing underlying
+        # hardware components like a power switch
+
         # This makes it possible to use multiple instances of MyComponent
         global _count
         self._count = _count
         _count += 1
+
+        # This will generate a topic like: home/31f29s/MyComponent0/set
         self._command_topic = mqtt_topic or _mqtt.getDeviceTopic(
             "{!s}{!s}".format(COMPONENT_NAME, self._count), is_request=True)
-        # This will generate a topic like: home/31f29s/MyComponent0/set
 
-        # These calls subscribe the topics, don't use _mqtt.subscribe.
+        # These calls subscribe the topics (actual subscription process done in _init_network),
+        # don't use _mqtt.subscribe.
         self._subscribe(self._command_topic, self.on_message1)
         self._subscribe(mqtt_topic2 or "home/sometopic", self.on_message2)
 
         self.my_value = my_value
 
         self._frn = friendly_name  # will default to unique name in discovery if None
-
+        asyncio.get_event_loop().create_task(self._loop())
         gc.collect()
 
-    async def _init(self):
-        await super()._init()
-        # Only start loops here that publish values because the loop might never get
-        # executed if the network/mqtt connection fails.
+    async def _init_network(self):
+        await super()._init_network()
+        # NEVER start loops here because it will block the _init_network of all other components!
         # Start a new uasyncio task in __init__() if you need additional loops.
+        # This method is only used for subscribing topics, publishing discovery and logging things.
+        # It can be used for similar network oriented initializations.
+
+    async def _loop(self):
         while True:
             await asyncio.sleep(5)
             await _mqtt.publish(self._command_topic[:-4], "ON", qos=1)  # publishing to state_topic
@@ -103,7 +112,7 @@ class MyComponent(Component):
         """
         print("Do something")
         return True  # When returning True, the value of arg "message" will be
-        # published to the state topic
+        # published to the state topic as a retained message
 
     async def on_message2(self, topic, message, retained):
         """
@@ -115,4 +124,4 @@ class MyComponent(Component):
         """
         print("Do something else")
         return True  # When returning True, the value of arg "message" will be
-        # published to the state topic
+        # published to the state topic as a retained message

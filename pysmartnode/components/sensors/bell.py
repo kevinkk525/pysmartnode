@@ -21,8 +21,8 @@ example config:
 }
 """
 
-__updated__ = "2019-09-29"
-__version__ = "1.1"
+__updated__ = "2019-10-10"
+__version__ = "1.2"
 
 import gc
 from pysmartnode import config
@@ -46,8 +46,8 @@ gc.collect()
 class Bell(Component):
     def __init__(self, pin, debounce_time, on_time=None, irq_direction=None, mqtt_topic=None,
                  friendly_name=None,
-                 friendly_name_last=None):
-        super().__init__(COMPONENT_NAME, __version__)
+                 friendly_name_last=None, discover=True):
+        super().__init__(COMPONENT_NAME, __version__, discover)
         self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
         self._PIN_BELL_IRQ_DIRECTION = irq_direction or machine.Pin.IRQ_FALLING
         self._debounce_time = debounce_time
@@ -122,3 +122,6 @@ class Bell(Component):
             await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("last_bell"), "last_bell",
                                          TIMELAPSE_TYPE, self._frn_l or "Last Bell")
             gc.collect()
+
+    def topic(self):
+        return self._topic

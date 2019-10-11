@@ -23,8 +23,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-10"
-__version__ = "1.2"
+__updated__ = "2019-10-11"
+__version__ = "1.3"
 
 from pysmartnode import config
 from pysmartnode.utils.wrappers.async_wrapper import async_wrapper as _async_wrapper
@@ -58,8 +58,13 @@ class MySensor(Component):
     def __init__(self, i2c, precision_temp=2, precision_humid=1,
                  offset_temp=0, offset_humid=0,  # extend or shrink according to your sensor
                  interval=None, mqtt_topic=None,
-                 friendly_name_temp=None, friendly_name_humid=None):
-        super().__init__(COMPONENT_NAME, __version__)
+                 friendly_name_temp=None, friendly_name_humid=None,
+                 discover=True):
+        super().__init__(COMPONENT_NAME, __version__, discover)
+        # discover: boolean, if this component should publish its mqtt discovery.
+        # This can be used to prevent combined Components from exposing underlying
+        # hardware components like a power switch
+
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
         self._frn_temp = friendly_name_temp
@@ -89,19 +94,16 @@ class MySensor(Component):
         ##############################
         # choose a background loop that periodically reads the values and publishes it
         # (function is created below)
-        self._background_loop = self.tempHumid
+        background_loop = self.tempHumid
         ##############################
+        asyncio.get_event_loop().create_task(self._loop(background_loop))
         gc.collect()
 
-    async def _init(self):
-        await super()._init()
-        gen = self._background_loop
+    async def _loop(self, gen):
         interval = self._interval
         while True:
             await gen()
             await asyncio.sleep(interval)
-        # only start a loop in _init if its only purpose is to publish to mqtt because
-        # otherwise the code might never get started if connection to network/mqtt fails.
 
     async def _discovery(self):
         component_topic = self._topic  # get the state topic of custom component topic
@@ -151,6 +153,9 @@ class MySensor(Component):
         """Other components like HVAC might need to know the value template of a sensor"""
         return _VAL_T_TEMPERATURE
 
+    def temperatureTopic(self):
+        return self._topic
+
     async def humidity(self, publish=True, timeout=5):
         return await self._read(self._humid, self._prec_humid, self._offs_humid, publish, timeout)
 
@@ -158,6 +163,9 @@ class MySensor(Component):
     def humidityTemplate():
         """Other components like HVAC might need to know the value template of a sensor"""
         return _VAL_T_HUMIDITY
+
+    def humidityTopic(self):
+        return self._topic
 
     async def tempHumid(self, publish=True, timeout=5):
         temp = await self.temperature(publish=False)

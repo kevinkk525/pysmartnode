@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-15 
 
-__updated__ = "2019-09-29"
-__version__ = "0.2"
+__updated__ = "2019-10-11"
+__version__ = "0.3"
 
 from pysmartnode.utils.component import Component
 from pysmartnode import config
@@ -29,9 +29,9 @@ class RemoteConfig(Component):
         self._rcomp = []
         self._done = False
 
-    async def _init(self):
-        await super()._init()
-        self._subscribe(self._topic, self.on_message)
+    async def _init_network(self):
+        await super()._init_network()
+        self._subscribe(self._topic, self.on_message)  # not actively subscribing yet
         await self._watcher_coro
 
     def done(self):

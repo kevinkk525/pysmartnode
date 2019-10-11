@@ -26,8 +26,8 @@ example config:
 Sensor can only be used with esp32 as esp8266 has only 1 uart at 115200 (9600 needed) 
 """
 
-__updated__ = "2019-10-10"
-__version__ = "1.5"
+__updated__ = "2019-10-11"
+__version__ = "1.6"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -84,15 +84,15 @@ class PMS5003(sensorModule.PMS5003, Component):
                                       interval_passive_mode,
                                       active_mode=active_mode, eco_mode=eco_mode)
         gc.collect()
-
-    async def _init(self):
-        await Component._init(self)
         if (self._interval == self._int_pm and self._active_mode is False) or self._interval == 0:
             self.registerCallback(self.airQuality)
         else:
-            while True:
-                await self.airQuality()
-                await asyncio.sleep(self._interval)
+            asyncio.get_event_loop().create_task(self._loop())
+
+    async def _loop(self):
+        while True:
+            await self.airQuality()
+            await asyncio.sleep(self._interval)
 
     async def _discovery(self):
         values = ["pm10_standard", "pm25_standard", "pm100_standard", "pm10_env", "pm25_env",
@@ -142,6 +142,9 @@ class PMS5003(sensorModule.PMS5003, Component):
     @staticmethod
     def airQualityTemplate():
         raise TypeError("Multiple value templates")
+
+    def airQualityTopic(self):
+        return self._topic
 
     ##############################
 

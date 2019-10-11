@@ -33,8 +33,8 @@ example config:
 # Specific DS18 unit. 
 """
 
-__updated__ = "2019-10-10"
-__version__ = "2.6"
+__updated__ = "2019-10-11"
+__version__ = "2.7"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -65,7 +65,7 @@ _ds18_controller = None
 _instances = []
 
 
-class DS18_Controller(ds18x20.DS18X20):
+class DS18_Controller(ds18x20.DS18X20, Component):
     def __init__(self, pin, interval=None, auto_discovery=False):
         """
         The DS18 onewire controller. Reads all connected (and configured) units.
@@ -76,6 +76,7 @@ class DS18_Controller(ds18x20.DS18X20):
         """
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         ds18x20.DS18X20.__init__(self, onewire.OneWire(Pin(pin)))
+        Component.__init__(self, COMPONENT_NAME, __version__, discover=False)
         gc.collect()
         self._lock = config.Lock()
         global _ds18_controller
@@ -156,6 +157,20 @@ class DS18_Controller(ds18x20.DS18X20):
             a[i] = int(rom[i * 2:i * 2 + 2], 16)
         return a
 
+    @staticmethod
+    async def temperature(publish=True, timeout=5):
+        """This is only to support a dynamic connection to a single ds18 sensor"""
+        return await _instances[0].temperature(publish=publish, timeout=timeout)
+
+    @staticmethod
+    def temperatureTemplate():
+        """Other components like HVAC might need to know the value template of a sensor"""
+        return _VAL_T_TEMPERATURE
+
+    @staticmethod
+    def temperatureTopic():
+        return _instances[0].temperatureTopic()
+
 
 class DS18(Component):
     """
@@ -165,14 +180,14 @@ class DS18(Component):
     """
 
     def __init__(self, rom, precision_temp=2, offset_temp=0, mqtt_topic=None, friendly_name=None,
-                 controller: DS18_Controller = None):
+                 controller: DS18_Controller = None, discover=True):
         """
         Class for a single ds18 unit to provide an interface to a single unit not needing to specify
         the ROM on temperature read calls.
         :param rom: str or bytearray, device specific ROM
         :param controller: DS18 object. If ds18 are connected on different pins, different DS18 objects are needed
         """
-        super().__init__(COMPONENT_NAME, __version__)
+        super().__init__(COMPONENT_NAME, __version__, discover)
         if controller is None:
             global _ds18_controller
             if _ds18_controller is None:
@@ -227,3 +242,8 @@ class DS18(Component):
     def temperatureTemplate():
         """Other components like HVAC might need to know the value template of a sensor"""
         return _VAL_T_TEMPERATURE
+
+    def temperatureTopic(self):
+        rom = self._ds.rom2str(self._r)
+        topic = self._topic or _mqtt.getDeviceTopic("DS18/{!s}".format(rom))
+        return topic

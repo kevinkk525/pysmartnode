@@ -26,8 +26,8 @@ example config:
 WARNING: This component has not been tested with a battery and only works in theory!
 """
 
-__version__ = "0.4"
-__updated__ = "2019-10-10"
+__version__ = "0.5"
+__updated__ = "2019-10-11"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -36,7 +36,7 @@ import gc
 import machine
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.components.machine.adc import ADC
-from pysmartnode.utils.component import Component, DISCOVERY_SENSOR
+from pysmartnode.utils.component import Component
 import time
 
 COMPONENT_NAME = "Battery"
@@ -54,8 +54,9 @@ _count = 0
 class Battery(Component):
     def __init__(self, adc, voltage_max, voltage_min, multiplier_adc, cutoff_pin=None,
                  precision_voltage=2, interval_watching=1,
-                 interval=None, mqtt_topic=None, friendly_name=None, friendly_name_abs=None):
-        super().__init__(COMPONENT_NAME, __version__)
+                 interval=None, mqtt_topic=None, friendly_name=None, friendly_name_abs=None,
+                 discover=True):
+        super().__init__(COMPONENT_NAME, __version__, discover)
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         self._interval_watching = interval_watching
         self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
@@ -115,10 +116,17 @@ class Battery(Component):
 
     @staticmethod
     def voltageTemplate():
+        return _VAL_T_VOLTAGE
+
+    @staticmethod
+    def chargeTemplate():
         return _VAL_T_CHARGE
 
-    async def _init(self):
-        await super()._init()
+    def chargeTopic(self):
+        return self._topic
+
+    def voltageTopic(self):
+        return self._topic
 
     async def _loop(self):
         interval = self._interval
@@ -169,7 +177,7 @@ class Battery(Component):
         self._event_low = event
 
     async def _discovery(self):
-        sens = DISCOVERY_SENSOR.format("battery",  # device_class
+        sens = self._composeSensorType("battery",  # device_class
                                        "%",  # unit_of_measurement
                                        _VAL_T_CHARGE)  # value_template
         name = "{!s}{!s}{!s}".format(COMPONENT_NAME, self._count, "C")

@@ -23,8 +23,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-10"
-__version__ = "2.2"
+__updated__ = "2019-10-11"
+__version__ = "2.3"
 
 import gc
 from pysmartnode import config
@@ -56,8 +56,8 @@ class HTU21D(htu, Component):
     def __init__(self, i2c, precision_temp, precision_humid,
                  temp_offset, humid_offset,
                  mqtt_topic=None, interval=None,
-                 friendly_name_temp=None, friendly_name_humid=None):
-        Component.__init__(self, COMPONENT_NAME, __version__)
+                 friendly_name_temp=None, friendly_name_humid=None, discover=True):
+        Component.__init__(self, COMPONENT_NAME, __version__, discover)
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         # This makes it possible to use multiple instances of MySensor
         global _count
@@ -85,13 +85,12 @@ class HTU21D(htu, Component):
         ##############################
         # choose a background loop that periodically reads the values and publishes it
         # (function is created below)
-        self._background_loop = self.tempHumid
+        background_loop = self.tempHumid
         ##############################
+        asyncio.get_event_loop().create_task(self._loop(background_loop))
         gc.collect()
 
-    async def _init(self):
-        await super()._init()
-        gen = self._background_loop
+    async def _loop(self, gen):
         interval = self._interval
         while True:
             await gen()
@@ -177,3 +176,9 @@ class HTU21D(htu, Component):
     def temperatureTemplate():
         """Other components like HVAC might need to know the value template of a sensor"""
         return _VAL_T_TEMPERATURE
+
+    def temperatureTopic(self):
+        return self._topic
+
+    def humidityTopic(self):
+        return self._topic
