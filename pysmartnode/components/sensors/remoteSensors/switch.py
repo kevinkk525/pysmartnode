@@ -5,7 +5,7 @@
 """
 example config:
 {
-    package: .sensors.remoteSensors.temperature
+    package: .sensors.remoteSensors.switch
     component: RemoteSwitch
     constructor_args: {
         command_topic: sometopic      # command topic of the remote sensor
@@ -14,6 +14,8 @@ example config:
     }
 }
 """
+
+# TODO: implement possibility to set sensor topics through mqtt, similar to .base implementation
 
 __updated__ = "2019-10-11"
 __version__ = "0.1"

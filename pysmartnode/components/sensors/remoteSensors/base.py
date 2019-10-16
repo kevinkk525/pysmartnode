@@ -9,37 +9,82 @@ example config:
     component: BaseRemote
     constructor_args: {
         ...: ...                   # args for subclasses
-        mqtt_topic: sometopic      # topic of the remote sensor
+        mqtt_topic: sometopic      # topic of the remote sensor, if None, then the command topic can be used to set a topic to listen to
+        # command_topic: sometopic # optional, defaults to <home>/<client-id>/<COMPONENT_NAME><_count>/topic/set
         # stale_time: 900          # optional, defaults to 900, time after which the remote sensor is considered unavailable
     }
 }
+command_topic is used if mqtt_topic is not given so the mqtt_topic can be set using the command_topic.
+If mqtt_topic is given, then command_topic won't be used.
+Since other components might depend on this component's topic, setting it through mqtt might
+cause problems since the topic won't be stored on startup. You need to wait for network to be
+finished so the retained state can be restored. Typically if a component is initialized after
+this sensor and the _init_network is called, the topic value should have been received.
 """
 
 # TODO: implement value_template parser?
 
-__updated__ = "2019-10-11"
-__version__ = "0.1"
+__updated__ = "2019-10-16"
+__version__ = "0.2"
 
 from pysmartnode.utils.component import Component
 import gc
 import time
+from pysmartnode import config
+import uasyncio as asyncio
 
+_mqtt = config.getMQTT()
 gc.collect()
+
+_count = 0
 
 
 class BaseRemote(Component):
-    def __init__(self, COMPONENT_NAME, VERSION, VALUE_TYPE, mqtt_topic, DICT_TEMPLATE=None,
-                 stale_time=900):
+    def __init__(self, COMPONENT_NAME, VERSION, VALUE_TYPE, mqtt_topic=None, command_topic=None,
+                 DICT_TEMPLATE=None, stale_time=900):
         super().__init__(COMPONENT_NAME, VERSION, discover=False)
         # discover: not discovering a remote sensor.
 
+        # This makes it possible to use multiple instances of BaseRemote
+        global _count
+        self._count = _count
+        _count += 1
+        # Not including in subclasses to make development easier.
+        # might result in names like RemoteTemperature0, RemoteHumidity1, RemoteTemperature2
+
         self._stale = stale_time
         self._topic = mqtt_topic
-        self._subscribe(self._topic, self.on_message)
+        if mqtt_topic is None:
+            self._command_topic = command_topic or _mqtt.getDeviceTopic(
+                "{!s}{!s}/topic/set".format(COMPONENT_NAME, self._count))
+            self._subscribe(self._command_topic, self._changeTopic)
+        else:
+            self._command_topic = None
+            self._subscribe(self._topic, self.on_message)
         self._value = None
         self._value_time = 0
         self._value_type = VALUE_TYPE
         self._dict_template = DICT_TEMPLATE
+
+    async def _init_network(self):
+        ret = False
+        if self._topic is None:
+            ret = True
+            self._subscribe(self._command_topic[:-4], self._changeTopic)
+        await super()._init_network()
+        if ret:
+            await asyncio.sleep(1)  # get retained state topic state
+            await _mqtt.unsubscribe(self._command_topic[:-4], self)
+
+    async def _changeTopic(self, topic, msg, retain):
+        if retain and self._command_topic is not None:
+            await _mqtt.unsubscribe(self._command_topic[:-4], self)
+        if self._topic is not None:
+            await _mqtt.unsubscribe(self._topic, self)
+        self._topic = msg
+        self._subscribe(self._topic, self.on_message)
+        await _mqtt.subscribe(msg, qos=1)
+        return True
 
     async def on_message(self, topic, msg, retain):
         if self._dict_template is not None:
