@@ -23,8 +23,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-11"
-__version__ = "2.3"
+__updated__ = "2019-10-16"
+__version__ = "2.4"
 
 import gc
 from pysmartnode import config
@@ -66,7 +66,7 @@ class HTU21D(htu, Component):
         self._frn_temp = friendly_name_temp
         self._frn_humid = friendly_name_humid
         self._topic = mqtt_topic or _mqtt.getDeviceTopic(
-            "{!s}/{!s}".format(COMPONENT_NAME, self._count))
+            "{!s}{!s}".format(COMPONENT_NAME, self._count))
         ##############################
         # adapt to your sensor by extending/removing unneeded values
         self._prec_temp = int(precision_temp)
