@@ -5,8 +5,8 @@
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2019-09-29"
-__version__ = "0.6"
+__updated__ = "2019-10-16"
+__version__ = "0.7"
 
 import gc
 
@@ -45,6 +45,7 @@ class STATS(Component):
     def __init__(self):
         super().__init__(COMPONENT_NAME, __version__)
         self._interval = config.INTERVAL_SEND_SENSOR
+        asyncio.get_event_loop().create_task(self._loop())
 
     async def _init_network(self):
         await super()._init_network()
@@ -60,7 +61,6 @@ class STATS(Component):
                                                                                t[4],
                                                                                t[5]), qos=1,
                                 retain=True)
-        await self._loop()  # can be started here as everything depends on mqtt
 
     async def _loop(self):
         await asyncio.sleep(20)
