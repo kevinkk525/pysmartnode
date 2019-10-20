@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-09-30"
-__version__ = "4.3"
+__updated__ = "2019-10-19"
+__version__ = "4.4"
 
 import gc
 import ujson
@@ -45,7 +45,9 @@ class MQTTHandler(MQTTClient):
                          wifi_coro=self._wifiChanged,
                          connect_coro=self._connected,
                          will=(
-                             self.getRealTopic(self.getDeviceTopic("status")), "offline", True, 1),
+                             self.getRealTopic(
+                                 self.getDeviceTopic(config.MQTT_AVAILABILITY_SUBTOPIC)),
+                             "offline", True, 1),
                          clean=False,
                          ssid=config.WIFI_SSID,
                          wifi_pw=config.WIFI_PASSPHRASE)
@@ -57,7 +59,26 @@ class MQTTHandler(MQTTClient):
         self._wifi_coro = None
         self._wifi_subs = []
         self._pub_coro = None
+        self.__last_disconnect = None
+        self.__downtime = 0
+        self.__reconnects = -1  # not counting the first connect
         gc.collect()
+
+    def close(self):
+        # subclassing close because mqtt_as doesn't provide a callback when connection
+        # to mqtt broker is lost, only when wifi connection is lost.
+        if self.__last_disconnect is None:
+            self.__last_disconnect = time.ticks_ms()
+        super().close()
+
+    def getDowntime(self):
+        if self.isconnected() or self.__last_disconnect is None:
+            return self.__downtime
+        else:
+            return (time.ticks_ms() - self.__last_disconnect) / 1000 + self.__downtime
+
+    def getReconnects(self):
+        return self.__reconnects if self.__reconnects > 0 else 0
 
     def registerWifiCallback(self, cb):
         """Supports callbacks and coroutines.
@@ -79,7 +100,7 @@ class MQTTHandler(MQTTClient):
                 await self.connect()
                 return
             except OSError as e:
-                _log.error("Error connecting to wifi: {!s}".format(e), local_only=True)
+                _log.error("Error connecting to wifi or mqtt: {!s}".format(e), local_only=True)
                 # not connected after trying.. not much we can do without a connection except
                 # trying again.
                 # Don't like resetting the machine as components could be working without wifi.
@@ -102,14 +123,19 @@ class MQTTHandler(MQTTClient):
         self._wifi_coro = None
 
     async def _connected(self, client):
+        self.__reconnects += 1
+        if self.__last_disconnect is not None:
+            self.__downtime += (time.ticks_ms() - self.__last_disconnect) / 1000
+        self.__last_disconnect = None
         if self._connected_coro is not None:
-            asyncio.cancel(
-                self._connected_coro)  # processed subscriptions would have to be done again anyway
+            # processed subscriptions would have to be done again anyway
+            asyncio.cancel(self._connected_coro)
         self._connected_coro = self._connected_handler(client)
         asyncio.get_event_loop().create_task(self._connected_coro)
 
     async def _connected_handler(self, client):
-        await self.publish(self.getDeviceTopic("status"), "online", qos=1, retain=True)
+        await self.publish(self.getDeviceTopic(config.MQTT_AVAILABILITY_SUBTOPIC), "online", qos=1,
+                           retain=True)
         # if it hangs here because connection is lost, it will get canceled when reconnected.
         if self.__first_connect is True:
             # only log on first connection, not on reconnect as nothing has changed here
@@ -127,7 +153,8 @@ class MQTTHandler(MQTTClient):
         self._connected_coro = None
 
     async def _subscribeTopics(self):
-        c = config._components
+        from pysmartnode.utils.component import _components
+        c = _components
         while c is not None:
             if hasattr(c, "_topics") is True:
                 ts = c._topics
@@ -172,7 +199,10 @@ class MQTTHandler(MQTTClient):
         pl = subscription.find("/+/")
         if pl != -1:
             st = topic.find("/", pl + 1) + 1
-            if memoryview(subscription)[:pl + 1] == memoryview(topic)[:pl + 1]:
+            if memoryview(subscription)[:pl + 1] == memoryview(topic)[:pl + 1]:  # equal until /+
+                if subscription.endswith("/#"):
+                    sub = subscription.replace("/+/", topic[pl:topic.find("/", pl + 1) + 1])
+                    return MQTTHandler.matchesSubscription(topic, sub, ignore_command)
                 if ignore_command is True:
                     if memoryview(subscription)[-5:] == b"+/set" and st == 0:  # st==0 no subtopics
                         return True
@@ -210,9 +240,10 @@ class MQTTHandler(MQTTClient):
             # removing all topics from component in iteration below
         topic = [topic] if type(topic) == str else topic
         st = time.ticks_ms()
+        from pysmartnode.utils.component import _components
         for t in topic:
             found = False
-            c = config._components
+            c = _components
             while c is not None:
                 if hasattr(c, "_topics") is True:
                     # search if other components subscribed topic
@@ -278,7 +309,8 @@ class MQTTHandler(MQTTClient):
 
     def getRealTopic(self, device_topic):
         if device_topic.startswith("./") is False:
-            raise ValueError("Topic {!s} is no device topic".format(device_topic))
+            # raise ValueError("Topic {!s} is no device topic".format(device_topic))
+            return device_topic  # no need to raise an error
         return "{}/{}/{}".format(self.mqtt_home, self.client_id, device_topic[2:])
 
     def _execute_sync(self, topic, msg, retained):
@@ -291,7 +323,8 @@ class MQTTHandler(MQTTClient):
             pass  # maybe not a json string, no way of knowing
         if self._isDeviceSubscription(topic):
             topic = self._convertToDeviceTopic(topic)
-        c = config._components
+        from pysmartnode.utils.component import _components
+        c = _components
         loop = asyncio.get_event_loop()
         found = False
         while c is not None:
