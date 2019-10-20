@@ -4,8 +4,8 @@ Created on 2018-09-25
 @author: Kevin Köck
 '''
 
-__version__ = "0.1"
-__updated__ = "2018-09-25"
+__version__ = "0.2"
+__updated__ = "2018-10-17"
 
 from pysmartnode.utils import sys_vars
 import ujson
@@ -21,7 +21,7 @@ def _importComponents(_log):
         _log.critical("components.py does not exist")
         return False
     except Exception as e:
-        _log.ciritcal("components.py: {!s}".format(e))
+        _log.critical("components.py: {!s}".format(e))
         return False
     if hasattr(components, "COMPONENTS"):
         _log.info("Trying to register COMPONENTS of components.py", local_only=True)
