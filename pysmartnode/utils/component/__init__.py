@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-04-26 
 
-__updated__ = "2019-10-16"
-__version__ = "1.0"
+__updated__ = "2019-10-18"
+__version__ = "1.2"
 
 from pysmartnode import config
 import uasyncio as asyncio
@@ -11,7 +11,7 @@ from pysmartnode.utils import sys_vars
 from .definitions import *
 import gc
 
-# This module is used to create components that interact with mqtt.
+# This module is used to create components.
 # This could be sensors, switches, binary_sensors etc.
 # It provides a base class for linking components and subscribed topics and
 # provides the basis for homeassistant autodiscovery.
@@ -21,11 +21,11 @@ import gc
 _mqtt = config.getMQTT()
 
 # prevent multiple discoveries from running concurrently and creating Out-Of-Memory errors
-# or queue overflow errors
+# or queue overflow errors. This is a starting pointer using _next_component to progress.
 _init_queue_start = None
 
+_components = None  # pointer list of all registered components, used for mqtt etc
 
-# TODO: implement "name" for usage in friendly_name, component registration, etc?
 
 class Component:
     """
@@ -38,31 +38,55 @@ class Component:
         # in a variable in subclass.
         # self._topics is used by mqtt to know which component a message is for.
         self._next_component = None  # needed to keep a list of registered components
-        config.addComponent(self)  # adds component to the chain of components (_next_component)
-
+        global _components
+        if _components is None:
+            _components = self
+        else:
+            c = _components
+            while c is not None:
+                if c._next_component is None:
+                    c._next_component = self
+                    break
+                c = c._next_component
         # Workaround to prevent every component object from creating a new asyncio task for
         # network oriented initialization as this would lead to an asyncio queue overflow.
-        self._init_next = None
         global _init_queue_start
         if _init_queue_start is None:
             _init_queue_start = self
             asyncio.get_event_loop().create_task(self.__initNetworkProcess())
-        else:
-            c = _init_queue_start
-            while c._init_next is not None:
-                c = c._init_next
-            c._init_next = self
         self.COMPONENT_NAME = component_name
         self.VERSION = version
         self.__discover = discover
 
-    async def __initNetworkProcess(self):
+    @staticmethod
+    def removeComponent(component):
+        if type(component) == str:
+            component = config.getComponent(component)
+        if isinstance(component, Component) is False:
+            config._log.error(
+                "Can't remove a component that is not an instance of pysmartnode.utils.component.Component")
+            return False
+        global _components
+        c = _components
+        p = None
+        while c is not None:
+            if c == component:
+                if p is None:
+                    _components = c._next_component
+                    break
+                p._next_component = c._next_component
+                break
+            p = c
+            c = c._next_component
+
+    @staticmethod
+    async def __initNetworkProcess():
         global _init_queue_start
         c = _init_queue_start
         while c is not None:
             await c._init_network()
-            c = c._init_next
             gc.collect()
+            c = c._next_component
         _init_queue_start = None
 
     async def _init_network(self):
@@ -72,14 +96,19 @@ class Component:
                                        config.getComponentName(self)))
         for t in self._topics:
             await _mqtt.subscribe(t, qos=1)
+            gc.collect()
         if config.MQTT_DISCOVERY_ENABLED is True and self.__discover is True:
             await self._discovery()
+            gc.collect()
 
     def _subscribe(self, topic, cb):
         self._topics[topic] = cb
 
     async def _discovery(self):
-        """Implement in subclass. Is only called by self._init unless config.MQTT_DISCOVERY_ON_RECONNECT is True."""
+        """
+        Implement in subclass.
+        Is only called by self._init_network if config.MQTT_DISCOVERY_ON_RECONNECT is True.
+        """
         pass
 
     @staticmethod
@@ -91,6 +120,11 @@ class Component:
         await _mqtt.publish(topic, msg, qos=1, retain=True)
         del msg, topic
         gc.collect()
+
+    @staticmethod
+    def _composeAvailability():
+        return DISCOVERY_AVAILABILITY.format(config.MQTT_HOME, sys_vars.getDeviceID(),
+                                             config.MQTT_AVAILABILITY_SUBTOPIC)
 
     @staticmethod
     def _composeDiscoveryMsg(component_topic, name, component_type_discovery, friendly_name=None,
@@ -108,18 +142,10 @@ class Component:
         component_topic = component_topic if _mqtt.isDeviceTopic(
             component_topic) is False else _mqtt.getRealTopic(
             component_topic)
-        if no_avail is True:
-            return DISCOVERY_BASE_NO_AVAIL.format(component_topic,  # "~" component state topic
-                                                  friendly_name,  # name
-                                                  sys_vars.getDeviceID(), name,  # unique_id
-                                                  component_type_discovery,
-                                                  # component type specific values
-                                                  sys_vars.getDeviceDiscovery())  # device
         return DISCOVERY_BASE.format(component_topic,  # "~" component state topic
                                      friendly_name,  # name
-                                     config.MQTT_HOME, sys_vars.getDeviceID(),
-                                     # availability_topic
                                      sys_vars.getDeviceID(), name,  # unique_id
+                                     "" if no_avail else Component._composeAvailability(),
                                      component_type_discovery,  # component type specific values
                                      sys_vars.getDeviceDiscovery())  # device
 

@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-10-11"
-__version__ = "0.5"
+__updated__ = "2019-10-19"
+__version__ = "0.6"
 
 from pysmartnode.utils.component import Component
 from .definitions import DISCOVERY_SWITCH
@@ -38,7 +38,7 @@ class ComponentSwitch(Component):
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch
 
-        self._state = False
+        self._state = None  # initial state is unknown
         self._topic = command_topic or _mqtt.getDeviceTopic(
             "{!s}{!s}".format(component_name, self._count),
             is_request=True)
@@ -70,10 +70,10 @@ class ComponentSwitch(Component):
             else:
                 return False
         if msg in _mqtt.payload_on:
-            if self._state is False:
+            if not self._state:  # False or None (unknown)
                 await self.on()
         elif msg in _mqtt.payload_off:
-            if self._state is True:
+            if self._state is not False:  # True or None (unknown)
                 await self.off()
         else:
             raise TypeError("Payload {!s} not supported".format(msg))

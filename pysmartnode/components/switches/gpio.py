@@ -18,8 +18,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-11"
-__version__ = "0.9"
+__updated__ = "2019-10-19"
+__version__ = "1.0"
 
 import gc
 import machine
@@ -42,6 +42,7 @@ class GPIO(ComponentSwitch):
         super().__init__(COMPONENT_NAME, __version__, mqtt_topic,
                          instance_name="{!s}_{!s}".format(COMPONENT_NAME, pin), discover=discover)
         self.pin = Pin(pin, machine.Pin.OUT, value=0 if active_high else 1)
+        self._state = not active_high
         self._frn = friendly_name
         self._active_high = active_high
 
