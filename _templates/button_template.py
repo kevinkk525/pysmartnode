@@ -16,8 +16,8 @@ example config:
 
 # A button is basically a switch with a single-shot action that deactivates itself afterwards.
 
-__updated__ = "2019-10-11"
-__version__ = "0.4"
+__updated__ = "2019-10-20"
+__version__ = "0.5"
 
 from pysmartnode import config
 from pysmartnode.utils.component.button import ComponentButton
@@ -48,6 +48,10 @@ class Button(ComponentButton):
         super().__init__(COMPONENT_NAME, __version__, mqtt_topic, instance_name=None,
                          wait_for_lock=False, discover=discover)
         self._frn = friendly_name
+        self._state = False  # A button will always be False as it is single-shot,
+        # unless you have a device with a long single-shot action. Then you might
+        # be able to poll its current state.
+
         # If the device needs extra code, launch a new coroutine.
 
     #####################

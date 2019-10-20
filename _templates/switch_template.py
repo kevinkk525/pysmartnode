@@ -16,8 +16,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-11"
-__version__ = "1.5"
+__updated__ = "2019-10-20"
+__version__ = "1.6"
 
 from pysmartnode import config
 from pysmartnode.utils.component.switch import ComponentSwitch
@@ -49,6 +49,12 @@ class Switch(ComponentSwitch):
         super().__init__(COMPONENT_NAME, __version__, mqtt_topic, instance_name=None,
                          wait_for_lock=True, discover=discover)
         self._frn = friendly_name
+        ###
+        # set the initial state otherwise it will be "None" (unknown).
+        self._state = False
+        # Might be that you can read your devices state on startup or know the state because
+        # you initialize a pin in a certain state.
+        ###
         # If the device needs extra code, launch a new coroutine.
 
     #####################
