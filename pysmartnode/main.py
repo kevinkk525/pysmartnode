@@ -4,7 +4,7 @@ Created on 10.08.2017
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-09-29"
+__updated__ = "2019-10-18"
 
 import gc
 
@@ -47,18 +47,12 @@ async def _resetReason():
     if sys.platform == "esp8266" and rtc.memory() != b"":
         await _log.asyncLog("critical", "Reset reason: {!s}".format(rtc.memory().decode()))
         rtc.memory(b"")
-    elif sys.platform == "esp32_LoBo" and rtc.read_string() != "":
-        await _log.asyncLog("critical", "Reset reason: {!s}".format(rtc.memory()))
-        rtc.write_string("")
-    elif sys.platform == "linux":
+    else:
         if "reset_reason.txt" not in os.listdir():
             return
         with open("reset_reason.txt", "r") as f:
             await _log.asyncLog("critical", "Reset reason: {!s}".format(f.read()))
-        with open("reset_reason.txt", "w") as f:
-            f.write("")
-    elif machine.reset_cause() == machine.WDT_RESET:
-        await _log.asyncLog("critical", "Reset reason: WDT reset")
+        os.remove("reset_reason.txt")
 
 
 async def _receiveConfig():
@@ -74,7 +68,7 @@ async def _receiveConfig():
         await asyncio.sleep(1)
     gc.collect()
     _log.debug("RAM before deleting receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
-    config.removeComponent(conf)
+    conf.removeComponent(conf)  # removes component from Component chain
     del conf
     del pysmartnode.components.machine.remoteConfig
     del sys.modules["pysmartnode.components.machine.remoteConfig"]
@@ -120,40 +114,36 @@ def main():
         from pysmartnode.components.machine.watchdog import WDT
 
         wdt = WDT(timeout=config.MQTT_KEEPALIVE * 2)
-        config.addNamedComponent("wdt", wdt)
+        config.addComponent("wdt", wdt)
 
     if hasattr(config, "WIFI_LED") and config.WIFI_LED is not None:
         from pysmartnode.components.machine.wifi_led import WIFILED
 
         wl = WIFILED(config.WIFI_LED, config.WIFI_LED_ACTIVE_HIGH)
-        config.addNamedComponent("wifi_led", wl)
+        config.addComponent("wifi_led", wl)
 
     config.getMQTT().registerConnectedCallback(start_services)
 
     print("Starting uasyncio loop")
-    if config.DEBUG_STOP_AFTER_EXCEPTION:
-        # want to see the exception trace in debug mode
+    try:
         loop.run_forever()
-    else:
+    except Exception as e:
+        if config.DEBUG_STOP_AFTER_EXCEPTION:
+            # want to see the exception trace in debug mode
+            if hasattr(config, "USE_SOFTWARE_WATCHDOG") and config.USE_SOFTWARE_WATCHDOG:
+                wdt.deinit()  # so it doesn't reset the board
+            raise e
         # just log the exception and reset the microcontroller
-        try:
-            loop.run_forever()
-        except Exception as e:
-            # may fail due to memory allocation error
-            if sys.platform == "esp8266":
-                try:
-                    rtc.memory("{!s}".format(e).encode())
-                except Exception as e:
-                    print(e)
-                print("{!s}".format(e).encode())
-            elif sys.platform == "esp32_LoBo":
-                rtc.write_string("{!s}".format(e))
-            elif sys.platform == "linux":
-                with open("reset_reason.txt", "w") as f:
-                    f.write(e)
-            else:
-                _log.critical("Loop error, {!s}".format(e))
-            machine.reset()
+        if sys.platform == "esp8266":
+            try:
+                rtc.memory("{!s}".format(e).encode())
+            except Exception as e:
+                print(e)
+            print("{!s}".format(e).encode())
+        else:
+            with open("reset_reason.txt", "w") as f:
+                f.write(e)
+        machine.reset()
 
 
 main()

@@ -7,7 +7,7 @@ Created on 09.03.2018
 # Configuration management file
 ##
 
-__updated__ = "2018-09-29"
+__updated__ = "2018-10-20"
 
 from config import *
 from sys import platform
@@ -16,7 +16,7 @@ if platform == "linux" and DEVICE_NAME is None:
     raise TypeError("DEVICE_NAME has to be set on unix port")
 
 # General
-VERSION = const(520)
+VERSION = const(530)
 print("PySmartNode version {!s} started".format(VERSION))
 
 import gc
@@ -55,7 +55,8 @@ gc.collect()
 __printRAM(_mem, "Imported logging")
 
 if MQTT_TYPE == 1:
-    from pysmartnode.networking.mqtt_iot import MQTTHandler, Lock
+    from pysmartnode.networking.mqtt_iot import MQTTHandler, \
+        Lock  # Lock possibly needed by other modules
 else:  # 0 and wrong configuration options
     from pysmartnode.networking.mqtt_direct import MQTTHandler, \
         Lock  # Lock possibly needed by other modules
@@ -64,8 +65,7 @@ gc.collect()
 __printRAM(_mem, "Imported MQTTHandler")
 
 COMPONENTS = {}  # dictionary of all configured components
-COMPONENTS["mqtt"] = MQTTHandler()
-_components = None  # pointer list of all registered components, used for mqtt
+_mqtt = MQTTHandler()
 gc.collect()
 __printRAM(_mem, "Created MQTT")
 
@@ -87,26 +87,26 @@ def registerComponent(name, data):
 
 
 async def _loadComponentsFile():
-    _log.debug("RAM before import loadComponentsFile: {!s}".format(gc.mem_free()), local_only=True)
-    import pysmartnode.utils.loadComponentsFile
-    gc.collect()
-    _log.debug("RAM after import loadComponentsFile: {!s}".format(gc.mem_free()), local_only=True)
-    data = await pysmartnode.utils.loadComponentsFile.loadComponentsFile(_log, registerComponent)
-    _log.debug("RAM before deleting loadComponentsFile: {!s}".format(gc.mem_free()),
-               local_only=True)
-    del pysmartnode.utils.loadComponentsFile
-    del sys.modules["pysmartnode.utils.loadComponentsFile"]
-    gc.collect()
-    _log.debug("RAM after deleting loadComponentsFile: {!s}".format(gc.mem_free()),
-               local_only=True)
-    if type(data) == dict:
+    try:
+        import components
+    except ImportError:
+        _log.critical("components.py does not exist")
+        return False
+    except Exception as e:
+        _log.critical("components.py: {!s}".format(e))
+        return False
+    if hasattr(components, "COMPONENTS") is False:
+        return True  # should be all done
+    else:
+        gc.collect()
         _log.debug("RAM before import registerComponents: {!s}".format(gc.mem_free()),
                    local_only=True)
         import pysmartnode.utils.registerComponents
         gc.collect()
         _log.debug("RAM after import registerComponents: {!s}".format(gc.mem_free()),
                    local_only=True)
-        await pysmartnode.utils.registerComponents.registerComponentsAsync(data, _log)
+        await pysmartnode.utils.registerComponents.registerComponentsAsync(components.COMPONENTS,
+                                                                           _log)
         _log.debug("RAM before deleting registerComponents: {!s}".format(gc.mem_free()),
                    local_only=True)
         del pysmartnode.utils.registerComponents
@@ -115,29 +115,6 @@ async def _loadComponentsFile():
         _log.debug("RAM after deleting registerComponents: {!s}".format(gc.mem_free()),
                    local_only=True)
         return True
-    return data  # data is either True or False
-
-
-def removeComponent(component):
-    if type(component) == str:
-        component = getComponent(component)
-    from pysmartnode.utils.component import Component
-    if isinstance(component, Component) is False:
-        _log.error(
-            "Can't remove a component that is not an instance of pysmartnode.utils.component.Component")
-        return False
-    global _components
-    c = _components
-    p = None
-    while c is not None:
-        if c == component:
-            if p is None:
-                _components = c._next_component
-                break
-            p._next_component = c._next_component
-            break
-        p = c
-        c = c._next_component
 
 
 def getComponent(name):
@@ -154,7 +131,7 @@ def getComponentName(component):
     return None
 
 
-def addNamedComponent(name, obj):
+def addComponent(name, obj):
     """
     Add a named component to the list of accessible components.
     These are used to register components using remote configuration or local configuration files.
@@ -165,24 +142,12 @@ def addNamedComponent(name, obj):
 
 
 def getMQTT():
-    if "mqtt" in COMPONENTS:
-        return COMPONENTS["mqtt"]
-    return None
+    return _mqtt
 
 
-def addComponent(obj):
-    """Add a component to the list of all used components. Used for mqtt"""
-    global _components
-    if _components is None:
-        _components = obj
-    else:
-        c = _components
-        while c is not None:
-            if c._next_component is None:
-                c._next_component = obj
-                return
-            c = c._next_component
+from pysmartnode.utils.component import Component
 
+__printRAM(_mem, "Imported Component base class")
 
 from pysmartnode.components.machine.stats import STATS
 
