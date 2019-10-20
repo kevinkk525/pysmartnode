@@ -38,8 +38,8 @@ class RemoteControl(Component):
         if ACTIVE is True:
             self._heater.setMode("", "REMOTE", False)
 
-    async def _init(self):
-        await super()._init()
+    async def _init_network(self):
+        await super()._init_network()
         await log.asyncLog("info", "Heater mode 'remoteControl' version {!s}".format(__version__))
 
     async def _requestPower(self, topic, msg, retain):

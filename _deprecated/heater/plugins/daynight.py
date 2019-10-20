@@ -60,9 +60,9 @@ class Daynight(Component):
         self._subscribe(self.NIGHT_TEMP_TOPIC, self._setNightTemp)
         self._subscribe(self.DAY_TEMP_TOPIC, self._setDayTemp)
 
-    async def _init(self):
+    async def _init_network(self):
         await log.asyncLog("info", "Heater plugin 'daynight' version {!s}".format(__version__))
-        await super()._init()
+        await super()._init_network()
 
     async def _daynight(self, heater, data):
         if self.__time_day is None or self.__time_night is None:

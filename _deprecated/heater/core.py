@@ -213,8 +213,8 @@ class Heater(Component):
     def getLastError(self):
         return self.__last_error
 
-    async def _init(self):
-        await super()._init()
+    async def _init_network(self):
+        await super()._init_network()
         await log.asyncLog("info", "Heater Core version {!s}".format(__version__))
         if self.__initializeHardware is not None:
             await self.__initializeHardware()
