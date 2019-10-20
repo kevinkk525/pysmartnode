@@ -19,6 +19,7 @@ Example configuration:
       # double_pressed_method: "on"
       long_pressed_component: machine
       long_pressed_method: reset
+      suppress: False   # suppress calling release function after double click and long press. Will delay release function by 300ms if double click is used.
     }
 }
 
@@ -34,18 +35,16 @@ Example configuration:
       # double_pressed_method: "on"
       long_pressed_component: machine
       long_pressed_method: reset
+      suppress: False   # suppress calling release function after double click and long press. Will delay release function by 300ms if double click is used.
     }
 }
-Careful: when having double press or long press active, rapid successive button activations
-can lead to uasyncio queue overflow and crash the device.
-This is due to how aswitch from Peter Hinch works.
 """
 
-__updated__ = "2019-09-29"
-__version__ = "0.3"
+__updated__ = "2019-10-19"
+__version__ = "0.4"
 
 from pysmartnode import logging
-from pysmartnode.utils.aswitch import Pushbutton
+from pysmartnode.utils.abutton import Pushbutton
 from pysmartnode.utils.component import Component
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.utils.event import Event
@@ -64,7 +63,8 @@ class Button(Pushbutton, Component):
     def __init__(self, pin, pull=None, pressed_component=None, pressed_method="on",
                  released_component=None, released_method="off",
                  double_pressed_component=None, double_pressed_method="on",
-                 long_pressed_component=None, long_pressed_method="on"):
+                 long_pressed_component=None, long_pressed_method="on",
+                 suppress=False):
         """
         :param pin: pin number or name
         :param pull: None for no pullup or pull_down, otherwise value of pull configuration
@@ -76,9 +76,9 @@ class Button(Pushbutton, Component):
         :param double_pressed_method: string of the method of the component that is to be called
         :param long_pressed_component: component name of component to be turned on when button long pressed
         :param long_pressed_method: string of the method of the component that is to be called
+        :param suppress: suppress calling release function after double click and long press. Will delay release function by 300ms if double click is used.
         """
-        for comp in (pressed_component, released_component,
-                     double_pressed_component, long_pressed_component):
+        for comp in (pressed_component, released_component, long_pressed_component):
             if type(comp) == str and comp not in loaded_components:
                 raise TypeError("Component {!s} could not be found".format(comp))
         if type(pressed_component) == str:
@@ -90,7 +90,7 @@ class Button(Pushbutton, Component):
         if type(long_pressed_component) == str:
             long_pressed_component = loaded_components[long_pressed_component]
         pin = Pin(pin, machine.Pin.IN, pull)
-        Pushbutton.__init__(self, pin, suppress=False)
+        Pushbutton.__init__(self, pin, suppress=suppress)
         Component.__init__(self, COMPONENT_NAME, __version__)
         if pressed_component is not None:
             self.press_func(getattr(pressed_component, pressed_method))
@@ -105,7 +105,8 @@ class Button(Pushbutton, Component):
 class ToggleButton(Button):
     def __init__(self, pin, pull=None, released_component=None,
                  double_pressed_component=None, double_pressed_method="on",
-                 long_pressed_component=None, long_pressed_method="on"):
+                 long_pressed_component=None, long_pressed_method="on",
+                 suppress=False):
         """
         Basic functionality for push is to toggle a device. Double press and long press are
         just extended functionality.
@@ -116,17 +117,17 @@ class ToggleButton(Button):
         :param double_pressed_method: string of the method of the component that is to be called
         :param long_pressed_component: component name of component to be turned on when button long pressed
         :param long_pressed_method: string of the method of the component that is to be called
+        :param suppress: Suppress calling release function after double click and long press. Will delay release function by 300ms if double click is used.
         """
         self._component = released_component
         self._event = Event()
         # Synchronous method _event.set() to prevent queue overflows from pressing button too often
-        # Can still happen if double_press or long_press events are used due to the created coroutines
-        # in aswitch.py
         super().__init__(pin, pull,
                          None, "off",
                          self._event, "set",
                          double_pressed_component, double_pressed_method,
-                         long_pressed_component, long_pressed_method)
+                         long_pressed_component, long_pressed_method,
+                         suppress)
         asyncio.get_event_loop().create_task(self._watcher())
 
     async def _watcher(self):
