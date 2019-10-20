@@ -29,8 +29,8 @@ fan_unit
 
 # TODO: add optional kwargs for temp_high/low and away_temp_high/low
 
-__updated__ = "2019-10-16"
-__version__ = "0.2"
+__updated__ = "2019-10-18"
+__version__ = "0.3"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -46,29 +46,28 @@ from .definitions import *
 COMPONENT_NAME = "Climate"
 _COMPONENT_TYPE = "climate"
 _CLIMATE_TYPE = '{{' \
-                '"~":"{!s}",' \
+                '"~":"{!s}/",' \
                 '"name":"{!s}",' \
-                '"avty_t":"{!s}/{!s}/status",' \
+                '{!s}' \
                 '"uniq_id":"{!s}_{!s}",' \
-                '"current_temperature_topic":"{!s}",' \
-                '"current_temperature_template":"{!s}",' \
-                '"mode_state_topic":"~/state",' \
-                '"mode_state_template":"{{{{ value_json.mode }}}}",' \
-                '"mode_command_topic":"~/mode/set",' \
-                '"action_topic":"~/state",' \
+                '"curr_temp_t":"{!s}",' \
+                '"curr_temp_tpl":"{!s}",' \
+                '"mode_stat_t":"~state",' \
+                '"mode_stat_tpl":"{{{{ value_json.mode }}}}",' \
+                '"mode_cmd_t":"~mode/set",' \
+                '"action_topic":"~state",' \
                 '"action_template":"{{{{ value_json.action }}}}",' \
-                '"temperature_low_command_topic":"~/temp_low/set",' \
-                '"temperature_low_state_topic":"~/temp_low",' \
-                '"temperature_high_command_topic":"~/temp_high/set",' \
-                '"temperature_high_state_topic":"~/temp_high",' \
+                '"temperature_low_command_topic":"~temp_low/set",' \
+                '"temperature_low_state_topic":"~temp_low",' \
+                '"temperature_high_command_topic":"~temp_high/set",' \
+                '"temperature_high_state_topic":"~temp_high",' \
                 '"temp_step":{!s},' \
                 '"min_temp":{!s},' \
                 '"max_temp":{!s},' \
-                '"precision":{!s},' \
                 '"modes":{!s},' \
-                '"away_mode_command_topic":"~/away/set",' \
-                '"away_mode_state_topic":"~/state",' \
-                '"away_mode_state_template":"{{{{ value_json.away }}}}",' \
+                '"away_mode_cmd_t":"~away/set",' \
+                '"away_mode_stat_t":"~state",' \
+                '"away_mode_stat_tpl":"{{{{ value_json.away }}}}",' \
                 '"dev":{!s}' \
                 '}}'
 
@@ -109,7 +108,7 @@ class BaseMode:
 
 class Climate(Component):
     def __init__(self, temperature_sensor, heating_unit, modes: list, interval=300,
-                 temp_step=0.1, precision=0.1, min_temp=16, max_temp=28,
+                 temp_step=0.1, min_temp=16, max_temp=28,
                  friendly_name=None, discover=True):
         super().__init__(COMPONENT_NAME, __version__, discover)
 
@@ -118,16 +117,16 @@ class Climate(Component):
         self._count = _count
         _count += 1
 
-        self._precision = precision
         self._temp_step = temp_step
         self._min_temp = min_temp
         self._max_temp = max_temp
         if hasattr(temperature_sensor, "temperature") is False:
             raise TypeError("Temp sensor doesn't have coro temperature()")
         if isinstance(temperature_sensor, Component) is False:
-            raise TypeError("Temp sensor is not of instance Component")
+            raise TypeError(
+                "Temp sensor {!s} is not of instance Component".format(temperature_sensor))
         if isinstance(heating_unit, Component) is False:
-            raise TypeError("heating_unit is not of instance Component")
+            raise TypeError("heating_unit {!s} is not of instance Component".format(heating_unit))
         self.temp_sensor = temperature_sensor
         self.heating_unit = heating_unit
         self._modes = {}
@@ -180,22 +179,26 @@ class Climate(Component):
             "{!s}{!s}/temp_high/set".format(COMPONENT_NAME, self._count))
         self._away_topic = _mqtt.getDeviceTopic(
             "{!s}{!s}/away/set".format(COMPONENT_NAME, self._count))
+        self._network_done = False
+        asyncio.get_event_loop().create_task(self._loop(interval))
+
+    async def _init_network(self):
+        for mode in self._modes:
+            if hasattr(mode, "_init"):
+                await mode._init()
+        gc.collect()
+        await super()._init_network()
+        # let discovery succeed first because it is a big message
+        gc.collect()
         self._subscribe(self._mode_topic, self.changeMode)
         self._subscribe(self._temp_low_topic, self.changeTempLow)
         self._subscribe(self._temp_high_topic, self.changeTempHigh)
         self._subscribe(self._away_topic, self.changeAwayMode)
         self._subscribe(_mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)),
                         self._restore)
-        self._network_done = False
-        asyncio.get_event_loop().create_task(self._loop(interval))
-
-    async def _init_network(self):
-        print("climate _init started")
-        for mode in self._modes:
-            if hasattr(mode, "_init"):
-                await mode._init()
+        for t in self._topics:
+            await _mqtt.subscribe(t, qos=1)
         gc.collect()
-        await super()._init_network()
         for _ in range(16):
             # get retained values
             if self._network_done is True:
@@ -209,7 +212,6 @@ class Climate(Component):
                             retain=True)
         await _mqtt.publish(self._temp_high_topic[:-4], self.state[CURRENT_TEMPERATURE_HIGH],
                             qos=1, retain=True)
-        print("climate _init ended")
 
     async def _loop(self, interval):
         t = time.ticks_ms()
@@ -333,12 +335,14 @@ class Climate(Component):
         name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
         base_topic = _mqtt.getRealTopic(_mqtt.getDeviceTopic(name))
         modes = ujson.dumps([str(mode) for mode in self._modes])
-        sens = _CLIMATE_TYPE.format(base_topic, name, config.MQTT_HOME, sys_vars.getDeviceID(),
+        gc.collect()
+        sens = _CLIMATE_TYPE.format(base_topic, name, self._composeAvailability(),
                                     sys_vars.getDeviceID(), name,  # unique_id
-                                    self.temp_sensor.temperatureTopic(),  # current_temp_topic
+                                    _mqtt.getRealTopic(self.temp_sensor.temperatureTopic()),
+                                    # current_temp_topic
                                     self.temp_sensor.temperatureTemplate(),  # cur_temp_template
                                     self._temp_step, self._min_temp, self._max_temp,
-                                    self._precision, modes, sys_vars.getDeviceDiscovery())
+                                    modes, sys_vars.getDeviceDiscovery())
         gc.collect()
         topic = Component._getDiscoveryTopic(_COMPONENT_TYPE, name)
         await _mqtt.publish(topic, sens, qos=1, retain=True)
