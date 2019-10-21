@@ -22,8 +22,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-11"
-__version__ = "0.7"
+__updated__ = "2019-10-21"
+__version__ = "0.8"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -61,7 +61,7 @@ class DHT22(Component):
                  friendly_name_temp=None, friendly_name_humid=None):
         super().__init__(COMPONENT_NAME, __version__)
         self._interval = interval or config.INTERVAL_SEND_SENSOR
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
+        self._topic = mqtt_topic
         self._frn_temp = friendly_name_temp
         self._frn_humid = friendly_name_humid
 
@@ -128,7 +128,7 @@ class DHT22(Component):
             # not making this await asyncLog as self.temperature is calling this
             # and might not want a network outage to block a sensor reading.
         if publish:
-            await _mqtt.publish(self._topic, {
+            await _mqtt.publish(self.temperatureTopic(), {
                 "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),
                 "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(humid)},
                                 timeout=timeout, await_connection=False)
@@ -159,10 +159,10 @@ class DHT22(Component):
         return _VAL_T_HUMIDITY
 
     def temperatureTopic(self):
-        return self._topic
+        return self._topic or _mqtt.getDeviceTopic("{!s}{!s}".format(COMPONENT_NAME, self._count))
 
     def humidityTopic(self):
-        return self._topic
+        return self.temperatureTopic()
 
     ##############################
 
@@ -173,7 +173,7 @@ class DHT22(Component):
             sens = self._composeSensorType(v[1].lower(),  # device_class
                                            v[2],  # unit_of_measurement
                                            v[3])  # value_template
-            await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens,
+            await self._publishDiscovery(_COMPONENT_TYPE, self.temperatureTopic(), name, sens,
                                          v[4] or v[1])
             del name, sens
             gc.collect()

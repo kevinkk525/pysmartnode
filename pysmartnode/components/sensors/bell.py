@@ -21,8 +21,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-10"
-__version__ = "1.2"
+__updated__ = "2019-10-21"
+__version__ = "1.3"
 
 import gc
 from pysmartnode import config
@@ -48,7 +48,7 @@ class Bell(Component):
                  friendly_name=None,
                  friendly_name_last=None, discover=True):
         super().__init__(COMPONENT_NAME, __version__, discover)
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
+        self._topic = mqtt_topic
         self._PIN_BELL_IRQ_DIRECTION = irq_direction or machine.Pin.IRQ_FALLING
         self._debounce_time = debounce_time
         self._on_time = on_time or 500
@@ -81,10 +81,10 @@ class Bell(Component):
                 self._event_bell.clear()
                 return
             else:
-                on = await _mqtt.publish(self._topic, "ON", qos=1, timeout=2,
+                on = await _mqtt.publish(self.topic(), "ON", qos=1, timeout=2,
                                          await_connection=False)
                 await asyncio.sleep_ms(self._on_time)
-                await _mqtt.publish(self._topic, "OFF", qos=1, retain=True, await_connection=on)
+                await _mqtt.publish(self.topic(), "OFF", qos=1, retain=True, await_connection=on)
                 if config.RTC_SYNC_ACTIVE:
                     t = time.localtime()
                     await _mqtt.publish(_mqtt.getDeviceTopic("last_bell"),
@@ -115,7 +115,7 @@ class Bell(Component):
         self._timer_lock.release()
 
     async def _discovery(self):
-        await self._publishDiscovery("binary_sensor", self._topic, "bell", '"ic":"mdi:bell",',
+        await self._publishDiscovery("binary_sensor", self.topic(), "bell", '"ic":"mdi:bell",',
                                      self._frn or "Doorbell")
         gc.collect()
         if config.RTC_SYNC_ACTIVE is True:
@@ -124,4 +124,4 @@ class Bell(Component):
             gc.collect()
 
     def topic(self):
-        return self._topic
+        return self._topic or _mqtt.getDeviceTopic(COMPONENT_NAME)

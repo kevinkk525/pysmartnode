@@ -24,8 +24,8 @@ this sensor and the _init_network is called, the topic value should have been re
 
 # TODO: implement value_template parser?
 
-__updated__ = "2019-10-16"
-__version__ = "0.2"
+__updated__ = "2019-10-20"
+__version__ = "0.3"
 
 from pysmartnode.utils.component import Component
 import gc
@@ -57,24 +57,15 @@ class BaseRemote(Component):
         if mqtt_topic is None:
             self._command_topic = command_topic or _mqtt.getDeviceTopic(
                 "{!s}{!s}/topic/set".format(COMPONENT_NAME, self._count))
-            self._subscribe(self._command_topic, self._changeTopic)
+            _mqtt.subscribe(self._command_topic, self._changeTopic, self,
+                            check_retained_state=True)
         else:
             self._command_topic = None
-            self._subscribe(self._topic, self.on_message)
+            _mqtt.subscribe(self._topic, self.on_message, self)
         self._value = None
         self._value_time = 0
         self._value_type = VALUE_TYPE
         self._dict_template = DICT_TEMPLATE
-
-    async def _init_network(self):
-        ret = False
-        if self._topic is None:
-            ret = True
-            self._subscribe(self._command_topic[:-4], self._changeTopic)
-        await super()._init_network()
-        if ret:
-            await asyncio.sleep(1)  # get retained state topic state
-            await _mqtt.unsubscribe(self._command_topic[:-4], self)
 
     async def _changeTopic(self, topic, msg, retain):
         if retain and self._command_topic is not None:
@@ -82,8 +73,7 @@ class BaseRemote(Component):
         if self._topic is not None:
             await _mqtt.unsubscribe(self._topic, self)
         self._topic = msg
-        self._subscribe(self._topic, self.on_message)
-        await _mqtt.subscribe(msg, qos=1)
+        _mqtt.subscribe(self._topic, self.on_message, self)
         return True
 
     async def on_message(self, topic, msg, retain):

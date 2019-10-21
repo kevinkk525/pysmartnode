@@ -23,8 +23,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-16"
-__version__ = "2.4"
+__updated__ = "2019-10-21"
+__version__ = "2.5"
 
 import gc
 from pysmartnode import config
@@ -65,8 +65,7 @@ class HTU21D(htu, Component):
         _count += 1
         self._frn_temp = friendly_name_temp
         self._frn_humid = friendly_name_humid
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic(
-            "{!s}{!s}".format(COMPONENT_NAME, self._count))
+        self._topic = mqtt_topic
         ##############################
         # adapt to your sensor by extending/removing unneeded values
         self._prec_temp = int(precision_temp)
@@ -97,7 +96,7 @@ class HTU21D(htu, Component):
             await asyncio.sleep(interval)
 
     async def _discovery(self):
-        component_topic = self._topic  # get the state topic of custom component topic
+        component_topic = self.temperatureTopic()  # get the state topic of custom component topic
         # In this case the component_topic has to be set to self._topic as the humidity and temperature
         # are going to be published from the same topic.
         for v in (("T", "Temperature", "°C", _VAL_T_TEMPERATURE, self._frn_temp),
@@ -126,7 +125,7 @@ class HTU21D(htu, Component):
             value = round(value, prec)
             value += offs
         if publish and value is not None:
-            await _mqtt.publish(self._topic, ("{0:." + str(prec) + "f}").format(value),
+            await _mqtt.publish(self.temperatureTopic(), ("{0:." + str(prec) + "f}").format(value),
                                 timeout=timeout, await_connection=False)
         return value
 
@@ -160,7 +159,7 @@ class HTU21D(htu, Component):
                                                              "Sensor {!s} got no value".format(
                                                                  COMPONENT_NAME))
         elif publish:
-            await _mqtt.publish(self._topic, {
+            await _mqtt.publish(self.temperatureTopic(), {
                 "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),
                 "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(humid)},
                                 timeout=timeout, await_connection=False)
@@ -178,7 +177,7 @@ class HTU21D(htu, Component):
         return _VAL_T_TEMPERATURE
 
     def temperatureTopic(self):
-        return self._topic
+        return self._topic or _mqtt.getDeviceTopic("{!s}{!s}".format(COMPONENT_NAME, self._count))
 
     def humidityTopic(self):
-        return self._topic
+        return self.temperatureTopic()

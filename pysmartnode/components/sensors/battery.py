@@ -26,8 +26,8 @@ example config:
 WARNING: This component has not been tested with a battery and only works in theory!
 """
 
-__version__ = "0.5"
-__updated__ = "2019-10-11"
+__version__ = "0.6"
+__updated__ = "2019-10-21"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -59,7 +59,7 @@ class Battery(Component):
         super().__init__(COMPONENT_NAME, __version__, discover)
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         self._interval_watching = interval_watching
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
+        self._topic = mqtt_topic
         self._precision = int(precision_voltage)
         self._adc = ADC(adc)  # unified ADC interface
         self._voltage_max = voltage_max
@@ -101,7 +101,7 @@ class Battery(Component):
         else:
             rela = (value - self._voltage_min) / (self._voltage_max - self._voltage_min)
         if publish and value is not None:
-            await _mqtt.publish(self._topic, {
+            await _mqtt.publish(self.chargeTopic(), {
                 "absolute": ("{0:." + str(self._precision) + "f}").format(value),
                 "relative": ("{0:." + str(self._precision) + "f}").format(rela)},
                                 timeout=timeout,
@@ -123,10 +123,10 @@ class Battery(Component):
         return _VAL_T_CHARGE
 
     def chargeTopic(self):
-        return self._topic
+        return self._topic or _mqtt.getDeviceTopic("{!s}{!s}".format(COMPONENT_NAME, self._count))
 
     def voltageTopic(self):
-        return self._topic
+        return self.chargeTopic()
 
     async def _loop(self):
         interval = self._interval
@@ -181,13 +181,13 @@ class Battery(Component):
                                        "%",  # unit_of_measurement
                                        _VAL_T_CHARGE)  # value_template
         name = "{!s}{!s}{!s}".format(COMPONENT_NAME, self._count, "C")
-        await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name + "r", sens,
+        await self._publishDiscovery(_COMPONENT_TYPE, self.chargeTopic(), name + "r", sens,
                                      self._frn or "Battery %")
         sens = '"unit_of_meas":"V",' \
                '"val_tpl":{!s},' \
                '"ic":"mdi:car-battery"'.format(_VAL_T_VOLTAGE)
         name = "{!s}{!s}{!s}".format(COMPONENT_NAME, self._count, "V")
-        await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name + "a", sens,
+        await self._publishDiscovery(_COMPONENT_TYPE, self.chargeTopic(), name + "a", sens,
                                      self._frn_abs or "Battery Voltage")
         del sens
         gc.collect()

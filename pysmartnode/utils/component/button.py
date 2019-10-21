@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-10-11"
-__version__ = "0.5"
+__updated__ = "2019-10-20"
+__version__ = "0.6"
 
 from .switch import ComponentSwitch
 from pysmartnode.utils.component import Component
@@ -34,15 +34,10 @@ class ComponentButton(ComponentSwitch):
         With a single-shot action it usually doesn't make sense to wait for the lock.
         """
         super().__init__(component_name, version, command_topic, instance_name, wait_for_lock,
-                         discover)
+                         discover, restore_state=False)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch
-
-        self._subscribe(self._topic, self.on_message)
-
-    async def _init_network(self):
-        await Component._init_network(self)  # skipping _init of ComponentSwitch as not needed
 
     async def on(self):
         """Turn switch on. Can be used by other components to control this component"""

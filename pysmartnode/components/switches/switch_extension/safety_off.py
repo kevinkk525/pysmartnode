@@ -23,12 +23,9 @@ class safety_off(BaseMode):
         _name = component._name if hasattr(component, "_name") else "{!s}{!s}".format(
             COMPONENT_NAME, count)
         topic = _mqtt.getDeviceTopic("{!s}/safety_off/on_time".format(_name), is_request=True)
-        extended_switch._subscribe(topic, self._changeOnTime)
+        _mqtt.subscribe(topic, self._changeOnTime, extended_switch, check_retained_state=True)
         self._coro = None
         self.topic = topic
-
-    async def _init(self):
-        await _mqtt.subscribe(self.topic, qos=1, await_connection=False)
 
     async def _changeOnTime(self, topic, msg, retain):
         self._on_time = int(msg)

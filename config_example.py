@@ -15,9 +15,6 @@ MQTT_HOME = "home"
 MQTT_AVAILABILITY_SUBTOPIC = "available"  # will be generated to MQTT_HOME/<device-id>/MQTT_AVAILABILITY_SUBTOPIC
 MQTT_DISCOVERY_PREFIX = "homeassistant"
 MQTT_DISCOVERY_ENABLED = True
-MQTT_DISCOVERY_ON_RECONNECT = False
-# Enabling this will publish the discovery messages on every reconnect as the broker might have
-# restarted and lost the configuration if it doesn't save retained messages.
 MQTT_RECEIVE_CONFIG = True
 # RECEIVE_CONFIG: Only use if you run the "SmartServer" in your environment which
 # sends the configuration of a device over mqtt

@@ -29,8 +29,8 @@ fan_unit
 
 # TODO: add optional kwargs for temp_high/low and away_temp_high/low
 
-__updated__ = "2019-10-18"
-__version__ = "0.3"
+__updated__ = "2019-10-21"
+__version__ = "0.4"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -108,7 +108,8 @@ class BaseMode:
 
 class Climate(Component):
     def __init__(self, temperature_sensor, heating_unit, modes: list, interval=300,
-                 temp_step=0.1, min_temp=16, max_temp=28,
+                 temp_step=0.1, min_temp=16, max_temp=28, temp_low=20, temp_high=21,
+                 away_temp_low=16, away_temp_high=17,
                  friendly_name=None, discover=True):
         super().__init__(COMPONENT_NAME, __version__, discover)
 
@@ -155,13 +156,13 @@ class Climate(Component):
                     continue
                 self._modes[mode] = modeobj
         self._frn = friendly_name
-        self.state = {CURRENT_TEMPERATURE_HIGH:      22,  # current temperature high
-                      CURRENT_TEMPERATURE_LOW:       20,  # current temperature low
+        self.state = {CURRENT_TEMPERATURE_HIGH:      temp_high,  # current temperature high
+                      CURRENT_TEMPERATURE_LOW:       temp_low,  # current temperature low
                       AWAY_MODE_STATE:               AWAY_OFF,  # away mode "ON"/"OFF"
-                      STORAGE_AWAY_TEMPERATURE_HIGH: 16.5,  # away temperature low, storage value
-                      STORAGE_AWAY_TEMPERATURE_LOW:  15.5,  # away temperature high, storage value
-                      STORAGE_TEMPERATURE_HIGH:      22,  # temperature high, storage value
-                      STORAGE_TEMPERATURE_LOW:       20,  # temperature low, storage value
+                      STORAGE_AWAY_TEMPERATURE_HIGH: away_temp_high,  # away temperature low
+                      STORAGE_AWAY_TEMPERATURE_LOW:  away_temp_low,  # away temperature high
+                      STORAGE_TEMPERATURE_HIGH:      temp_high,  # temperature high, storage value
+                      STORAGE_TEMPERATURE_LOW:       temp_low,  # temperature low, storage value
                       CURRENT_MODE:                  str(self._modes["off"]),
                       CURRENT_ACTION:                ACTION_OFF}
         self.event = Event()
@@ -171,15 +172,18 @@ class Climate(Component):
 
         self._mode_topic = _mqtt.getDeviceTopic(
             "{!s}{!s}/mode/set".format(COMPONENT_NAME, self._count))
-        self._action_topic = _mqtt.getDeviceTopic(
-            "{!s}{!s}/action".format(COMPONENT_NAME, self._count))
         self._temp_low_topic = _mqtt.getDeviceTopic(
             "{!s}{!s}/temp_low/set".format(COMPONENT_NAME, self._count))
         self._temp_high_topic = _mqtt.getDeviceTopic(
             "{!s}{!s}/temp_high/set".format(COMPONENT_NAME, self._count))
         self._away_topic = _mqtt.getDeviceTopic(
             "{!s}{!s}/away/set".format(COMPONENT_NAME, self._count))
-        self._network_done = False
+        _mqtt.subscribe(self._mode_topic, self.changeMode, self)
+        _mqtt.subscribe(self._temp_low_topic, self.changeTempLow, self)
+        _mqtt.subscribe(self._temp_high_topic, self.changeTempHigh, self)
+        _mqtt.subscribe(self._away_topic, self.changeAwayMode, self)
+
+        self._restore_done = False
         asyncio.get_event_loop().create_task(self._loop(interval))
 
     async def _init_network(self):
@@ -187,27 +191,26 @@ class Climate(Component):
             if hasattr(mode, "_init"):
                 await mode._init()
         gc.collect()
+        await _mqtt.awaitSubscriptionsDone()  # wait until subscriptions are done
+        # because received messages will take up RAM and the discovery message
+        # of climate is very big and could easily fail if RAM is fragmented.
+        gc.collect()
+        await asyncio.sleep(1)
+        gc.collect()
         await super()._init_network()
         # let discovery succeed first because it is a big message
-        gc.collect()
-        self._subscribe(self._mode_topic, self.changeMode)
-        self._subscribe(self._temp_low_topic, self.changeTempLow)
-        self._subscribe(self._temp_high_topic, self.changeTempHigh)
-        self._subscribe(self._away_topic, self.changeAwayMode)
-        self._subscribe(_mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)),
-                        self._restore)
-        for t in self._topics:
-            await _mqtt.subscribe(t, qos=1)
+        _mqtt.subscribe(_mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)),
+                        self._restore, self)
         gc.collect()
         for _ in range(16):
             # get retained values
-            if self._network_done is True:
+            if self._restore_done is True:
                 break
             await asyncio.sleep_ms(250)
-        if self._network_done is False:
+        if self._restore_done is False:
             await _mqtt.unsubscribe(
                 _mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)), self)
-        self._network_done = True
+        self._restore_done = True
         await _mqtt.publish(self._temp_low_topic[:-4], self.state[CURRENT_TEMPERATURE_LOW], qos=1,
                             retain=True)
         await _mqtt.publish(self._temp_high_topic[:-4], self.state[CURRENT_TEMPERATURE_HIGH],
@@ -215,7 +218,7 @@ class Climate(Component):
 
     async def _loop(self, interval):
         t = time.ticks_ms()
-        while self._network_done is False and time.ticks_diff(time.ticks_ms(), t) < 30000:
+        while self._restore_done is False and time.ticks_diff(time.ticks_ms(), t) < 30000:
             await asyncio.sleep(1)
             # wait for network to finish so the old state can be restored or time out (30s)
         t = 0
@@ -250,7 +253,7 @@ class Climate(Component):
             await self.changeMode(topic, mode, retain)
         except AttributeError as e:
             _log.error(e)
-        self._network_done = True
+        self._restore_done = True
         await asyncio.sleep(1)
         self.event.set()
 

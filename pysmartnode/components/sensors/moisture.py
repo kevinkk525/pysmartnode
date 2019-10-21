@@ -25,8 +25,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-11"
-__version__ = "1.3"
+__updated__ = "2019-10-21"
+__version__ = "1.4"
 
 import machine
 from pysmartnode.components.machine.pin import Pin
@@ -75,7 +75,7 @@ class Moisture(Component):
             if type(water_voltage) != list or type(air_voltage) != list:
                 raise TypeError("Voltages have to be lists with multiple sensor_types")
         self._pub_cv = publish_converted_value
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic("moisture")
+        self._topic = mqtt_topic
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         self._lock = Lock()
         self._frn = friendly_name
@@ -158,10 +158,10 @@ class Moisture(Component):
                     voltage /= 3
                     res.append(self._getPercentage(sensor, voltage))
                 if publish:
-                    await _mqtt.publish(self._topic + "/" + str(i), res[-1], timeout=timeout,
+                    await _mqtt.publish(self.humidityTopic() + "/" + str(i), res[-1], timeout=timeout,
                                         await_connection=False)
                     if self._pub_cv:
-                        await _mqtt.publish(self._topic + "/" + str(i) + "/conv",
+                        await _mqtt.publish(self.humidityTopic() + "/" + str(i) + "/conv",
                                             self._getConverted(sensor, voltage), timeout=timeout,
                                             await_connection=False)
                 if self._ppin is not None:
@@ -187,11 +187,11 @@ class Moisture(Component):
             if self._pub_cv:
                 name = "{!s}{!s}CV".format(COMPONENT_NAME, i)
                 sens = DISCOVERY_BINARY_SENSOR.format("moisture")  # device_class
-                t = "{!s}/{!s}/conv".format(self._topic, i)
+                t = "{!s}/{!s}/conv".format(self.humidityTopic(), i)
                 await self._publishDiscovery("binary_sensor", t, name, sens,
                                              self._frn_cv or "Moisture")
             name = "{!s}{!s}".format(COMPONENT_NAME, i)
-            t = "{!s}/{!s}".format(self._topic, i)
+            t = "{!s}/{!s}".format(self.humidityTopic(), i)
             sens = self._composeSensorType("humidity",  # device_class
                                            "%",  # unit_of_measurement
                                            _VAL_T_HUMIDITY)  # value_template
@@ -213,4 +213,4 @@ class Moisture(Component):
         return _VAL_T_HUMIDITY
 
     def humidityTopic(self):
-        return self._topic
+        return self._topic or _mqtt.getDeviceTopic(COMPONENT_NAME)

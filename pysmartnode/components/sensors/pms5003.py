@@ -26,8 +26,8 @@ example config:
 Sensor can only be used with esp32 as esp8266 has only 1 uart at 115200 (9600 needed) 
 """
 
-__updated__ = "2019-10-11"
-__version__ = "1.6"
+__updated__ = "2019-10-21"
+__version__ = "1.7"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -61,7 +61,7 @@ class PMS5003(sensorModule.PMS5003, Component):
         Component.__init__(self, COMPONENT_NAME, __version__)
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         self._int_pm = interval_passive_mode or self._interval
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
+        self._topic = mqtt_topic
         if type(friendly_name) is not None:
             if type(friendly_name) == list:
                 if len(friendly_name) != 12:
@@ -106,7 +106,7 @@ class PMS5003(sensorModule.PMS5003, Component):
             name = "{!s}/{!s}".format(COMPONENT_NAME, value)
             sens = DISCOVERY_PM.format(meas[i],  # unit_of_measurement
                                        "{{ value_json.{!s} }}".format(value))  # value_template
-            await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens,
+            await self._publishDiscovery(_COMPONENT_TYPE, self.airQualityTopic(), name, sens,
                                          self._frn[i] or value)
             del name, sens
             gc.collect()
@@ -134,7 +134,8 @@ class PMS5003(sensorModule.PMS5003, Component):
                 "particles_100um": self._particles_100um
             }
             if publish:
-                await _mqtt.publish(self._topic, values, timeout=timeout, await_connection=False)
+                await _mqtt.publish(self.airQualityTopic(), values, timeout=timeout,
+                                    await_connection=False)
             return values
         else:
             return None
@@ -144,7 +145,7 @@ class PMS5003(sensorModule.PMS5003, Component):
         raise TypeError("Multiple value templates")
 
     def airQualityTopic(self):
-        return self._topic
+        return self._topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
 
     ##############################
 

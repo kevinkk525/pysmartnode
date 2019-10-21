@@ -18,8 +18,8 @@ example config for MyComponent:
 }
 """
 
-__updated__ = "2019-10-11"
-__version__ = "1.4"
+__updated__ = "2019-10-21"
+__version__ = "1.5"
 
 import uasyncio as asyncio
 from pysmartnode import config
@@ -66,10 +66,12 @@ class MyComponent(Component):
         self._command_topic = mqtt_topic or _mqtt.getDeviceTopic(
             "{!s}{!s}".format(COMPONENT_NAME, self._count), is_request=True)
 
-        # These calls subscribe the topics (actual subscription process done in _init_network),
-        # don't use _mqtt.subscribe.
-        self._subscribe(self._command_topic, self.on_message1)
-        self._subscribe(mqtt_topic2 or "home/sometopic", self.on_message2)
+        # These calls subscribe the topics.
+        _mqtt.subscribe(self._command_topic, self.on_message1, self, check_retained_state=True)
+        # check_retained_state will subscribe to the state topic (home/31f29s/MyComponent0)
+        # first, so the original state of the device can be restored.
+        # The state topic will then be unsubscribed and the requested command topic subscribed.
+        _mqtt.subscribe(mqtt_topic2 or "home/sometopic", self.on_message2, self)
 
         self.my_value = my_value
 
@@ -79,12 +81,21 @@ class MyComponent(Component):
 
     async def _init_network(self):
         await super()._init_network()
+        # All _init_network methods of every component will be called after each other.
+        # Therefore every _init_network of previously registered components will have
+        # run when this one is running.
+
         # NEVER start loops here because it will block the _init_network of all other components!
         # Start a new uasyncio task in __init__() if you need additional loops.
-        # This method is only used for subscribing topics, publishing discovery and logging things.
+        # This method is only used for subscribing topics, publishing discovery and logging.
         # It can be used for similar network oriented initializations.
 
     async def _loop(self):
+        # A loop should either only do network oriented tasks or only
+        # non-network oriented tasks to ensure that the device works
+        # even when the network is unavailable. A compromise could be
+        # to use network oriented tasks with timeouts if those delays
+        # aren't a problem for the device functionality.
         while True:
             await asyncio.sleep(5)
             await _mqtt.publish(self._command_topic[:-4], "ON", qos=1)  # publishing to state_topic

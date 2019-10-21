@@ -33,10 +33,6 @@ class Component:
     """
 
     def __init__(self, component_name, version, discover=True):
-        self._topics = {}
-        # No RAM allocation for topic strings as they are passed by reference if saved
-        # in a variable in subclass.
-        # self._topics is used by mqtt to know which component a message is for.
         self._next_component = None  # needed to keep a list of registered components
         global _components
         if _components is None:
@@ -94,15 +90,9 @@ class Component:
                                    "Added module {!r} version {!s} as component {!r}".format(
                                        self.COMPONENT_NAME, self.VERSION,
                                        config.getComponentName(self)))
-        for t in self._topics:
-            await _mqtt.subscribe(t, qos=1)
-            gc.collect()
         if config.MQTT_DISCOVERY_ENABLED is True and self.__discover is True:
             await self._discovery()
             gc.collect()
-
-    def _subscribe(self, topic, cb):
-        self._topics[topic] = cb
 
     async def _discovery(self):
         """

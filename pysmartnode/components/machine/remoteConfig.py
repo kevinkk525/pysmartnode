@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-15 
 
-__updated__ = "2019-10-16"
-__version__ = "0.4"
+__updated__ = "2019-10-20"
+__version__ = "0.5"
 
 from pysmartnode.utils.component import Component
 from pysmartnode import config
@@ -28,10 +28,6 @@ class RemoteConfig(Component):
         self._icomp = None
         self._rcomp = []
         self._done = False
-
-    async def _init_network(self):
-        await super()._init_network()
-        self._subscribe(self._topic, self.on_message)  # not actively subscribing yet
         asyncio.get_event_loop().create_task(self._watcher_coro)
 
     def done(self):
@@ -39,12 +35,12 @@ class RemoteConfig(Component):
 
     async def _watcher(self):
         mqtt = _mqtt
+        mqtt.subscribe(self._topic, self.on_message, self)
         try:
             while True:
                 while mqtt.isconnected() is False:
                     await asyncio.sleep(1)
-                if await mqtt.subscribe(self._topic, qos=1, timeout=5,
-                                        await_connection=False) is True:
+                if await mqtt.awaitSubscriptionsDone(await_connection=False):
                     _log.debug("waiting for config", local_only=True)
                     await _mqtt.publish(
                         "{!s}/login/{!s}/set".format(mqtt.mqtt_home, mqtt.client_id),
@@ -64,7 +60,7 @@ class RemoteConfig(Component):
         except Exception as e:
             await _log.asyncLog("error", "Error watching remoteConfig: {!s}".format(e))
         finally:
-            await mqtt.unsubscribe(self._topic, self, timeout=10, await_connection=False)
+            await mqtt.unsubscribe(self._topic, self)
             self._done = True
 
     def _saveComponent(self, name, data):

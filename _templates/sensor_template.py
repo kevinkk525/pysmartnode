@@ -23,8 +23,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-11"
-__version__ = "1.3"
+__updated__ = "2019-10-21"
+__version__ = "1.4"
 
 from pysmartnode import config
 from pysmartnode.utils.wrappers.async_wrapper import async_wrapper as _async_wrapper
@@ -66,7 +66,8 @@ class MySensor(Component):
         # hardware components like a power switch
 
         self._interval = interval or config.INTERVAL_SEND_SENSOR
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
+        self._topic = mqtt_topic  # default topic is generated in temperatureTopic() on demand
+        # to save the RAM of storing it.
         self._frn_temp = friendly_name_temp
         self._frn_humid = friendly_name_humid
 
@@ -106,7 +107,7 @@ class MySensor(Component):
             await asyncio.sleep(interval)
 
     async def _discovery(self):
-        component_topic = self._topic  # get the state topic of custom component topic
+        component_topic = self.temperatureTopic()  # get the state topic of custom component topic
         # In this case the component_topic has to be set to self._topic as the humidity
         # and temperature are going to be published to the same topic.
         for v in (("T", "Temperature", "°C", _VAL_T_TEMPERATURE, self._frn_temp),
@@ -138,7 +139,7 @@ class MySensor(Component):
             # not making this await asyncLog as self.temperature is calling this
             # and might not want a network outage to block a sensor reading.
         elif publish:
-            await _mqtt.publish(self._topic, ("{0:." + str(prec) + "f}").format(value),
+            await _mqtt.publish(self.temperatureTopic(), ("{0:." + str(prec) + "f}").format(value),
                                 timeout=timeout, await_connection=False)
         return value
 
@@ -154,7 +155,9 @@ class MySensor(Component):
         return _VAL_T_TEMPERATURE
 
     def temperatureTopic(self):
-        return self._topic
+        # this way the default topic gets generated on request if no topic is stored.
+        # this saves the RAM for storing the default topic.
+        return self._topic or _mqtt.getDeviceTopic("{!s}{!s}".format(COMPONENT_NAME, self._count))
 
     async def humidity(self, publish=True, timeout=5):
         return await self._read(self._humid, self._prec_humid, self._offs_humid, publish, timeout)
@@ -165,13 +168,13 @@ class MySensor(Component):
         return _VAL_T_HUMIDITY
 
     def humidityTopic(self):
-        return self._topic
+        return self.temperatureTopic()
 
     async def tempHumid(self, publish=True, timeout=5):
         temp = await self.temperature(publish=False)
         humid = await self.humidity(publish=False)
         if temp is not None and humid is not None and publish:
-            await _mqtt.publish(self._topic, {
+            await _mqtt.publish(self.temperatureTopic(), {
                 "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),
                 "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(humid)},
                                 timeout=timeout, await_connection=False)

@@ -29,8 +29,8 @@ example config:
 # interval change can't be discovered as homeassistant doesn't offer a type
 """
 
-__updated__ = "2019-10-11"
-__version__ = "0.6"
+__updated__ = "2019-10-21"
+__version__ = "0.7"
 
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.utils.component import Component
@@ -89,14 +89,14 @@ class HCSR04(Component):
         self._temp = temp_sensor
         self._pr = int(precision)
         self._off = float(offset)
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic("hcsr04")
-        self._topic_int = mqtt_topic_interval or _mqtt.getDeviceTopic("hcsr04/interval",
-                                                                      is_request=True)
-        self.interval = interval or config.INTERVAL_SEND_SENSOR  # can be changed anytime
+        self._topic = mqtt_topic
         global _count
         self._count = _count
         _count += 1
-        self._subscribe(self._topic_int, self._changeInterval)
+        self._topic_int = mqtt_topic_interval or _mqtt.getDeviceTopic(
+            "{!s}{!s}/interval/set".format(COMPONENT_NAME, self._count))
+        self.interval = interval or config.INTERVAL_SEND_SENSOR  # can be changed anytime
+        _mqtt.subscribe(self._topic_int, self._changeInterval, self, check_retained_state=True)
         asyncio.get_event_loop().create_task(self._loop(self.distance))
 
     async def _loop(self, gen):
@@ -112,7 +112,7 @@ class HCSR04(Component):
         # interval change can't be discovered as homeassistant doesn't offer a type
         sens = DISCOVERY_DISTANCE.format(_VAL_T_DISTANCE if self._valt is None else self._valt)
         name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
-        await self._publishDiscovery(_COMPONENT_TYPE, self._topic, name, sens,
+        await self._publishDiscovery(_COMPONENT_TYPE, self.distanceTopic(), name, sens,
                                      self._frn or "Distance")
 
     async def _changeInterval(self, topic, msg, retain):
@@ -191,7 +191,7 @@ class HCSR04(Component):
             await _log.asyncLog("error", "Error rounding value {!s}".format(dt))
             return dt
         if publish:
-            await _mqtt.publish(self._topic, ("{0:." + str(self._pr) + "f}").format(dt),
+            await _mqtt.publish(self.distanceTopic(), ("{0:." + str(self._pr) + "f}").format(dt),
                                 timeout=timeout, await_connection=False)
         return dt
 
@@ -210,4 +210,4 @@ class HCSR04(Component):
         return _VAL_T_DISTANCE if self._valt is None else self._valt
 
     def distanceTopic(self):
-        return self._topic
+        return self._topic or _mqtt.getDeviceTopic("{!s}{!s}".format(COMPONENT_NAME, self._count))

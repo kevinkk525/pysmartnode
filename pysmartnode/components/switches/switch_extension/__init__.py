@@ -29,8 +29,8 @@ As Homeassistant only supports sensors and switches to be discovered, every mode
 to enable the mode.
 """
 
-__updated__ = "2019-10-11"
-__version__ = "0.4"
+__updated__ = "2019-10-20"
+__version__ = "0.5"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -99,7 +99,6 @@ class Switch(Component):
             raise TypeError("Component needs to be of instance ComponentSwitch")
         # make this class control the component
         self._component.on_message = self.on_message
-        self._component._topics[self._component._topic] = self.on_message
         self._component_on = self._component.on
         self._component_off = self._component.off
         self._component.on = self.on
@@ -112,7 +111,6 @@ class Switch(Component):
             COMPONENT_NAME, count)
         mqtt_topic_mode = mqtt_topic_mode or _mqtt.getDeviceTopic("{!s}/mode".format(_name),
                                                                   is_request=True)
-        self._subscribe(mqtt_topic_mode, self.changeMode)
         self._topic_mode = mqtt_topic_mode
         self._frn_mode = friendly_name_mode or "{!s} Mode".format(_name)
         self._mode = Mode  # Mode is default switch behaviour if no mode is enabled
@@ -161,16 +159,11 @@ class Switch(Component):
         for mode in self._modes_enabled:
             # mode switches don't need to get retained state
             topic = "{!s}/{!s}/set".format(self._topic_mode[:-4], mode)
-            self._subscribe(topic, self.changeMode)
-            await _mqtt.subscribe(topic, qos=1, await_connection=False)
+            _mqtt.subscribe(topic, self.changeMode, self)
         # get retained mode state.
-        topic = self._topic_mode[:-4]
-        self._subscribe(topic, self.changeMode)
-        await _mqtt.subscribe(topic, qos=1, await_connection=True)
-        await asyncio.sleep(1)
-        await _mqtt.unsubscribe(topic, self)  # will remove topic from ._topics
-        self._subscribe(self._topic_mode, self.changeMode)
-        await _mqtt.subscribe(self._topic_mode, qos=1, await_connection=False)
+        await _mqtt.unsubscribe(self._component._topic, self._component)
+        _mqtt.subscribe(self._component._topic, self.on_message, self)
+        _mqtt.subscribe(self._topic_mode, self.changeMode, self, check_retained_state=True)
 
     async def changeMode(self, topic, msg, retain):
         print("changeMode", topic, msg, retain, self._mode)

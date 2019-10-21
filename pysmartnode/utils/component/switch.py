@@ -2,14 +2,13 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-10-19"
-__version__ = "0.6"
+__updated__ = "2019-10-20"
+__version__ = "0.7"
 
 from pysmartnode.utils.component import Component
 from .definitions import DISCOVERY_SWITCH
 from pysmartnode import config
 import gc
-import uasyncio as asyncio
 from micropython import const
 
 _mqtt = config.getMQTT()
@@ -23,13 +22,14 @@ class ComponentSwitch(Component):
     """
 
     def __init__(self, component_name, version, command_topic=None, instance_name=None,
-                 wait_for_lock=True, discover=True):
+                 wait_for_lock=True, discover=True, restore_state=True):
         """
         :param component_name: name of the component that is subclassing this switch (used for discovery and topics)
         :param version: version of the component module. will be logged over mqtt
         :param command_topic: command_topic of subclass which controls the switch state. optional.
         :param instance_name: name of the instance. If not provided will get composed of component_name<count>
         :param wait_for_lock: if True then every request waits for the lock to become available,
+        :param restore_state: restore the retained state topic state
         meaning the previous device request has to finish before the new one is started.
         Otherwise the new one will get ignored.
         """
@@ -40,8 +40,8 @@ class ComponentSwitch(Component):
 
         self._state = None  # initial state is unknown
         self._topic = command_topic or _mqtt.getDeviceTopic(
-            "{!s}{!s}".format(component_name, self._count),
-            is_request=True)
+            "{!s}{!s}/set".format(component_name, self._count))
+        _mqtt.subscribe(self._topic, self.on_message, self, check_retained_state=restore_state)
         self.lock = config.Lock()
         # in case switch activates a device that will need a while to finish
         self._wfl = wait_for_lock
@@ -49,26 +49,11 @@ class ComponentSwitch(Component):
         self._count = ""  # declare in subclass
         gc.collect()
 
-    async def _init_network(self):
-        t = self._topic[:-4]
-        self._subscribe(t, self.on_message)  # get retained state topic
-        await super()._init_network()
-        await asyncio.sleep_ms(500)
-        await _mqtt.unsubscribe(t, self)
-        del t
-        self._subscribe(self._topic, self.on_message)
-        await _mqtt.subscribe(self._topic)
-
     async def on_message(self, topic, msg, retain):
         """
         Standard callback to change the device state from mqtt.
         Can be subclassed if extended functionality is needed.
         """
-        if memoryview(topic) == memoryview(self._topic)[:-4]:
-            if retain:
-                await _mqtt.unsubscribe(topic, self, await_connection=False)
-            else:
-                return False
         if msg in _mqtt.payload_on:
             if not self._state:  # False or None (unknown)
                 await self.on()
