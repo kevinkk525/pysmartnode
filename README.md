@@ -129,7 +129,6 @@ Optional configurations for the network are:
 * MQTT_AVAILABILITY_SUBTOPIC: the subtopic used to publish the availability state. Used for last will too. Will generate MQTT_HOME/<device-id>/MQTT_AVAILABILITY_SUBTOPIC
 * MQTT_DISCOVERY_PREFIX: the discovery prefix configured in home-assistant, see [autodiscovery](https://www.home-assistant.io/docs/mqtt/discovery/).
 * MQTT_DISCOVERY_ENABLED: disable mqtt discovery if you don't want to use it or don't use home-assistant.
-* MQTT_DISCOVERY_ON_RECONNECT: if the discovery should be sent again after each reconnect. Only needed if the mqtt broker doesn't support saving retained messages when it restarts.
 * MQTT_RECEIVE_CONFIG: if the device should receive its configuration using mqtt subscription. This only works when using [SmartServer](https://github.com/kevinkk525/SmartServer) in your network
 * MQTT_TYPE: support for an experimental connection type (will be described when fully tested, documented and implemented). Not working at the moment.
 * WIFI_LED: Set option to a pin number to use the connected LED to display the Wifi status. If the initial connect to the WIFI was successful then it will blink 5 times very quickly. While connected it will blink quickly one time every 30 seconds. When not connected it will make 3 long blinks every 5 seconds.
