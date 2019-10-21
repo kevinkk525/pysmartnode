@@ -4,13 +4,14 @@
 ### Version 5.3.0
 * [easyGPIO] topics now use "easyGPIO" to not make them collide with module "switches.GPIO"
 * [remoteSensors] use remote sensors as if they were locally connected
-* [COMPONENTS] extended API significantly
+* [COMPONENTS] extended API significantly, updated to new/changed MQTT features
 * [HTU21D] changed base topic to be more in line with other components
 * [HEATER] removed deprecated component
 * [CLIMATE] added new Climate component which is compatible to homeassistant MQTT Climate
 * [CONFIG] removed option to load components from .json files, use components.py instead
 * [STATS] Major update, publishing many device stats as hass json_attributes and RSSI as main value instead of "online/offline" which is now done directly in mqtt as availability topic. Published values: (last_boot, uptime, pysmartnode version, micropython firmware version, RAM free, RSSI, MQTT Downtime, MQTT Reconnects, Asyncio waitq used size)
-* [MQTT] Improvements
+* [MQTT] Improvements, Subscriptions done by mqtt not by components, Subscribing uses subscription chain and can be called non-blocking synchronously, easy way to restore a device state from a state topic of a subscribed command_topic
+
 
 ---------------------------------------------------
 ### Version 5.2.0
