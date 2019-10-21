@@ -1,7 +1,6 @@
 # Author: Kevin Köck
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Based on Peter Hinch's aswitch.py
-# Removed double click functionality,
 # removed creation of asyncio tasks to prevent queue overflows.
 # Created on 2019-10-19 
 
@@ -78,10 +77,7 @@ class Pushbutton:
         raw = self.rawstate
         ticks_diff = time.ticks_diff
         ticks_ms = time.ticks_ms
-        ###
-        # Note: Using explicit "if var is True/False" instead of "if (not) var"
-        #       because it is a bit faster
-        ###
+        #
         while True:
             state = raw()
             if state is False and self.state is False and self._supp and \
