@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-10-20"
-__version__ = "5.0"
+__updated__ = "2019-10-21"
+__version__ = "5.1"
 
 import gc
 import ujson
@@ -28,6 +28,8 @@ gc.collect()
 
 type_gen = type((lambda: (yield))())  # Generator type
 
+
+# TODO: remove debug print statements
 
 class MQTTHandler(MQTTClient):
     def __init__(self):
@@ -65,6 +67,8 @@ class MQTTHandler(MQTTClient):
         self.__last_disconnect = None
         self.__downtime = 0
         self.__reconnects = -1  # not counting the first connect
+        self.__dropped_messages = 0
+        self.__active_cbs = 0
         gc.collect()
 
     def close(self):
@@ -79,6 +83,12 @@ class MQTTHandler(MQTTClient):
             return self.__downtime
         else:
             return (time.ticks_ms() - self.__last_disconnect) / 1000 + self.__downtime
+
+    def getDroppedMessages(self):
+        return self.__dropped_messages
+
+    def getLenSubscribtions(self):
+        return len(self._subs)
 
     def getReconnects(self):
         return self.__reconnects if self.__reconnects > 0 else 0
@@ -159,16 +169,16 @@ class MQTTHandler(MQTTClient):
                     await res
             self._connected_coro = None
         except asyncio.CancelledError:
-            raise  # in case the calling function need to handle Cancellation too
-        finally:
             if self._sub_coro is not None:
                 asyncio.cancel(self._sub_coro)
+            raise  # in case the calling function need to handle Cancellation too
 
     async def _subscribeTopics(self, start: int = 0):
         _log.debug("_subscribeTopics, start {!s}".format(start))
         for i in range(start, len(self._subs)):
             if len(self._subs) <= i:
                 # entries got unsubscribed
+                print("setting none in len mismatch")
                 self._sub_coro = None
                 return
             t = self._subs[i][0]
@@ -180,18 +190,19 @@ class MQTTHandler(MQTTClient):
                 self._sub_retained = True
                 _log.debug("_subscribing {!s}".format(t[:-4]))
                 await self._preprocessor(super().subscribe, (t[:-4], 1))  # subscribe state topic
-                while time.ticks_diff(time.ticks_ms(), ts) < 2000 and self._sub_retained:
-                    # wait 2 seconds for answer
+                while time.ticks_diff(time.ticks_ms(), ts) < 4000 and self._sub_retained:
+                    # wait 4 seconds for answer
                     await asyncio.sleep_ms(100)
                 if self._sub_retained is True:  # no state message received
                     self._subs[self._subs.index(sub)] = sub[:3]
                     self._sub_retained = False
                     # using _subs.index because index could have changed if unsubscribe happened
                     # while waiting for retained state message or unsubcribing
+                    _log.debug("Unsubcribing state topic {!s}".format(t[:-4]), local_only=True)
                     await self._preprocessor(super().unsubscribe, (t[:-4],),
                                              await_connection=False)
                 # no timeouts because _subscribeTopics will get canceled when connection is lost
-            _log.debug("_subscribing {!s}".format(t))
+            _log.debug("_subscribing {!s}".format(t), local_only=True)
             await self._preprocessor(super().subscribe, (t, 1), await_connection=False)
         self._sub_coro = None
 
@@ -286,7 +297,23 @@ class MQTTHandler(MQTTClient):
                 local_only=True)
         return True
 
-    def subscribe(self, topic, cb, component=None, qos=1, check_retained_state=False):
+    async def subscribe(self, topic, cb, component=None, qos=1, check_retained_state=False,
+                        timeout=None, await_connection=True):
+        """
+        Subscribe a topic
+        :param topic: str, either real topic or deviceTopic
+        :param cb: callback/coroutine
+        :param component: optional component object. Used when unsubscribing a complete component
+        :param qos: subscriptions are always qos=1, changing it won't make a difference.
+        :param check_retained_state: check the retained state of the state topic of a subscription
+        :param timeout: returns after timeout without knowing the succes. Will subscribe anyway.
+        :param await_connection: Return if no connection. Will subscribe anyway
+        :return: True if subscription is acknowledged, else False (but will subscribe anyway)
+        """
+        self.subscribeSync(topic, cb, component, qos, check_retained_state)
+        return self.awaitSubscriptionsDone(timeout, await_connection)
+
+    def subscribeSync(self, topic, cb, component=None, qos=1, check_retained_state=False):
         _log.debug(
             "Subscribing to topic {} for component {!s}, checking retained {!s}".format(topic,
                                                                                         component,
@@ -300,6 +327,7 @@ class MQTTHandler(MQTTClient):
             sub = (topic, cb, component)
         self._subs.append(sub)
         if self._sub_coro is None:
+            print("Create sub coro in subscribe")
             self._sub_coro = self._subscribeTopics(self._subs.index(sub))
             asyncio.get_event_loop().create_task(self._sub_coro)
 
@@ -334,6 +362,14 @@ class MQTTHandler(MQTTClient):
     def _execute_sync(self, topic, msg, retained):
         _log.debug("mqtt execution: {!s} {!s} {!s}".format(topic, msg, retained), local_only=True)
         topic = topic.decode()
+        # optional safety feature if memory allocation fails on receive of messages.
+        # Should actually never happen in a user controlled environment.
+        # mqtt_as must support it for code having any effect.
+        if topic is None or msg is None:
+            self.__dropped_messages += 1
+            _log.error("Received message that didn't fit into RAM on topic {!s}".format(topic),
+                       local_only=True)
+            return
         msg = msg.decode()
         try:
             msg = ujson.loads(msg)
@@ -345,17 +381,29 @@ class MQTTHandler(MQTTClient):
         found = False
         for sub in self._subs:
             if self.matchesSubscription(topic, sub[0], ignore_command=len(sub) == 4):
-                loop.create_task(self._execute_callback(sub, topic, msg, retained))
-                _log.debug(
-                    "execute_callback of comp {!s}: {!s} {!s}".format(sub[2], topic, msg),
-                    local_only=True)
+                if config.MQTT_MAX_CONCURRENT_EXECUTIONS == -1:
+                    dr = config.LEN_ASYNC_QUEUE - len(loop.waitq) <= 4
+                else:
+                    dr = self.__active_cbs >= config.MQTT_MAX_CONCURRENT_EXECUTIONS
+                if dr:
+                    self.__dropped_messages += 1
+                    _log.error(
+                        "dropping message of topic {!s}, too many active cbs: {!s}/{!s}/{!s}".format(
+                            topic, self.__active_cbs, len(loop.waitq), config.LEN_ASYNC_QUEUE),
+                        local_only=True)
+                else:
+                    self.__active_cbs += 1
+                    loop.create_task(self._execute_callback(sub, topic, msg, retained))
+                    _log.debug(
+                        "execute_callback of comp {!s}: {!s} {!s}".format(sub[2], topic, msg),
+                        local_only=True)
                 found = True
         if found is False:
             _log.warn("Subscribed topic {!s} not found, should solve itself".format(topic),
                       local_only=True)
 
     async def _execute_callback(self, sub, topic, msg, retained):
-        if len(sub) == 4 and sub[0].find("/+/") == -1:
+        if len(sub) == 4 and "/+/" not in sub[0]:  # sub can't end with /#/set but /+/set
             # retained state topic received without wildcards (could receive multiple states)
             self._subs[self._subs.index(sub)] = sub[:3]
             self._sub_retained = False
@@ -363,6 +411,7 @@ class MQTTHandler(MQTTClient):
                 t = self.getRealTopic(sub[0])[:-4]
             else:
                 t = sub[0][:-4]
+            _log.debug("Unsubcribing state topic {!s}".format(t), local_only=True)
             await self._preprocessor(super().unsubscribe, (t,), await_connection=False)
             del t
             gc.collect()
@@ -370,8 +419,8 @@ class MQTTHandler(MQTTClient):
             if not retained:
                 _log.error(
                     "Received non retained message when checking retained state topic {!s}, ignoring message".format(
-                        topic),
-                    local_only=True)
+                        topic), local_only=True)
+                self.__active_cbs -= 1
                 return
         try:
             res = sub[1](topic, msg, retained)
@@ -388,6 +437,8 @@ class MQTTHandler(MQTTClient):
             await _log.asyncLog("error",
                                 "Error executing {!s}mqtt topic {!r}: {!s}".format(
                                     "retained " if retained else "", topic, e))
+        finally:
+            self.__active_cbs -= 1
 
     async def publish(self, topic, msg, retain=False, qos=0, timeout=None, await_connection=True):
         """
