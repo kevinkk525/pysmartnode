@@ -9,7 +9,7 @@ Created on 09.03.2018
 
 __updated__ = "2018-10-20"
 
-from config import *
+from .config_base import *
 from sys import platform
 
 if platform == "linux" and DEVICE_NAME is None:
@@ -37,8 +37,27 @@ __printRAM(_mem, "Imported .sys_vars")
 
 import uasyncio as asyncio
 
-LEN_ASYNC_QUEUE = 20 if platform == "esp8266" else 32
-LEN_ASYNC_RQUEUE = 16 if platform == "esp8266" else 32
+
+###
+# Workaround to cancel coroutines that haven't yielded
+class MyExc(Exception):
+    pass
+
+
+def cancel(t):
+    try:
+        asyncio.cancel(t)
+    except TypeError as e:
+        try:
+            print("Trapped", e)
+            t.throw(MyExc())
+        except MyExc:
+            pass
+
+
+asyncio.cancel = cancel
+###
+
 loop = asyncio.get_event_loop(runq_len=LEN_ASYNC_RQUEUE, waitq_len=LEN_ASYNC_QUEUE)
 
 gc.collect()
