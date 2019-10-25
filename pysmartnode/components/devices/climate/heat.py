@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-10-12 
 
-__updated__ = "2019-10-16"
-__version__ = "0.2"
+__updated__ = "2019-10-25"
+__version__ = "0.3"
 
 from pysmartnode.components.devices.climate import BaseMode
 from .definitions import ACTION_HEATING, ACTION_IDLE, MODE_HEAT, CURRENT_ACTION, \
@@ -20,8 +20,12 @@ class heat(BaseMode):
     async def trigger(self, climate, current_temp):
         """Triggered whenever the situation is evaluated again"""
         if current_temp is None:
-            climate.log.warn("No temperature")
-            current_temp = climate.state[CURRENT_TEMPERATURE_HIGH] + 1  # so heater gets shut down
+            await climate.log.asyncLog("warn", "No temperature", timeout=2, await_connection=False)
+            # keep heater state is no temp is available.
+            # Makes it possible to use external button to switch heater state manually
+            # in case temperature sensor is broken or network unavailable.
+            # Will be overwritten on next trigger though if temperature is available.
+            return True
         if current_temp > climate.state[CURRENT_TEMPERATURE_HIGH] and self._last_state is True:
             # target temperature reached
             if await climate.heating_unit.off():

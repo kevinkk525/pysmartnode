@@ -41,7 +41,7 @@ class ComponentSwitch(Component):
         self._state = None  # initial state is unknown
         self._topic = command_topic or _mqtt.getDeviceTopic(
             "{!s}{!s}/set".format(component_name, self._count))
-        _mqtt.subscribe(self._topic, self.on_message, self, check_retained_state=restore_state)
+        _mqtt.subscribeSync(self._topic, self.on_message, self, check_retained_state=restore_state)
         self.lock = config.Lock()
         # in case switch activates a device that will need a while to finish
         self._wfl = wait_for_lock

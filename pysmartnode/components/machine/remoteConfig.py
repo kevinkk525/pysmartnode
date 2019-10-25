@@ -35,7 +35,7 @@ class RemoteConfig(Component):
 
     async def _watcher(self):
         mqtt = _mqtt
-        mqtt.subscribe(self._topic, self.on_message, self)
+        mqtt.subscribeSync(self._topic, self.on_message, self)
         try:
             while True:
                 while mqtt.isconnected() is False:

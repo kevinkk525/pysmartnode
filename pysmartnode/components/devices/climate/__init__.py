@@ -178,10 +178,10 @@ class Climate(Component):
             "{!s}{!s}/temp_high/set".format(COMPONENT_NAME, self._count))
         self._away_topic = _mqtt.getDeviceTopic(
             "{!s}{!s}/away/set".format(COMPONENT_NAME, self._count))
-        _mqtt.subscribe(self._mode_topic, self.changeMode, self)
-        _mqtt.subscribe(self._temp_low_topic, self.changeTempLow, self)
-        _mqtt.subscribe(self._temp_high_topic, self.changeTempHigh, self)
-        _mqtt.subscribe(self._away_topic, self.changeAwayMode, self)
+        _mqtt.subscribeSync(self._mode_topic, self.changeMode, self)
+        _mqtt.subscribeSync(self._temp_low_topic, self.changeTempLow, self)
+        _mqtt.subscribeSync(self._temp_high_topic, self.changeTempHigh, self)
+        _mqtt.subscribeSync(self._away_topic, self.changeAwayMode, self)
 
         self._restore_done = False
         asyncio.get_event_loop().create_task(self._loop(interval))
@@ -199,8 +199,8 @@ class Climate(Component):
         gc.collect()
         await super()._init_network()
         # let discovery succeed first because it is a big message
-        _mqtt.subscribe(_mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)),
-                        self._restore, self)
+        _mqtt.subscribeSync(_mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)),
+                            self._restore, self)
         gc.collect()
         for _ in range(16):
             # get retained values

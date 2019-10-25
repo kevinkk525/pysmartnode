@@ -40,7 +40,7 @@ class GPIO(Component):
     def __init__(self, topic=None, discover_pins=None):
         super().__init__(COMPONENT_NAME, __version__)
         self._topic = topic or _mqtt.getDeviceTopic("easyGPIO/+/set")
-        _mqtt.subscribe(self._topic, self.on_message, self, check_retained_state=True)
+        _mqtt.subscribeSync(self._topic, self.on_message, self, check_retained_state=True)
         self._d = discover_pins or []
 
     async def _discovery(self):

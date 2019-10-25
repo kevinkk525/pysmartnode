@@ -67,11 +67,11 @@ class MyComponent(Component):
             "{!s}{!s}".format(COMPONENT_NAME, self._count), is_request=True)
 
         # These calls subscribe the topics.
-        _mqtt.subscribe(self._command_topic, self.on_message1, self, check_retained_state=True)
+        _mqtt.subscribeSync(self._command_topic, self.on_message1, self, check_retained_state=True)
         # check_retained_state will subscribe to the state topic (home/31f29s/MyComponent0)
         # first, so the original state of the device can be restored.
         # The state topic will then be unsubscribed and the requested command topic subscribed.
-        _mqtt.subscribe(mqtt_topic2 or "home/sometopic", self.on_message2, self)
+        _mqtt.subscribeSync(mqtt_topic2 or "home/sometopic", self.on_message2, self)
 
         self.my_value = my_value
 

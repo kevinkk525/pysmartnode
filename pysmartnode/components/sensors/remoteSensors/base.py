@@ -57,11 +57,11 @@ class BaseRemote(Component):
         if mqtt_topic is None:
             self._command_topic = command_topic or _mqtt.getDeviceTopic(
                 "{!s}{!s}/topic/set".format(COMPONENT_NAME, self._count))
-            _mqtt.subscribe(self._command_topic, self._changeTopic, self,
-                            check_retained_state=True)
+            _mqtt.subscribeSync(self._command_topic, self._changeTopic, self,
+                                check_retained_state=True)
         else:
             self._command_topic = None
-            _mqtt.subscribe(self._topic, self.on_message, self)
+            _mqtt.subscribeSync(self._topic, self.on_message, self)
         self._value = None
         self._value_time = 0
         self._value_type = VALUE_TYPE
@@ -73,7 +73,7 @@ class BaseRemote(Component):
         if self._topic is not None:
             await _mqtt.unsubscribe(self._topic, self)
         self._topic = msg
-        _mqtt.subscribe(self._topic, self.on_message, self)
+        _mqtt.subscribeSync(self._topic, self.on_message, self)
         return True
 
     async def on_message(self, topic, msg, retain):

@@ -159,11 +159,11 @@ class Switch(Component):
         for mode in self._modes_enabled:
             # mode switches don't need to get retained state
             topic = "{!s}/{!s}/set".format(self._topic_mode[:-4], mode)
-            _mqtt.subscribe(topic, self.changeMode, self)
+            _mqtt.subscribeSync(topic, self.changeMode, self)
         # get retained mode state.
         await _mqtt.unsubscribe(self._component._topic, self._component)
-        _mqtt.subscribe(self._component._topic, self.on_message, self)
-        _mqtt.subscribe(self._topic_mode, self.changeMode, self, check_retained_state=True)
+        _mqtt.subscribeSync(self._component._topic, self.on_message, self)
+        _mqtt.subscribeSync(self._topic_mode, self.changeMode, self, check_retained_state=True)
 
     async def changeMode(self, topic, msg, retain):
         print("changeMode", topic, msg, retain, self._mode)

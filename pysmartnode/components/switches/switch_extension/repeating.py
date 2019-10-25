@@ -24,9 +24,9 @@ class repeating(BaseMode):
         _name = component._name if hasattr(component, "_name") else "{!s}{!s}".format(
             COMPONENT_NAME, count)
         topic = _mqtt.getDeviceTopic("{!s}/repeating/on_time".format(_name), is_request=True)
-        _mqtt.subscribe(topic, self._changeOnTime, extended_switch, check_retained_state=True)
+        _mqtt.subscribeSync(topic, self._changeOnTime, extended_switch, check_retained_state=True)
         topic2 = _mqtt.getDeviceTopic("{!s}/repeating/off_time".format(_name), is_request=True)
-        _mqtt.subscribe(topic2, self._changeOffTime, extended_switch, check_retained_state=True)
+        _mqtt.subscribeSync(topic2, self._changeOffTime, extended_switch, check_retained_state=True)
         self._coro = None
 
     async def _changeOnTime(self, topic, msg, retain):

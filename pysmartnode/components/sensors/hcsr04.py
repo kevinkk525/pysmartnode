@@ -96,7 +96,7 @@ class HCSR04(Component):
         self._topic_int = mqtt_topic_interval or _mqtt.getDeviceTopic(
             "{!s}{!s}/interval/set".format(COMPONENT_NAME, self._count))
         self.interval = interval or config.INTERVAL_SEND_SENSOR  # can be changed anytime
-        _mqtt.subscribe(self._topic_int, self._changeInterval, self, check_retained_state=True)
+        _mqtt.subscribeSync(self._topic_int, self._changeInterval, self, check_retained_state=True)
         asyncio.get_event_loop().create_task(self._loop(self.distance))
 
     async def _loop(self, gen):
