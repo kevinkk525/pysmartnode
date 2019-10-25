@@ -128,6 +128,10 @@ def main():
     try:
         loop.run_forever()
     except Exception as e:
+        try:
+            config.getMQTT().close()
+        except:
+            pass
         if config.DEBUG_STOP_AFTER_EXCEPTION:
             # want to see the exception trace in debug mode
             if hasattr(config, "USE_SOFTWARE_WATCHDOG") and config.USE_SOFTWARE_WATCHDOG:

@@ -10,8 +10,10 @@
 * [CLIMATE] added new Climate component which is compatible to homeassistant MQTT Climate
 * [CONFIG] removed option to load components from .json files, use components.py instead
 * [STATS] Major update, publishing many device stats as hass json_attributes and RSSI as main value instead of "online/offline" which is now done directly in mqtt as availability topic. Published values: (last_boot, uptime, pysmartnode version, micropython firmware version, RAM free, RSSI, MQTT Downtime, MQTT Reconnects, Asyncio waitq used size)
-* [MQTT] Improvements, Subscriptions done by mqtt not by components, Subscribing uses subscription chain and can be called non-blocking synchronously, easy way to restore a device state from a state topic of a subscribed command_topic
-
+* [MQTT] Improvements, Subscriptions done by mqtt not by components, Subscribing uses subscription chain and can be called non-blocking synchronously, easy way to restore a device state from a state topic of a subscribed command_topic, prevention of uasyncio queue overflows when receiving too many messages
+* [LOGGING] Extended asyncLog() method with kwargs "timeout" and "await_connection" just like mqtt.publish
+* [TOOLS] updated esp8266 build scripts
+* [CONFIG] config.py update, made configuration easier and smaller by freezing standard values in ROM and custom configs in config.py will just overwrite those.
 
 ---------------------------------------------------
 ### Version 5.2.0

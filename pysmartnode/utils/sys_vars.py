@@ -4,12 +4,11 @@ Created on 02.02.2018
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-07-02"
+__updated__ = "2019-10-22"
 
 import os
 import ubinascii
 from sys import platform
-from pysmartnode import config
 
 DISCOVERY_DEVICE_BASE = '{{' \
                         '"ids":"{!s}",' \
@@ -29,6 +28,7 @@ def getDeviceType():
 
 def getDeviceID():
     if platform == "linux":
+        from pysmartnode import config
         return config.DEVICE_NAME
     import machine
     return ubinascii.hexlify(machine.unique_id()).decode()
@@ -41,11 +41,13 @@ def hasFilesystem():
 
 
 def getDeviceDiscovery():
+    from pysmartnode import config
     mf = "espressif" if platform in ("esp8266", "esp32", "esp32_LoBo") else "None"
     if platform != "linux":
         import network
         s = network.WLAN(network.STA_IF)
-        mac = ',"connections": [["mac", "{!s}"]]'.format(ubinascii.hexlify(s.config("mac"), ":").decode())
+        mac = ',"connections": [["mac", "{!s}"]]'.format(
+            ubinascii.hexlify(s.config("mac"), ":").decode())
     else:
         mac = ""
     return DISCOVERY_DEVICE_BASE.format(getDeviceID(),

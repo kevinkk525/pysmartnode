@@ -1,7 +1,8 @@
 # Author: Kevin Köck
 # Copyright Kevin Köck 2019 Released under the MIT license
-# Based on Peter Hinch's aswitch.py
-# removed creation of asyncio tasks to prevent queue overflows.
+# Based on Peter Hinch's aswitch.py. Useable as a drop-in replacement.
+# Queue overflow issue in Peter Hinch's aswitch fixed by now so this code
+# only provides an alternative with less RAM usage.
 # Created on 2019-10-19 
 
 __updated__ = "2019-10-19"
