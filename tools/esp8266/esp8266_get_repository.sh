@@ -16,5 +16,5 @@ git submodule update --init
 make -C mpy-cross
 cd ports/esp8266
 make axtls
-sed -i 's/irom0_0_seg :  org = 0x40209000, len = 0x8f000/irom0_0_seg :  org = 0x40209000, len = 0xc7000/' ~/micropython/ports/esp8266/esp8266.ld
+sed -i 's/irom0_0_seg :  org = 0x40209000, len = 0x8f000/irom0_0_seg :  org = 0x40209000, len = 0xc7000/' ~/micropython/ports/esp8266/boards/esp8266.ld
 make -j12
