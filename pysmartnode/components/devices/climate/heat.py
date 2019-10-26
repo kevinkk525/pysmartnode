@@ -3,7 +3,7 @@
 # Created on 2019-10-12 
 
 __updated__ = "2019-10-25"
-__version__ = "0.3"
+__version__ = "0.4"
 
 from pysmartnode.components.devices.climate import BaseMode
 from .definitions import ACTION_HEATING, ACTION_IDLE, MODE_HEAT, CURRENT_ACTION, \
@@ -46,13 +46,15 @@ class heat(BaseMode):
                 return False
         else:
             # temperature between target temperatures high and low
-            # set action in case the state is retained
+            # set action and state in case the state is retained or changed manually by button
             if climate.heating_unit.state() is True and \
                     climate.state[CURRENT_ACTION] != ACTION_HEATING:
                 climate.state[CURRENT_ACTION] = ACTION_HEATING
+                self._last_state = True
             elif climate.heating_unit.state() is False and \
                     climate.state[CURRENT_ACTION] != ACTION_IDLE:
                 climate.state[CURRENT_ACTION] = ACTION_IDLE
+                self._last_state = False
 
     async def activate(self, climate):
         """Triggered whenever the mode changes and this mode has been activated"""
