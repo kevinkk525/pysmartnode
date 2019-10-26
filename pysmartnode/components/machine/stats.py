@@ -94,7 +94,6 @@ class STATS(Component):
         else:
             val["RSSI"] = 0  # can't read rssi on unix port, might not even be connected by WLAN
         try:
-            val["Device"] = os.uname().sysname
             val["Micropython version"] = os.uname().version
         except:
             pass

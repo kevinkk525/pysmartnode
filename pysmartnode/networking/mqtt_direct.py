@@ -4,8 +4,8 @@ Created on 17.02.2018
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-10-21"
-__version__ = "5.1"
+__updated__ = "2019-10-26"
+__version__ = "5.2"
 
 import gc
 import ujson
@@ -136,6 +136,7 @@ class MQTTHandler(MQTTClient):
         self._wifi_coro = None
 
     async def _connected(self, client):
+        _log.debug("mqtt connected", local_only=True)
         self.__reconnects += 1
         if self.__last_disconnect is not None:
             self.__downtime += (time.ticks_ms() - self.__last_disconnect) / 1000
@@ -174,7 +175,9 @@ class MQTTHandler(MQTTClient):
             raise  # in case the calling function need to handle Cancellation too
 
     async def _subscribeTopics(self, start: int = 0):
-        _log.debug("_subscribeTopics, start {!s}".format(start))
+        _log.debug("_subscribeTopics, start {!s}".format(start), local_only=True)
+        while not self._has_connected:
+            await asyncio.sleep_ms(100)
         for i in range(start, len(self._subs)):
             if len(self._subs) <= i:
                 # entries got unsubscribed
@@ -188,7 +191,7 @@ class MQTTHandler(MQTTClient):
                 sub = self._subs[i]
                 ts = time.ticks_ms()
                 self._sub_retained = True
-                _log.debug("_subscribing {!s}".format(t[:-4]))
+                _log.debug("_subscribing {!s}".format(t[:-4]), local_only=True)
                 await self._preprocessor(super().subscribe, (t[:-4], 1))  # subscribe state topic
                 while time.ticks_diff(time.ticks_ms(), ts) < 4000 and self._sub_retained:
                     # wait 4 seconds for answer
@@ -388,7 +391,7 @@ class MQTTHandler(MQTTClient):
                 if dr:
                     self.__dropped_messages += 1
                     _log.error(
-                        "dropping message of topic {!s}, too many active cbs: {!s}/{!s}/{!s}".format(
+                        "dropping message of topic {!s}, too many active cbs/coros: {!s}/{!s}/{!s}".format(
                             topic, self.__active_cbs, len(loop.waitq), config.LEN_ASYNC_QUEUE),
                         local_only=True)
                 else:

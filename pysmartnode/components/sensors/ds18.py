@@ -26,15 +26,15 @@ example config:
         # controller: "ds18"      # optional, name of controller instance. Not needed if only one instance created)
         # precision_temp: 2       # precision of the temperature value published
         # offset_temp: 0          # offset for temperature to compensate bad sensor reading offsets
-        # mqtt_topic: sometopic   # optional, defaults to home/<controller-id>/DS18/<ROM> 
+        # mqtt_topic: sometopic   # optional, defaults to home/<device-id>/DS18/<ROM> 
         # friendly_name: null     # optional, friendly name shown in homeassistant gui with mqtt discovery
     }
 }
 # Specific DS18 unit. 
 """
 
-__updated__ = "2019-10-11"
-__version__ = "2.7"
+__updated__ = "2019-10-26"
+__version__ = "2.8"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -51,6 +51,7 @@ import onewire
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
 COMPONENT_NAME = "DS18"
+COMPONENT_NAME_CONTROLLER = "DS18_Controller"
 # define the type of the component according to the homeassistant specifications
 _COMPONENT_TYPE = "sensor"
 # define (homeassistant) value templates for all sensor readings
@@ -76,7 +77,7 @@ class DS18_Controller(ds18x20.DS18X20, Component):
         """
         self._interval = interval or config.INTERVAL_SEND_SENSOR
         ds18x20.DS18X20.__init__(self, onewire.OneWire(Pin(pin)))
-        Component.__init__(self, COMPONENT_NAME, __version__, discover=False)
+        Component.__init__(self, COMPONENT_NAME_CONTROLLER, __version__, discover=False)
         gc.collect()
         self._lock = config.Lock()
         global _ds18_controller
@@ -96,7 +97,7 @@ class DS18_Controller(ds18x20.DS18X20, Component):
                 DS18(rom)
                 await asyncio.sleep_ms(100)  # give discovery time to publish
         roms = [self.rom2str(rom) for rom in roms]
-        await _log.asyncLog("info", "Found ds18: {!s}".format(roms))
+        await _log.asyncLog("info", "Found ds18: {!s}".format(roms), timeout=10)
         interval = self._interval
         await asyncio.sleep(1)
         while True:
@@ -128,16 +129,21 @@ class DS18_Controller(ds18x20.DS18X20, Component):
                 err = e
                 continue
         if value is None:
-            _log.error("Sensor rom {!s} got no value, {!s}".format(rom, err))
+            await _log.asyncLog("error", "Sensor rom {!s} got no value, {!s}".format(rom, err),
+                                timeout=20)
         if value is not None:
             if value == 85.0:
-                _log.error("Sensor rom {!s} got value 85.00 [not working correctly]".format(rom))
+                await _log.asyncLog("error",
+                                    "Sensor rom {!s} got value 85.00 [not working correctly]".format(
+                                        rom), timeout=20)
                 value = None
             try:
                 value = round(value, prec)
                 value += offs
             except Exception as e:
-                _log.error("Error rounding value {!s} of rom {!s}".format(value, rom))
+                await _log.asyncLog("error",
+                                    "Error rounding value {!s} of rom {!s}".format(value, rom),
+                                    timeout=20)
                 value = None
         if publish:
             if value is not None:
@@ -185,7 +191,12 @@ class DS18(Component):
         Class for a single ds18 unit to provide an interface to a single unit not needing to specify
         the ROM on temperature read calls.
         :param rom: str or bytearray, device specific ROM
+        :param precision_temp: the precision to for returning/publishing values
+        :param offset_temp: temperature offset to adjust bad sensor readings
+        :param mqtt_topic: optional mqtt topic of sensor
+        :param friendly_name: friendly name in homeassistant
         :param controller: DS18 object. If ds18 are connected on different pins, different DS18 objects are needed
+        :param discover: if DS18 object should send discovery message for homeassistnat
         """
         super().__init__(COMPONENT_NAME, __version__, discover)
         if controller is None:

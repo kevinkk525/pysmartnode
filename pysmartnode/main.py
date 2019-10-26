@@ -4,7 +4,7 @@ Created on 10.08.2017
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-10-18"
+__updated__ = "2019-10-26"
 
 import gc
 
@@ -20,11 +20,14 @@ if hasattr(config, "WEBREPL_ACTIVE") and config.WEBREPL_ACTIVE is True:
         try:
             with open("webrepl_cfg.py", "w") as f:
                 f.write("PASS = %r\n" % config.WEBREPL_PASSWORD)
-            import webrepl
-
-            webrepl.start()
         except Exception as e:
-            config._log.critical("Can't start webrepl: {!s}".format(e))
+            config._log.critical("Can't start webrepl: {!s}".format(e), local_only=True)
+    try:
+        import webrepl
+
+        webrepl.start()
+    except Exception as e:
+        config._log.critical("Can't start webrepl: {!s}".format(e))
     # webrepl started here to start it as quickly as possible.
 
 from pysmartnode import logging
@@ -96,8 +99,6 @@ def start_services(client):
             del sys.modules["pysmartnode.networking.wifi_esp8266"]
         if config.MQTT_RECEIVE_CONFIG is True:
             loop.create_task(_receiveConfig())
-        else:
-            loop.create_task(config._loadComponentsFile())
         services_started = True
         if sys.platform != "linux":
             import network
@@ -123,6 +124,9 @@ def main():
         config.addComponent("wifi_led", wl)
 
     config.getMQTT().registerConnectedCallback(start_services)
+    if config.MQTT_RECEIVE_CONFIG is False:
+        # load components even if network is unavailable as components might not depend on it
+        loop.create_task(config._loadComponentsFile())
 
     print("Starting uasyncio loop")
     try:

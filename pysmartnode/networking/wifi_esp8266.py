@@ -4,13 +4,12 @@ Created on 26.05.2018
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-09-29"
+__updated__ = "2019-10-26"
 
 from pysmartnode import config
 from pysmartnode import logging
 import gc
 import uasyncio as asyncio
-import sys
 import time
 import machine
 from pysmartnode.utils.sys_vars import getDeviceID
@@ -22,17 +21,18 @@ try:
 except Exception as e:
     print(e)  # not important enough to do anything about it
 
-if hasattr(config, "WIFI_SLEEP_MODE") and config.WIFI_SLEEP_MODE is not None:
+if config.WIFI_SLEEP_MODE is not None:
     import esp
 
-    esp.sleep_type(
-        config.WIFI_SLEEP_MODE)  # optionally disable wifi sleep to improve wifi reliability
+    esp.sleep_type(config.WIFI_SLEEP_MODE)
 
-if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE is True:
+if config.RTC_SYNC_ACTIVE:
+    import ntptime
+
+
     async def _sync():
         s = 1
         while True:
-            import ntptime
             print("Synchronize time from NTP server ...")
             try:
                 ntptime.settime()
@@ -40,8 +40,7 @@ if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE is True:
                 tm = time.localtime()
                 tm = tm[0:3] + (0,) + (tm[3] + config.RTC_TIMEZONE_OFFSET,) + tm[4:6] + (0,)
                 machine.RTC().datetime(tm)
-                del ntptime
-                del sys.modules["ntptime"]
+                print("Set time to", time.localtime())
                 s = 1
                 await asyncio.sleep(18000)  # every 5h
             except Exception as e:

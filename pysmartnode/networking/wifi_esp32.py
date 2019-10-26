@@ -5,10 +5,9 @@ import time
 import machine
 from pysmartnode.utils.sys_vars import getDeviceID
 import network
-import sys
 from pysmartnode import logging
 
-__updated__ = "2019-10-02"
+__updated__ = "2019-10-26"
 
 try:
     s = network.WLAN(network.STA_IF)
@@ -16,11 +15,14 @@ try:
 except Exception as e:
     print(e)  # not important enough to do anything about it
 
-if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE is True:
+if config.RTC_SYNC_ACTIVE:
+    import ntptime
+
+
     async def _sync():
         s = 1
         while True:
-            import ntptime
+
             print("Synchronize time from NTP server ...")
             try:
                 ntptime.settime()
@@ -28,8 +30,7 @@ if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE is True:
                 tm = time.localtime()
                 tm = tm[0:3] + (0,) + (tm[3] + config.RTC_TIMEZONE_OFFSET,) + tm[4:6] + (0,)
                 machine.RTC().datetime(tm)
-                del ntptime
-                del sys.modules["ntptime"]
+                print("Set time to", time.localtime())
                 s = 1
                 await asyncio.sleep(18000)  # every 5h
             except Exception as e:
