@@ -24,15 +24,17 @@ example config:
         # friendly_name: null    # optional, friendly name shown in homeassistant gui with mqtt discovery
     }
 }
-Note: mqtt broker is used to save the state between restarts using retained messages.
+Note: - mqtt broker is used to save the state between restarts using retained messages.
+      - Temp_high/low supported since Homeassistant >100.3, before there were temp_high/low
+        templates missing.
 
 Not Implemented:
 cooling_unit
 fan_unit
 """
 
-__updated__ = "2019-10-26"
-__version__ = "0.5"
+__updated__ = "2019-10-27"
+__version__ = "0.6"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -47,31 +49,6 @@ from .definitions import *
 
 COMPONENT_NAME = "Climate"
 _COMPONENT_TYPE = "climate"
-_CLIMATE_TYPE = '{{' \
-                '"~":"{!s}/",' \
-                '"name":"{!s}",' \
-                '{!s}' \
-                '"uniq_id":"{!s}_{!s}",' \
-                '"curr_temp_t":"{!s}",' \
-                '"curr_temp_tpl":"{!s}",' \
-                '"mode_stat_t":"~state",' \
-                '"mode_stat_tpl":"{{{{ value_json.mode }}}}",' \
-                '"mode_cmd_t":"~mode/set",' \
-                '"action_topic":"~state",' \
-                '"action_template":"{{{{ value_json.action }}}}",' \
-                '"temperature_low_command_topic":"~temp_low/set",' \
-                '"temperature_low_state_topic":"~temp_low",' \
-                '"temperature_high_command_topic":"~temp_high/set",' \
-                '"temperature_high_state_topic":"~temp_high",' \
-                '"temp_step":{!s},' \
-                '"min_temp":{!s},' \
-                '"max_temp":{!s},' \
-                '"modes":{!s},' \
-                '"away_mode_cmd_t":"~away/set",' \
-                '"away_mode_stat_t":"~state",' \
-                '"away_mode_stat_tpl":"{{{{ value_json.away }}}}",' \
-                '"dev":{!s}' \
-                '}}'
 
 _mqtt = config.getMQTT()
 _log = logging.getLogger(COMPONENT_NAME)
@@ -169,17 +146,19 @@ class Climate(Component):
                       CURRENT_ACTION:                ACTION_OFF}
         self.event = Event()
         self.lock = config.Lock()
+        # every extneral change (like mode) that could break an ongoing trigger needs
+        # to be protected by self.lock.
         self.log = _log
         gc.collect()
 
         self._mode_topic = _mqtt.getDeviceTopic(
-            "{!s}{!s}/mode/set".format(COMPONENT_NAME, self._count))
+            "{!s}{!s}/statem/set".format(COMPONENT_NAME, self._count))
         self._temp_low_topic = _mqtt.getDeviceTopic(
-            "{!s}{!s}/temp_low/set".format(COMPONENT_NAME, self._count))
+            "{!s}{!s}/statetl/set".format(COMPONENT_NAME, self._count))
         self._temp_high_topic = _mqtt.getDeviceTopic(
-            "{!s}{!s}/temp_high/set".format(COMPONENT_NAME, self._count))
+            "{!s}{!s}/stateth/set".format(COMPONENT_NAME, self._count))
         self._away_topic = _mqtt.getDeviceTopic(
-            "{!s}{!s}/away/set".format(COMPONENT_NAME, self._count))
+            "{!s}{!s}/stateaw/set".format(COMPONENT_NAME, self._count))
         _mqtt.subscribeSync(self._mode_topic, self.changeMode, self)
         _mqtt.subscribeSync(self._temp_low_topic, self.changeTempLow, self)
         _mqtt.subscribeSync(self._temp_high_topic, self.changeTempHigh, self)
@@ -214,28 +193,22 @@ class Climate(Component):
             await _mqtt.unsubscribe(
                 _mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)), self)
             self._restore_done = True
-        # need to publish on every statup although retained, hass is weird here.
-        await _mqtt.publish(self._temp_low_topic[:-4], self.state[CURRENT_TEMPERATURE_LOW],
-                            qos=1, retain=True)
-        await _mqtt.publish(self._temp_high_topic[:-4], self.state[CURRENT_TEMPERATURE_HIGH],
-                            qos=1, retain=True)
+        await _mqtt.publish(
+            _mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)),
+            self.state, qos=1, retain=True, timeout=4)
 
     async def _loop(self, interval):
         interval = interval * 1000
         t = time.ticks_ms()
         while self._restore_done is False and time.ticks_diff(time.ticks_ms(), t) < 30000:
             await asyncio.sleep(1)
-            # wait for network to finish so the old state can be restored or time out (30s)
+            # wait for network to finish so the old state can be restored, or time out (30s)
         t = 0
-        ev = False
         while True:
             while time.ticks_diff(time.ticks_ms(), t) < interval and not self.event.is_set():
                 await asyncio.sleep_ms(100)
-            if self.event.value():
-                await asyncio.sleep(1)
-                # always wait some time after event is set by temperature_min/set and
-                # temperature_max/set because they always get published after each other
-            ev = self.event.is_set()
+            if self.event.is_set():
+                self.event.clear()
             # These publish methods will block at most 10 sec which should be fine for a HVAC unit
             async with self.lock:
                 cur_temp = await self.temp_sensor.temperature(publish=True, timeout=5)
@@ -247,11 +220,6 @@ class Climate(Component):
                 await _mqtt.publish(
                     _mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)),
                     self.state, qos=1, retain=True, timeout=4)
-            if ev:
-                # only clearing event if it was set when processing started to not miss
-                # new requests while reading temp sensor or publishing state.
-                # setting event is mostly protectd by lock but not when changing temperature
-                self.event.clear()
             t = time.ticks_ms()
 
     async def _restore(self, topic, msg, retain):
@@ -319,14 +287,14 @@ class Climate(Component):
             raise ValueError("Can't set temp to {!s}, max temp is {!s}".format(msg,
                                                                                self._max_temp))
         if self.state[CURRENT_TEMPERATURE_HIGH] == msg:
-            return False  # already set to requested temperature, prevents unneeded publish
+            return False  # already set to requested temperature, prevents unneeded event & publish
         self.state[CURRENT_TEMPERATURE_HIGH] = msg
         if self.state[AWAY_MODE_STATE] == AWAY_ON:
             self.state[STORAGE_AWAY_TEMPERATURE_HIGH] = msg
         else:
             self.state[STORAGE_TEMPERATURE_HIGH] = msg
-        self.event.set(True)
-        return True
+        self.event.set()
+        return False
 
     async def changeTempLow(self, topic, msg, retain):
         msg = float(msg)
@@ -334,27 +302,28 @@ class Climate(Component):
             raise ValueError("Can't set temp to {!s}, min temp is {!s}".format(msg,
                                                                                self._min_temp))
         if self.state[CURRENT_TEMPERATURE_LOW] == msg:
-            return False  # already set to requested temperature, prevents unneeded publish
+            return False  # already set to requested temperature, prevents unneeded event & publish
         self.state[CURRENT_TEMPERATURE_LOW] = msg
         if self.state[AWAY_MODE_STATE] == AWAY_ON:
             self.state[STORAGE_AWAY_TEMPERATURE_LOW] = msg
         else:
             self.state[STORAGE_TEMPERATURE_LOW] = msg
-        self.event.set(True)
-        return True
+        self.event.set()
+        return False
 
     async def _discovery(self):
         name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
         base_topic = _mqtt.getRealTopic(_mqtt.getDeviceTopic(name))
         modes = ujson.dumps([str(mode) for mode in self._modes])
         gc.collect()
-        sens = _CLIMATE_TYPE.format(base_topic, self._frn or name, self._composeAvailability(),
-                                    sys_vars.getDeviceID(), name,  # unique_id
-                                    _mqtt.getRealTopic(self.temp_sensor.temperatureTopic()),
-                                    # current_temp_topic
-                                    self.temp_sensor.temperatureTemplate(),  # cur_temp_template
-                                    self._temp_step, self._min_temp, self._max_temp,
-                                    modes, sys_vars.getDeviceDiscovery())
+        sens = CLIMATE_DISCOVERY.format(base_topic, self._frn or name, self._composeAvailability(),
+                                        sys_vars.getDeviceID(), name,  # unique_id
+                                        _mqtt.getRealTopic(self.temp_sensor.temperatureTopic()),
+                                        # current_temp_topic
+                                        self.temp_sensor.temperatureTemplate(),
+                                        # cur_temp_template
+                                        self._temp_step, self._min_temp, self._max_temp,
+                                        modes, sys_vars.getDeviceDiscovery())
         gc.collect()
         topic = Component._getDiscoveryTopic(_COMPONENT_TYPE, name)
         await _mqtt.publish(topic, sens, qos=1, retain=True)
