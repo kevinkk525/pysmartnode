@@ -158,7 +158,8 @@ class Moisture(Component):
                     voltage /= 3
                     res.append(self._getPercentage(sensor, voltage))
                 if publish:
-                    await _mqtt.publish(self.humidityTopic() + "/" + str(i), res[-1], timeout=timeout,
+                    await _mqtt.publish(self.humidityTopic() + "/" + str(i), res[-1],
+                                        timeout=timeout,
                                         await_connection=False)
                     if self._pub_cv:
                         await _mqtt.publish(self.humidityTopic() + "/" + str(i) + "/conv",
@@ -200,10 +201,10 @@ class Moisture(Component):
             del name, sens, t
             gc.collect()
 
-    async def humidity(self, publish=True, timeout=5) -> list:
+    async def humidity(self, publish=True, timeout=5, no_stale=False) -> list:
         """
         Returns a list of all sensor values.
-        Does currently not conform to new API definitions.
+        Does currently not conform to new API definitions exposing every singel sensor as an object
         """
         return await self._read(publish=publish, timeout=timeout)
 

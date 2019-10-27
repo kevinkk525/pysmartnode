@@ -12,7 +12,7 @@ example config:
     component: DS18_Controller
     constructor_args: {
         pin: 5                    # pin number or label (on NodeMCU)
-        # interval: 600           # optional, defaults to 600. controller reads units in this interval
+        # interval: 600           # optional, defaults to 600. controller reads units in this interval. -1 means do not automatically read sensor and publish values
         # auto_discovery: False   # optional, if True then one object for each found DS18 Unit will be created. Only use this for reading all sensors.
     }
 }
@@ -33,8 +33,8 @@ example config:
 # Specific DS18 unit. 
 """
 
-__updated__ = "2019-10-26"
-__version__ = "2.8"
+__updated__ = "2019-10-27"
+__version__ = "2.9"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -82,9 +82,12 @@ class DS18_Controller(ds18x20.DS18X20, Component):
         self._lock = config.Lock()
         global _ds18_controller
         _ds18_controller = self
-        asyncio.get_event_loop().create_task(self._loop(auto_discovery))
+        if self._interval > 0:  # if interval==-1 no loop will be started
+            asyncio.get_event_loop().create_task(self._loop(auto_discovery))
+        elif auto_discovery:
+            asyncio.get_event_loop().create_task(self._autodisc())
 
-    async def _loop(self, auto_discovery=False):
+    async def _autodisc(self, auto_discovery=True):
         roms = []
         for _ in range(4):
             roms_n = self.scan()
@@ -96,6 +99,10 @@ class DS18_Controller(ds18x20.DS18X20, Component):
             for rom in roms:
                 DS18(rom)
                 await asyncio.sleep_ms(100)  # give discovery time to publish
+        return roms
+
+    async def _loop(self, auto_discovery=False):
+        roms = await self._autodisc(auto_discovery)
         roms = [self.rom2str(rom) for rom in roms]
         await _log.asyncLog("info", "Found ds18: {!s}".format(roms), timeout=10)
         interval = self._interval
@@ -164,9 +171,9 @@ class DS18_Controller(ds18x20.DS18X20, Component):
         return a
 
     @staticmethod
-    async def temperature(publish=True, timeout=5):
+    async def temperature(publish=True, timeout=5, no_stale=False):
         """This is only to support a dynamic connection to a single ds18 sensor"""
-        return await _instances[0].temperature(publish=publish, timeout=timeout)
+        return await _instances[0].temperature(publish=publish, timeout=timeout, no_stale=no_stale)
 
     @staticmethod
     def temperatureTemplate():
@@ -211,6 +218,7 @@ class DS18(Component):
         self._topic = mqtt_topic  # can be None instead of default to save RAM
         self._frn = friendly_name
         _instances.append(self)
+        self.__temp = None
 
         ##############################
         # adapt to your sensor by extending/removing unneeded values like in
@@ -221,7 +229,6 @@ class DS18(Component):
         ##############################
 
     async def _discovery(self):
-        # not scanning for available roms
         sens = self._composeSensorType("temperature",  # device_class
                                        "°C",  # unit_of_measurement
                                        _VAL_T_TEMPERATURE)  # value_template
@@ -238,16 +245,23 @@ class DS18(Component):
 
     __repr__ = __str__
 
-    async def temperature(self, publish=True, single_sensor=True, timeout=5) -> float:
+    async def temperature(self, publish=True, timeout=5, no_stale=False,
+                          single_sensor=True) -> float:
         """
         Read temperature of DS18 unit
         :param publish: bool, publish the read value
-        :param single_sensor: only used by the controller to optimize reading of multiple sensors.
         :param timeout: int, for publishing
+        :param no_stale: if True, sensor will be read no matter loop activity or interval
+        :param single_sensor: only used by the controller to optimize reading of multiple sensors.
         :return: float
         """
-        return await self._ds.read(self._r, self._topic, self._prec_temp, self._offs_temp, publish,
-                                   single_sensor, timeout)
+        if self._ds._interval == -1 or not single_sensor or no_stale:
+            # either no loop or loop is calling this or current value is requested
+            self.__temp = await self._ds.read(self._r, self._topic, self._prec_temp,
+                                              self._offs_temp,
+                                              publish,
+                                              single_sensor, timeout)
+        return self.__temp
 
     @staticmethod
     def temperatureTemplate():

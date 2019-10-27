@@ -9,7 +9,7 @@ example config:
     component: DS18
     constructor_args: {
         pin: 5                    # pin number or label (on NodeMCU)
-        # interval: 600           # optional, defaults to 600. controller reads units in this interval
+        # interval: 600           # optional, defaults to 600. -1 means do not automatically read sensor and publish values
         # precision_temp: 2       # precision of the temperature value published
         # offset_temp: 0          # offset for temperature to compensate bad sensor reading offsets
         # mqtt_topic: sometopic   # optional, defaults to home/<device-id>/DS18
@@ -21,8 +21,8 @@ example config:
 # The sensor can be replaced while the device is running.
 """
 
-__updated__ = "2019-10-26"
-__version__ = "1.0"
+__updated__ = "2019-10-27"
+__version__ = "1.1"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -77,7 +77,9 @@ class DS18(ds18x20.DS18X20, Component):
         gc.collect()
         self._lock = config.Lock()
         self.rom = None
-        asyncio.get_event_loop().create_task(self._loop())
+        self.__temp = None
+        if self._interval > 0:  # if interval==-1 no loop will be started
+            asyncio.get_event_loop().create_task(self._loop())
 
         ##############################
         # adapt to your sensor by extending/removing unneeded values like in
@@ -91,8 +93,7 @@ class DS18(ds18x20.DS18X20, Component):
         await asyncio.sleep(2)
         while True:
             interval = self._interval
-            await asyncio.sleep(1)
-            await self._read(publish=True)
+            self.__temp = await self._read(publish=True)
             await asyncio.sleep(interval)
 
     async def _read(self, publish=True, timeout=5) -> float:
@@ -176,14 +177,18 @@ class DS18(ds18x20.DS18X20, Component):
 
     __repr__ = __str__
 
-    async def temperature(self, publish=True, timeout=5) -> float:
+    async def temperature(self, publish=True, timeout=5, no_stale=False) -> float:
         """
         Read temperature of DS18 unit
         :param publish: bool, publish the read value
         :param timeout: int, for publishing
+        :param no_stale: if True sensor will be read no matter loop activity or interval
         :return: float
         """
-        return await self._read(publish, timeout)
+        if self._interval == -1 or no_stale:
+            return await self._read(publish, timeout)
+        else:
+            return self.__temp
 
     @staticmethod
     def temperatureTemplate():

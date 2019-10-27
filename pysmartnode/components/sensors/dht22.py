@@ -15,15 +15,15 @@ example config:
         precision_humid: 1        #precision of the humid value published
         offset_temp: 0            #offset for temperature to compensate bad sensor reading offsets
         offset_humid: 0           #...             
-        #interval: 600            #optional, defaults to 600
+        #interval: 600            #optional, defaults to 600. -1 means do not automatically read sensor and publish values
         #mqtt_topic: sometopic  #optional, defaults to home/<controller-id>/DHT22
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
     }
 }
 """
 
-__updated__ = "2019-10-21"
-__version__ = "0.8"
+__updated__ = "2019-10-27"
+__version__ = "0.9"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -80,7 +80,17 @@ class DHT22(Component):
         global _count
         self._count = _count
         _count += 1
-        asyncio.get_event_loop().create_task(self._loop, self.tempHumid)
+        ###
+        # Saving results of last sensor reading.
+        # With an active loop it will prevent the sensor from being read every time its
+        # value is requested. Also prevents multiple publish is multiple components
+        # are using the sensor.
+        # Also prevents waiting times for sensors that take long to read.
+        ###
+        self.__temp = None
+        self.__humid = None
+        if self._interval > 0:  # if interval==-1 no loop will be started
+            asyncio.get_event_loop().create_task(self._loop, self._tempHumid)
         gc.collect()
 
     async def _loop(self, gen):
@@ -138,15 +148,26 @@ class DHT22(Component):
     ##############################
     # remove or add functions below depending on the values of your sensor
 
-    async def temperature(self, publish=True, timeout=5):
-        return (await self._read(publish, timeout))[0]
+    async def temperature(self, publish=True, timeout=5, no_stale=False):
+        if self._interval == -1 or no_stale:
+            return (await self._read(publish, timeout))[0]
+        else:
+            return self.__temp
 
-    async def humidity(self, publish=True, timeout=5):
-        return (await self._read(publish, timeout))[1]
+    async def humidity(self, publish=True, timeout=5, no_stale=False):
+        if self._interval == -1 or no_stale:
+            return (await self._read(publish, timeout))[1]
+        else:
+            return self.__humid
 
-    async def tempHumid(self, publish=True, timeout=5) -> dict:
-        temp, humid = await self._read(publish, timeout)
-        return {"temperature": temp, "humiditiy": humid}
+    async def _tempHumid(self, publish=True, timeout=5) -> dict:
+        self.__temp, self.__humid = await self._read(publish, timeout)
+        return {"temperature": self.__temp, "humiditiy": self.__humid}
+
+    async def tempHumid(self, publish=True, timeout=5, no_stale=False) -> dict:
+        if self._interval == -1 or no_stale:
+            return await self._tempHumid(publish, timeout)
+        return {"temperature": self.__temp, "humiditiy": self.__humid}
 
     @staticmethod
     def temperatureTemplate():

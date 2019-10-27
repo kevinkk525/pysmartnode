@@ -195,14 +195,16 @@ class HCSR04(Component):
                                 timeout=timeout, await_connection=False)
         return dt
 
-    async def distance(self, temp=None, ignore_errors=False, publish=True, timeout=5) -> float:
+    async def distance(self, temp=None, ignore_errors=False, publish=True, timeout=5,
+                       no_stale=False) -> float:
         """
         Returns distance in cm, optionally temperature compensated
         :param temp: temperature value for compensation, optional
         :param ignore_errors: prevent bad readings from being published to the log in case the application expects those
         :param publish: if value should be published
         :param timeout: timeout for publishing the value
-        :return:
+        :param no_stale: doesnt make a difference. Distance sensor always reads the live status.
+        :return: float, [cm]
         """
         return await self._read(temp, ignore_errors, publish, timeout)
 

@@ -108,10 +108,10 @@ class Battery(Component):
                                 await_connection=False)
         return value, rela
 
-    async def voltage(self, publish=True, timeout=5):
+    async def voltage(self, publish=True, timeout=5, no_stale=False):
         return (await self._read(publish=publish, timeout=timeout))[0]
 
-    async def charge(self, publish=True, timeout=5):
+    async def charge(self, publish=True, timeout=5, no_stale=False):
         return (await self._read(publish=publish, timeout=timeout))[1]
 
     @staticmethod

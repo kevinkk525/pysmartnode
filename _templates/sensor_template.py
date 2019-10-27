@@ -15,7 +15,7 @@ example config:
         precision_humid: 1        #precision of the humid value published
         offset_temp: 0            #offset for temperature to compensate bad sensor reading offsets
         offset_humid: 0           #...             
-        # interval: 600            #optional, defaults to 600
+        # interval: 600            #optional, defaults to 600. -1 means do not automatically read sensor and publish values
         # mqtt_topic: sometopic  #optional, defaults to home/<controller-id>/HTU
         # friendly_name_temp: null    # optional, friendly name shown in homeassistant gui with mqtt discovery
         # friendly_name_humid: null    # optional, friendly name shown in homeassistant gui with mqtt discovery
@@ -23,8 +23,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-21"
-__version__ = "1.4"
+__updated__ = "2019-10-27"
+__version__ = "1.5"
 
 from pysmartnode import config
 from pysmartnode.utils.wrappers.async_wrapper import async_wrapper as _async_wrapper
@@ -71,6 +71,18 @@ class MySensor(Component):
         self._frn_temp = friendly_name_temp
         self._frn_humid = friendly_name_humid
 
+        ###
+        # Saving results of last sensor reading.
+        # With an active loop it will prevent the sensor from being read every time its
+        # value is requested. Also prevents multiple publish if multiple components
+        # are using the sensor.
+        # Also prevents waiting times for sensors that take long to read.
+        # Can be implemented without this mechansim if a sensor needs to always return
+        # the current sensor reads (e.g. battery, distance, ...)
+        ###
+        self.__temp = None
+        self.__humid = None
+
         # This makes it possible to use multiple instances of MySensor
         global _count
         self._count = _count
@@ -95,9 +107,10 @@ class MySensor(Component):
         ##############################
         # choose a background loop that periodically reads the values and publishes it
         # (function is created below)
-        background_loop = self.tempHumid
+        background_loop = self._tempHumid
         ##############################
-        asyncio.get_event_loop().create_task(self._loop(background_loop))
+        if self._interval > 0:  # if interval==-1 no loop will be started
+            asyncio.get_event_loop().create_task(self._loop(background_loop))
         gc.collect()
 
     async def _loop(self, gen):
@@ -146,8 +159,23 @@ class MySensor(Component):
     ##############################
     # remove or add functions below depending on the values of your sensor
 
-    async def temperature(self, publish=True, timeout=5):
-        return await self._read(self._temp, self._prec_temp, self._offs_temp, publish, timeout)
+    async def temperature(self, publish=True, timeout=5, no_stale=False) -> float:
+        """
+        Return last sensor temperature and humidity.
+        Only reads sensor if no loop is reading it periodically unless no_stale is True.
+        If a loop is active, it will return the last read value which will be
+        at most <self._interval> old.
+        Params publish and timeout will only have an effect if no loop is active or no_stale True.
+        :param publish: if value should be published if no loop is active
+        :param timeout: timeout for publishing the value
+        :param no_stale: if True then the sensor will be read, no matter the loop activity or interval.
+        Makes long intervals possible with other components that rely on having a "live" sensor reading.
+        :return: float
+        """
+        if self._interval == -1 or no_stale:
+            return await self._read(self._temp, self._prec_temp, self._offs_temp, publish, timeout)
+        else:
+            return self.__temp
 
     @staticmethod
     def temperatureTemplate():
@@ -159,8 +187,24 @@ class MySensor(Component):
         # this saves the RAM for storing the default topic.
         return self._topic or _mqtt.getDeviceTopic("{!s}{!s}".format(COMPONENT_NAME, self._count))
 
-    async def humidity(self, publish=True, timeout=5):
-        return await self._read(self._humid, self._prec_humid, self._offs_humid, publish, timeout)
+    async def humidity(self, publish=True, timeout=5, no_stale=False) -> float:
+        """
+        Return last sensor temperature and humidity.
+        Only reads sensor if no loop is reading it periodically unless no_stale is True.
+        If a loop is active, it will return the last read value which will be
+        at most <self._interval> old.
+        Params publish and timeout will only have an effect if no loop is active or no_stale True.
+        :param publish: if value should be published if no loop is active
+        :param timeout: timeout for publishing the value
+        :param no_stale: if True then the sensor will be read, no matter the loop activity or interval.
+        Makes long intervals possible with other components that rely on having a "live" sensor reading.
+        :return: float
+        """
+        if self._interval == -1 or no_stale:
+            return await self._read(self._humid, self._prec_humid, self._offs_humid, publish,
+                                    timeout)
+        else:
+            return self.__humid
 
     @staticmethod
     def humidityTemplate():
@@ -170,15 +214,32 @@ class MySensor(Component):
     def humidityTopic(self):
         return self.temperatureTopic()
 
-    async def tempHumid(self, publish=True, timeout=5):
-        temp = await self.temperature(publish=False)
-        humid = await self.humidity(publish=False)
-        if temp is not None and humid is not None and publish:
+    async def _tempHumid(self, publish=True, timeout=5) -> dict:
+        self.__temp = await self.temperature(publish=False)
+        self.__humid = await self.humidity(publish=False)
+        if self.__temp is not None and self.__humid is not None and publish:
             await _mqtt.publish(self.temperatureTopic(), {
-                "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),
-                "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(humid)},
+                "temperature": ("{0:." + str(self._prec_temp) + "f}").format(self.__temp),
+                "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(self.__humid)},
                                 timeout=timeout, await_connection=False)
             # formating prevents values like 51.500000000001 on esp32_lobo
-        return {"temperature": temp, "humiditiy": humid}
+        return {"temperature": self.__temp, "humiditiy": self.__humid}
+
+    async def tempHumid(self, publish=True, timeout=5, no_stale=False) -> dict:
+        """
+        Return last sensor temperature and humidity.
+        Only reads sensor if no loop is reading it periodically unless no_stale is True.
+        If a loop is active, it will return the last read value which will be
+        at most <self._interval> old.
+        Params publish and timeout will only have an effect if no loop is active or no_stale True.
+        :param publish: if value should be published if no loop is active
+        :param timeout: timeout for publishing the value
+        :param no_stale: if True then the sensor will be read, no matter the loop activity or interval.
+        Makes long intervals possible with other components that rely on having a "live" sensor reading.
+        :return: float
+        """
+        if self._interval == -1:
+            return await self._tempHumid(publish, timeout)
+        return {"temperature": self.__temp, "humiditiy": self.__humid}
 
     ##############################

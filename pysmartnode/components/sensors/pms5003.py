@@ -114,9 +114,11 @@ class PMS5003(sensorModule.PMS5003, Component):
     ##############################
     # remove or add functions below depending on the values of your sensor
 
-    async def airQuality(self, publish=True, timeout=5) -> dict:
+    async def airQuality(self, publish=True, timeout=5, no_stale=False) -> dict:
         """Method for publishing values.
-        There is a method for each value in the base class."""
+        There is a method for each value in the base class.
+        no_stale: PMS sensor doesn't support getting live values,
+        use active mode with Event or callback"""
         if self._active and self._timestamp is not None:
             # timestamp is None if no value received yet
             values = {

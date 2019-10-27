@@ -128,7 +128,7 @@ class WaterSensor(Component):
             self._lv = state
             return True
 
-    async def water(self, publish=True, timeout=5):
+    async def water(self, publish=True, timeout=5, no_stale=False):
         return await self._read(publish, timeout)
 
     @staticmethod

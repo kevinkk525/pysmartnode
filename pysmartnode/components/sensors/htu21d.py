@@ -15,7 +15,7 @@ example config:
         precision_humid: 1          # precision of the humid value published
         temp_offset: 0              # offset for temperature to compensate bad sensor reading offsets
         humid_offset: 0             # ...             
-        # interval: 600             # optional, defaults to 600
+        # interval: 600             # optional, defaults to 600. -1 means do not automatically read sensor and publish values
         # mqtt_topic: sometopic     # optional, defaults to home/<controller-id>/HTU0
         # friendly_name_temp: null  # optional, friendly name shown in homeassistant gui with mqtt discovery
         # friendly_name_humid: null # optional, friendly name shown in homeassistant gui with mqtt discovery 
@@ -23,8 +23,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-21"
-__version__ = "2.5"
+__updated__ = "2019-10-27"
+__version__ = "2.6"
 
 import gc
 from pysmartnode import config
@@ -73,6 +73,15 @@ class HTU21D(htu, Component):
         ###
         self._offs_temp = float(temp_offset)
         self._offs_humid = float(humid_offset)
+        ###
+        # Saving results of last sensor reading.
+        # With an active loop it will prevent the sensor from being read every time its
+        # value is requested. Also prevents multiple publish if multiple components
+        # are using the sensor.
+        # Also prevents waiting times for sensors that take long to read.
+        ###
+        self.__temp = None
+        self.__humid = None
         ##############################
         # create sensor object
         htu.__init__(self, i2c=i2c)
@@ -84,9 +93,10 @@ class HTU21D(htu, Component):
         ##############################
         # choose a background loop that periodically reads the values and publishes it
         # (function is created below)
-        background_loop = self.tempHumid
+        background_loop = self._tempHumid
         ##############################
-        asyncio.get_event_loop().create_task(self._loop(background_loop))
+        if self._interval > 0:  # if interval==-1 no loop will be started
+            asyncio.get_event_loop().create_task(self._loop(background_loop))
         gc.collect()
 
     async def _loop(self, gen):
@@ -129,42 +139,52 @@ class HTU21D(htu, Component):
                                 timeout=timeout, await_connection=False)
         return value
 
-    async def temperature(self, publish=True, timeout=5):
-        temp = await self._read(self._temp, self._prec_temp, self._offs_temp, publish, timeout)
-        if temp is not None and temp < -48:
-            # on a device without a connected HTU I sometimes get about -48.85
-            if publish:
-                await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
-                                                                 "Sensor {!s} got no value".format(
-                                                                     COMPONENT_NAME))
-            return None
-        return temp
+    async def temperature(self, publish=True, timeout=5, no_stale=False) -> float:
+        if self._interval == -1 or no_stale:
+            temp = await self._read(self._temp, self._prec_temp, self._offs_temp, publish, timeout)
+            if temp is not None and temp < -48:
+                # on a device without a connected HTU I sometimes get about -48.85
+                if publish:
+                    await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
+                                                                     "Sensor {!s} got no value".format(
+                                                                         COMPONENT_NAME))
+                return None
+            return temp
+        return self.__temp
 
-    async def humidity(self, publish=True, timeout=5):
-        humid = await self._read(self._humid, self._prec_humid, self._offs_humid, publish, timeout)
-        if humid is not None and humid <= 5:
-            # on a device without a connected HTU I sometimes get about 4
-            if publish:
-                await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
-                                                                 "Sensor {!s} got no value".format(
-                                                                     COMPONENT_NAME))
-            return None
-        return humid
+    async def humidity(self, publish=True, timeout=5, no_stale=False) -> float:
+        if self._interval == -1 or no_stale:
+            humid = await self._read(self._humid, self._prec_humid, self._offs_humid, publish,
+                                     timeout)
+            if humid is not None and humid <= 5:
+                # on a device without a connected HTU I sometimes get about 4
+                if publish:
+                    await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
+                                                                     "Sensor {!s} got no value".format(
+                                                                         COMPONENT_NAME))
+                return None
+            return humid
+        return self.__humid
 
-    async def tempHumid(self, publish=True, timeout=5):
-        temp = await self.temperature(publish=False)
-        humid = await self.humidity(publish=False)
-        if temp is None or humid is None:
+    async def tempHumid(self, publish=True, timeout=5, no_stale=False) -> dict:
+        if self._interval == -1 or no_stale:
+            return await self._tempHumid(publish, timeout)
+        return {"temperature": self.__temp, "humiditiy": self.__humid}
+
+    async def _tempHumid(self, publish=True, timeout=5) -> dict:
+        self.__temp = await self.temperature(publish=False)
+        self.__humid = await self.humidity(publish=False)
+        if self.__temp is None or self.__humid is None:
             await logging.getLogger(COMPONENT_NAME).asyncLog("warn",
                                                              "Sensor {!s} got no value".format(
                                                                  COMPONENT_NAME))
         elif publish:
             await _mqtt.publish(self.temperatureTopic(), {
-                "temperature": ("{0:." + str(self._prec_temp) + "f}").format(temp),
-                "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(humid)},
+                "temperature": ("{0:." + str(self._prec_temp) + "f}").format(self.__temp),
+                "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(self.__humid)},
                                 timeout=timeout, await_connection=False)
             # formating prevents values like 51.500000000001 on esp32_lobo
-        return {"temperature": temp, "humiditiy": humid}
+        return {"temperature": self.__temp, "humiditiy": self.__humid}
 
     @staticmethod
     def humidityTemplate():
