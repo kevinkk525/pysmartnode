@@ -176,8 +176,6 @@ class MQTTHandler(MQTTClient):
 
     async def _subscribeTopics(self, start: int = 0):
         _log.debug("_subscribeTopics, start {!s}".format(start), local_only=True)
-        while not self._has_connected:
-            await asyncio.sleep_ms(100)
         for i in range(start, len(self._subs)):
             if len(self._subs) <= i:
                 # entries got unsubscribed
@@ -189,10 +187,13 @@ class MQTTHandler(MQTTClient):
                 t = self.getRealTopic(t)
             if len(self._subs[i]) == 4:  # requested retained state topic
                 sub = self._subs[i]
-                ts = time.ticks_ms()
                 self._sub_retained = True
+                # if coro gets canceled in the process, the state topic will be checked
+                # the next time _subscribeTopic runs after the reconnect
                 _log.debug("_subscribing {!s}".format(t[:-4]), local_only=True)
                 await self._preprocessor(super().subscribe, (t[:-4], 1))  # subscribe state topic
+                ts = time.ticks_ms()  # start timer after successful subscribe otherwise
+                # it might time out before subscribe has even finished.
                 while time.ticks_diff(time.ticks_ms(), ts) < 4000 and self._sub_retained:
                     # wait 4 seconds for answer
                     await asyncio.sleep_ms(100)
@@ -487,7 +488,7 @@ class MQTTHandler(MQTTClient):
         finally:
             self._pub_coro = None
 
-    async def _preprocessor(self, coroutine, args, timeout=None, await_connection=False):
+    async def _preprocessor(self, coroutine, args, timeout=None, await_connection=True):
         coro = None
         start = time.ticks_ms()
         try:
