@@ -76,7 +76,7 @@ class Moisture(Component):
                 raise TypeError("Voltages have to be lists with multiple sensor_types")
         self._pub_cv = publish_converted_value
         self._topic = mqtt_topic
-        self._interval = interval or config.INTERVAL_SEND_SENSOR
+        self._interval = interval or config.INTERVAL_SENSOR_PUBLISH
         self._lock = Lock()
         self._frn = friendly_name
         self._frn_cv = friendly_name_cv
