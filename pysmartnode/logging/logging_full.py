@@ -1,11 +1,9 @@
-'''
-Created on 19.07.2017
+# Author: Kevin Köck
+# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Created on 2017-07-19
 
-@author: Kevin K�ck
-'''
-
-__updated__ = "2019-10-25"
-__version__ = "2.6"
+__updated__ = "2019-10-28"
+__version__ = "2.7"
 
 # TODO: Add possibility to use real logging module on esp32_lobo and save logs locally or to sdcard
 
@@ -22,8 +20,10 @@ async def asyncLog(name, message, level, timeout=None, await_connection=True):
     if config.getMQTT() is not None:
         base_topic = "{!s}/log/{!s}/{!s}".format(config.MQTT_HOME, "{!s}", sys_vars.getDeviceID())
         # if level is before id other clients can subscribe to e.g. all critical logs
-        await config.getMQTT().publish(base_topic.format(level), "[{!s}] {}".format(name, message),
+        await config.getMQTT().publish(base_topic.format(level),
+                                       b"[{!s}] {}".format(name, message),
                                        qos=1, timeout=timeout, await_connection=await_connection)
+        # format message as bytes so there's no need to encode it later.
     else:
         print(level, message)
 
@@ -70,6 +70,8 @@ class Logger:
 
     async def asyncLog(self, level, message, timeout=None, await_connection=True):
         log(self.name, message, level, return_only=True)
+        if timeout == 0:
+            return
         await asyncLog(self.name, message, level, timeout, await_connection)
 
 
