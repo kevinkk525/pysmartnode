@@ -1,8 +1,6 @@
-'''
-Created on 29.10.2017
-
-@author: Kevin K�ck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Created on 2017-10-29
 
 """
 example config:
@@ -30,7 +28,7 @@ from pysmartnode import logging
 from pysmartnode.utils.event import Event
 from pysmartnode.utils.locksync import Lock
 from pysmartnode.components.machine.pin import Pin
-from pysmartnode.utils.component import Component, TIMELAPSE_TYPE
+from pysmartnode.utils.component import Component, DISCOVERY_TIMELAPSE
 import machine
 import time
 import uasyncio as asyncio
@@ -120,7 +118,7 @@ class Bell(Component):
         gc.collect()
         if config.RTC_SYNC_ACTIVE is True:
             await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("last_bell"), "last_bell",
-                                         TIMELAPSE_TYPE, self._frn_l or "Last Bell")
+                                         DISCOVERY_TIMELAPSE, self._frn_l or "Last Bell")
             gc.collect()
 
     def topic(self):

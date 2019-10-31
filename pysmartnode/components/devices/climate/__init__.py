@@ -33,8 +33,8 @@ cooling_unit
 fan_unit
 """
 
-__updated__ = "2019-10-27"
-__version__ = "0.6"
+__updated__ = "2019-10-30"
+__version__ = "0.7"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -43,6 +43,16 @@ from pysmartnode.utils.event import Event
 import gc
 import time
 from pysmartnode.utils.component import Component
+
+# imports of ComponentSensor and ComponentSwitch to keep heap fragmentation low
+# as those will be needed in any case
+gc.collect()
+from pysmartnode.utils.component.sensor import ComponentSensor, SENSOR_TEMPERATURE
+
+gc.collect()
+from pysmartnode.utils.component.switch import ComponentSwitch
+
+gc.collect()
 from pysmartnode.utils import sys_vars
 import ujson
 from .definitions import *
@@ -66,8 +76,6 @@ class BaseMode:
     def __init__(self, climate):
         pass
 
-    # async def _init(self):
-
     async def trigger(self, climate, current_temp):
         """Triggered whenever the situation is evaluated again"""
         raise NotImplementedError
@@ -90,6 +98,8 @@ class Climate(Component):
                  temp_step=0.1, min_temp=16, max_temp=28, temp_low=20, temp_high=21,
                  away_temp_low=16, away_temp_high=17,
                  friendly_name=None, discover=True):
+        self.checkSensorType(temperature_sensor, SENSOR_TEMPERATURE)
+        self.checkSwitchType(heating_unit)
         super().__init__(COMPONENT_NAME, __version__, discover)
 
         # This makes it possible to use multiple instances of MyComponent
@@ -100,13 +110,6 @@ class Climate(Component):
         self._temp_step = temp_step
         self._min_temp = min_temp
         self._max_temp = max_temp
-        if hasattr(temperature_sensor, "temperature") is False:
-            raise TypeError("Temp sensor doesn't have coro temperature()")
-        if isinstance(temperature_sensor, Component) is False:
-            raise TypeError(
-                "Temp sensor {!s} is not of instance Component".format(temperature_sensor))
-        if isinstance(heating_unit, Component) is False:
-            raise TypeError("heating_unit {!s} is not of instance Component".format(heating_unit))
         self.temp_sensor = temperature_sensor
         self.heating_unit = heating_unit
         self._modes = {}
@@ -168,10 +171,6 @@ class Climate(Component):
         asyncio.get_event_loop().create_task(self._loop(interval))
 
     async def _init_network(self):
-        for mode in self._modes:
-            if hasattr(mode, "_init"):
-                await mode._init()
-        gc.collect()
         await _mqtt.awaitSubscriptionsDone()  # wait until subscriptions are done
         # because received messages will take up RAM and the discovery message
         # of climate is very big and could easily fail if RAM is fragmented.
@@ -180,38 +179,31 @@ class Climate(Component):
         gc.collect()
         await super()._init_network()
         # let discovery succeed first because it is a big message
-        _mqtt.subscribeSync(
+        await _mqtt.subscribe(
             _mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)),
             self._restore, self)
         gc.collect()
-        for _ in range(16):
-            # get retained values
-            if self._restore_done is True:
-                break
-            await asyncio.sleep_ms(250)
-        if self._restore_done is False:
-            await _mqtt.unsubscribe(
-                _mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)), self)
-            self._restore_done = True
-        await _mqtt.publish(
-            _mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)),
-            self.state, qos=1, retain=True, timeout=4)
 
     async def _loop(self, interval):
         interval = interval * 1000
         t = time.ticks_ms()
-        while self._restore_done is False and time.ticks_diff(time.ticks_ms(), t) < 30000:
+        while not self._restore_done and time.ticks_diff(time.ticks_ms(), t) < 30000:
             await asyncio.sleep(1)
             # wait for network to finish so the old state can be restored, or time out (30s)
+        if not self._restore_done:
+            await _mqtt.unsubscribe(
+                _mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)), self)
+            self._restore_done = True
+            self.event.set()
+        await asyncio.sleep(1)
         t = 0
         while True:
             while time.ticks_diff(time.ticks_ms(), t) < interval and not self.event.is_set():
                 await asyncio.sleep_ms(100)
             if self.event.is_set():
                 self.event.clear()
-            # These publish methods will block at most 10 sec which should be fine for a HVAC unit
             async with self.lock:
-                cur_temp = await self.temp_sensor.temperature(publish=True, timeout=5)
+                cur_temp = await self.temp_sensor.getValue(SENSOR_TEMPERATURE)
                 try:
                     await self._modes[self.state[CURRENT_MODE]].trigger(self, cur_temp)
                 except Exception as e:
@@ -223,8 +215,7 @@ class Climate(Component):
             t = time.ticks_ms()
 
     async def _restore(self, topic, msg, retain):
-        # used to restore the state after a restart since away temperature is different
-        # but only one topic is used for away=False/True.
+        # used to restore the state after a restart
         await _mqtt.unsubscribe(
             _mqtt.getDeviceTopic("{!s}{!s}/state".format(COMPONENT_NAME, self._count)), self)
         mode = msg[CURRENT_MODE]
@@ -232,9 +223,9 @@ class Climate(Component):
         del msg[CURRENT_ACTION]  # is going to be set after trigger()
         self.state.update(msg)
         try:
-            await self.changeMode(topic, mode, retain)
+            await self.changeMode(topic, mode, retain)  # uses lock
         except AttributeError as e:
-            _log.error(e)
+            await _log.asyncLog("error", e, timeout=10)
         self._restore_done = True
         await asyncio.sleep(1)
         self.event.set()
@@ -318,9 +309,10 @@ class Climate(Component):
         gc.collect()
         sens = CLIMATE_DISCOVERY.format(base_topic, self._frn or name, self._composeAvailability(),
                                         sys_vars.getDeviceID(), name,  # unique_id
-                                        _mqtt.getRealTopic(self.temp_sensor.temperatureTopic()),
+                                        _mqtt.getRealTopic(
+                                            self.temp_sensor.getTopic(SENSOR_TEMPERATURE)),
                                         # current_temp_topic
-                                        self.temp_sensor.temperatureTemplate(),
+                                        self.temp_sensor.getTemplate(SENSOR_TEMPERATURE),
                                         # cur_temp_template
                                         self._temp_step, self._min_temp, self._max_temp,
                                         modes, sys_vars.getDeviceDiscovery())

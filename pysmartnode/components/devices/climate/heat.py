@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-10-12 
 
-__updated__ = "2019-10-25"
+__updated__ = "2019-10-28"
 __version__ = "0.4"
 
 from pysmartnode.components.devices.climate import BaseMode
@@ -14,8 +14,6 @@ class heat(BaseMode):
     def __init__(self, climate):
         super().__init__(climate)
         self._last_state = False
-
-    # async def _init(self):
 
     async def trigger(self, climate, current_temp):
         """Triggered whenever the situation is evaluated again"""

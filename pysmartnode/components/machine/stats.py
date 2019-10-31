@@ -5,8 +5,8 @@
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2019-10-21"
-__version__ = "1.1"
+__updated__ = "2019-10-30"
+__version__ = "1.2"
 
 import gc
 
@@ -45,7 +45,7 @@ STATE_TYPE = '"json_attributes_topic":"~",' \
 class STATS(Component):
     def __init__(self):
         super().__init__(COMPONENT_NAME, __version__)
-        self._interval = config.INTERVAL_SEND_SENSOR
+        self._interval = config.INTERVAL_SENSOR_PUBLISH
         self._last_boot = None
 
     async def _init_network(self):
@@ -74,10 +74,12 @@ class STATS(Component):
             val["Last boot"] = "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2],
                                                                               t[3], t[4], t[5])
             s = int(time.time() - time.mktime(t))
-            m, s = divmod(s, 60)
-            h, m = divmod(m, 60)
-            d, h = divmod(h, 24)
-            val["Uptime"] = '{:d}T{:02d}:{:02d}:{:02d}'.format(d, h, m, s)
+        else:
+            s = time.ticks_ms() / 1000  # approximate uptime depending on accuracy of ticks_ms()
+        m, s = divmod(s, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        val["Uptime"] = '{:d}T{:02d}:{:02d}:{:02d}'.format(d, h, m, s)
         logging.getLogger("RAM").info(gc.mem_free(), local_only=True)
         val["RAM free (bytes)"] = gc.mem_free()
         if sta is not None:
@@ -105,9 +107,16 @@ class STATS(Component):
         val["MQTT Reconnects"] = _mqtt.getReconnects()
         val["MQTT Dropped messages"] = _mqtt.getDroppedMessages()
         val["MQTT Subscriptions"] = _mqtt.getLenSubscribtions()
+        val["MQTT TimedOutOps"] = _mqtt.getTimedOutOperations()
         val["Asyncio waitq"] = "{!s}/{!s}".format(len(asyncio.get_event_loop().waitq),
                                                   config.LEN_ASYNC_QUEUE)
         await _mqtt.publish(_mqtt.getDeviceTopic("status"), val, qos=1, retain=False, timeout=5)
+        del val
+        gc.collect()
+        if config.DEBUG:
+            # DEBUG to check RAM/Heap fragmentation
+            import micropython
+            micropython.mem_info(1)
 
     async def _loop(self):
         await asyncio.sleep(20)
