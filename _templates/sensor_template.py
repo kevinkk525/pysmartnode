@@ -1,8 +1,6 @@
-'''
-Created on 14.04.2018
-
-@author: Kevin Köck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Created on 2018-04-14
 
 """
 example config:
@@ -10,27 +8,29 @@ example config:
     package: <package_path>
     component: MySensor
     constructor_args: {
-        i2c: i2c                   #i2c object created before
-        precision_temp: 2         #precision of the temperature value published
-        precision_humid: 1        #precision of the humid value published
-        offset_temp: 0            #offset for temperature to compensate bad sensor reading offsets
-        offset_humid: 0           #...             
-        # interval: 600            #optional, defaults to 600. -1 means do not automatically read sensor and publish values
-        # mqtt_topic: sometopic  #optional, defaults to home/<controller-id>/HTU
-        # friendly_name_temp: null    # optional, friendly name shown in homeassistant gui with mqtt discovery
-        # friendly_name_humid: null    # optional, friendly name shown in homeassistant gui with mqtt discovery
+        i2c: i2c                     # i2c object created before. this is just some custom sensor specific option
+        precision_temp: 2            # precision of the temperature value published
+        precision_humid: 1           # precision of the humid value published
+        temp_offset: 0               # offset for temperature to compensate bad sensor reading offsets
+        humid_offset: 0              # ...
+        # interval_publish: 600      # optional, defaults to 600. Set to interval_reading to publish with every reading
+        # interval_reading: 120      # optional, defaults to 120. -1 means do not automatically read sensor and publish values
+        # mqtt_topic: sometopic      # optional, defaults to home/<controller-id>/HTU<count>
+        # friendly_name_temp: null   # optional, friendly name shown in homeassistant gui with mqtt discovery
+        # friendly_name_humid: null  # optional, friendly name shown in homeassistant gui with mqtt discovery
+        # discover: true             # optional, if false no discovery message for homeassistant will be sent.
+        # expose_intervals: false    # optional, expose intervals to mqtt so they can be changed remotely
+        # intervals_topic: null      # optional, if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
 """
 
-__updated__ = "2019-10-27"
-__version__ = "1.5"
+__updated__ = "2019-10-30"
+__version__ = "2.1"
 
 from pysmartnode import config
-from pysmartnode.utils.wrappers.async_wrapper import async_wrapper as _async_wrapper
 from pysmartnode import logging
-import uasyncio as asyncio
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component.sensor import ComponentSensor, SENSOR_TEMPERATURE, SENSOR_HUMIDITY
 import gc
 
 ####################
@@ -40,8 +40,6 @@ from htu21d import HTU21D as Sensor
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
 COMPONENT_NAME = "HTU"
-# define the type of the component according to the homeassistant specifications
-_COMPONENT_TYPE = "sensor"
 # define (homeassistant) value templates for all sensor readings
 _VAL_T_TEMPERATURE = "{{ value_json.temperature }}"
 _VAL_T_HUMIDITY = "{{ value_json.humidity }}"
@@ -54,192 +52,55 @@ gc.collect()
 _count = 0
 
 
-class MySensor(Component):
+class MySensor(ComponentSensor):
     def __init__(self, i2c, precision_temp=2, precision_humid=1,
-                 offset_temp=0, offset_humid=0,  # extend or shrink according to your sensor
-                 interval=None, mqtt_topic=None,
+                 temp_offset=0, humid_offset=0,  # extend or shrink according to your sensor
+                 interval_publish=None, interval_reading=None, mqtt_topic=None,
                  friendly_name_temp=None, friendly_name_humid=None,
-                 discover=True):
-        super().__init__(COMPONENT_NAME, __version__, discover)
+                 discover=True, expose_intervals=False, intervals_topic=None):
+        """
+        :param i2c: i2c object for temperature sensor
+        :param precision_temp: precision of the temperature value, digits after separator "."
+        :param precision_humid: precision of the humidity value, digits after separator "."
+        :param temp_offset: float offset to account for bad sensor readings
+        :param humid_offset:  float offset to account for bad sensor readings
+        :param interval_publish: seconds, set to interval_reading to publish every reading. -1 for not publishing.
+        :param interval_reading: seconds, set to -1 for not reading/publishing periodically. >0 possible for reading, 0 not allowed for reading.
+        If reading interval is lower than the timeout of publishing all sensor readings would be,
+        a separate publish coroutine will be started so the reading interval won't be impacted.
+        :param mqtt_topic: optional custom mqtt topic, defaults to <home>/<device-id>/<COMPONENT_NAME><_count>
+        :param friendly_name_temp: friendly name in homeassistant GUI for temperature component
+        :param friendly_name_humid: friendly name in homeassistant GUI for humidity component
+        :param discover: if the sensor component should send its homeassistnat discovery message
+        :param expose_intervals: Expose intervals to mqtt so they can be changed remotely
+        :param intervals_topic: if expose_intervals then use this topic to change intervals.
+        Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set
+        Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
+        """
+        super().__init__(COMPONENT_NAME, __version__, discover, interval_publish, interval_reading,
+                         mqtt_topic, _log, expose_intervals, intervals_topic)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch
 
-        self._interval = interval or config.INTERVAL_SEND_SENSOR
-        self._topic = mqtt_topic  # default topic is generated in temperatureTopic() on demand
-        # to save the RAM of storing it.
-        self._frn_temp = friendly_name_temp
-        self._frn_humid = friendly_name_humid
+        self._addSensorType(SENSOR_TEMPERATURE, precision_temp, temp_offset, _VAL_T_TEMPERATURE,
+                            "°C", friendly_name_temp)
+        self._addSensorType(SENSOR_HUMIDITY, precision_humid, humid_offset, _VAL_T_HUMIDITY, "%",
+                            friendly_name_humid)
 
-        ###
-        # Saving results of last sensor reading.
-        # With an active loop it will prevent the sensor from being read every time its
-        # value is requested. Also prevents multiple publish if multiple components
-        # are using the sensor.
-        # Also prevents waiting times for sensors that take long to read.
-        # Can be implemented without this mechansim if a sensor needs to always return
-        # the current sensor reads (e.g. battery, distance, ...)
-        ###
-        self.__temp = None
-        self.__humid = None
-
-        # This makes it possible to use multiple instances of MySensor
+        # This makes it possible to use multiple instances of MySensor and have unique identifier
         global _count
         self._count = _count
         _count += 1
 
         ##############################
-        # adapt to your sensor by extending/removing unneeded values like in the
-        # constructor arguments
-        self._prec_temp = int(precision_temp)
-        self._prec_humid = int(precision_humid)
-        ###
-        self._offs_temp = float(offset_temp)
-        self._offs_humid = float(offset_humid)
-        ##############################
         # create sensor object
         self.sensor = Sensor(i2c=i2c)  # add neccessary constructor arguments here
         ##############################
-        # create a link to the functions of the sensor
-        # (if that function is a coroutine you can omit _async_wrapper)
-        self._temp = _async_wrapper(self.sensor.temperature)
-        self._humid = _async_wrapper(self.sensor.humidity)
-        ##############################
-        # choose a background loop that periodically reads the values and publishes it
-        # (function is created below)
-        background_loop = self._tempHumid
-        ##############################
-        if self._interval > 0:  # if interval==-1 no loop will be started
-            asyncio.get_event_loop().create_task(self._loop(background_loop))
         gc.collect()
 
-    async def _loop(self, gen):
-        interval = self._interval
-        while True:
-            await gen()
-            await asyncio.sleep(interval)
-
-    async def _discovery(self):
-        component_topic = self.temperatureTopic()  # get the state topic of custom component topic
-        # In this case the component_topic has to be set to self._topic as the humidity
-        # and temperature are going to be published to the same topic.
-        for v in (("T", "Temperature", "°C", _VAL_T_TEMPERATURE, self._frn_temp),
-                  ("H", "Humidity", "%", _VAL_T_HUMIDITY, self._frn_humid)):
-            name = "{!s}{!s}{!s}".format(COMPONENT_NAME, self._count, v[0])
-            # note that the name needs to be unique for temperature and humidity as they are
-            # different components in the homeassistant gui.
-            sens = self._composeSensorType(v[1].lower(),  # device_class
-                                           v[2],  # unit_of_measurement
-                                           v[3])  # value_template
-            await self._publishDiscovery(_COMPONENT_TYPE, component_topic, name, sens,
-                                         v[4] or v[1])
-            del name, sens
-            gc.collect()
-
-    async def _read(self, coro, prec, offs, publish=True, timeout=5):
-        if coro is None:
-            raise TypeError("Sensor generator is of type None")
-        try:
-            value = await coro()
-        except Exception as e:
-            _log.error("Error reading sensor {!s}: {!s}".format(COMPONENT_NAME, e))
-            return None
-        if value is not None:
-            value = round(value, prec)
-            value += offs
-        if value is None:
-            _log.warn("Sensor {!s} got no value".format(COMPONENT_NAME))
-            # not making this await asyncLog as self.temperature is calling this
-            # and might not want a network outage to block a sensor reading.
-        elif publish:
-            await _mqtt.publish(self.temperatureTopic(), ("{0:." + str(prec) + "f}").format(value),
-                                timeout=timeout, await_connection=False)
-        return value
-
-    ##############################
-    # remove or add functions below depending on the values of your sensor
-
-    async def temperature(self, publish=True, timeout=5, no_stale=False) -> float:
-        """
-        Return last sensor temperature and humidity.
-        Only reads sensor if no loop is reading it periodically unless no_stale is True.
-        If a loop is active, it will return the last read value which will be
-        at most <self._interval> old.
-        Params publish and timeout will only have an effect if no loop is active or no_stale True.
-        :param publish: if value should be published if no loop is active
-        :param timeout: timeout for publishing the value
-        :param no_stale: if True then the sensor will be read, no matter the loop activity or interval.
-        Makes long intervals possible with other components that rely on having a "live" sensor reading.
-        :return: float
-        """
-        if self._interval == -1 or no_stale:
-            return await self._read(self._temp, self._prec_temp, self._offs_temp, publish, timeout)
-        else:
-            return self.__temp
-
-    @staticmethod
-    def temperatureTemplate():
-        """Other components like HVAC might need to know the value template of a sensor"""
-        return _VAL_T_TEMPERATURE
-
-    def temperatureTopic(self):
-        # this way the default topic gets generated on request if no topic is stored.
-        # this saves the RAM for storing the default topic.
-        return self._topic or _mqtt.getDeviceTopic("{!s}{!s}".format(COMPONENT_NAME, self._count))
-
-    async def humidity(self, publish=True, timeout=5, no_stale=False) -> float:
-        """
-        Return last sensor temperature and humidity.
-        Only reads sensor if no loop is reading it periodically unless no_stale is True.
-        If a loop is active, it will return the last read value which will be
-        at most <self._interval> old.
-        Params publish and timeout will only have an effect if no loop is active or no_stale True.
-        :param publish: if value should be published if no loop is active
-        :param timeout: timeout for publishing the value
-        :param no_stale: if True then the sensor will be read, no matter the loop activity or interval.
-        Makes long intervals possible with other components that rely on having a "live" sensor reading.
-        :return: float
-        """
-        if self._interval == -1 or no_stale:
-            return await self._read(self._humid, self._prec_humid, self._offs_humid, publish,
-                                    timeout)
-        else:
-            return self.__humid
-
-    @staticmethod
-    def humidityTemplate():
-        """Other components like HVAC might need to know the value template of a sensor"""
-        return _VAL_T_HUMIDITY
-
-    def humidityTopic(self):
-        return self.temperatureTopic()
-
-    async def _tempHumid(self, publish=True, timeout=5) -> dict:
-        self.__temp = await self.temperature(publish=False)
-        self.__humid = await self.humidity(publish=False)
-        if self.__temp is not None and self.__humid is not None and publish:
-            await _mqtt.publish(self.temperatureTopic(), {
-                "temperature": ("{0:." + str(self._prec_temp) + "f}").format(self.__temp),
-                "humidity":    ("{0:." + str(self._prec_humid) + "f}").format(self.__humid)},
-                                timeout=timeout, await_connection=False)
-            # formating prevents values like 51.500000000001 on esp32_lobo
-        return {"temperature": self.__temp, "humiditiy": self.__humid}
-
-    async def tempHumid(self, publish=True, timeout=5, no_stale=False) -> dict:
-        """
-        Return last sensor temperature and humidity.
-        Only reads sensor if no loop is reading it periodically unless no_stale is True.
-        If a loop is active, it will return the last read value which will be
-        at most <self._interval> old.
-        Params publish and timeout will only have an effect if no loop is active or no_stale True.
-        :param publish: if value should be published if no loop is active
-        :param timeout: timeout for publishing the value
-        :param no_stale: if True then the sensor will be read, no matter the loop activity or interval.
-        Makes long intervals possible with other components that rely on having a "live" sensor reading.
-        :return: float
-        """
-        if self._interval == -1:
-            return await self._tempHumid(publish, timeout)
-        return {"temperature": self.__temp, "humiditiy": self.__humid}
-
-    ##############################
+    async def _read(self):
+        t = await self.sensor.temperature()
+        h = await self.sensor.humidity()
+        await self._setValue(SENSOR_TEMPERATURE, t)
+        await self._setValue(SENSOR_HUMIDITY, h)
