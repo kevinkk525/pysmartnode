@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-10-20"
-__version__ = "0.6"
+__updated__ = "2019-10-31"
+__version__ = "0.7"
 
 from .switch import ComponentSwitch
 from pysmartnode.utils.component import Component
@@ -22,7 +22,7 @@ class ComponentButton(ComponentSwitch):
     """
 
     def __init__(self, component_name, version, command_topic=None, instance_name=None,
-                 wait_for_lock=False, discover=True):
+                 wait_for_lock=False, discover=True, friendly_name=None, initial_state=False):
         """
         :param component_name: name of the component that is subclassing this switch (used for discovery and topics)
         :param version: version of the component module. will be logged over mqtt
@@ -32,9 +32,12 @@ class ComponentButton(ComponentSwitch):
         meaning the previous device request has to finish before the new one is started.
         Otherwise the new one will get ignored.
         With a single-shot action it usually doesn't make sense to wait for the lock.
+        :param friendly_name: friendly name for homeassistant gui
+        :param initial_state: the initial state of the button, typically False ("OFF") for Pushbutton
         """
         super().__init__(component_name, version, command_topic, instance_name, wait_for_lock,
-                         discover, restore_state=False)
+                         discover, restore_state=False, friendly_name=friendly_name,
+                         initial_state=initial_state)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch

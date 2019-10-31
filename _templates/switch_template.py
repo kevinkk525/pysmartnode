@@ -10,14 +10,15 @@ example config:
     package: <package_path>
     component: Switch
     constructor_args: {
-        # mqtt_topic: null     #optional, defaults to <mqtt_home>/<device_id>/Buzzer/set
+        # mqtt_topic: null    # optional, defaults to <mqtt_home>/<device_id>/Switch<_count>/set
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
+        # discover: true      # optional, if false no discovery message for homeassistant will be sent.
     }
 }
 """
 
-__updated__ = "2019-10-20"
-__version__ = "1.6"
+__updated__ = "2019-10-31"
+__version__ = "1.7"
 
 from pysmartnode import config
 from pysmartnode.utils.component.switch import ComponentSwitch
@@ -44,17 +45,20 @@ class Switch(ComponentSwitch):
         global _count
         self._count = _count
         _count += 1
-        # mqtt_topic can be adapted otherwise a default mqtt_topic will
-        # be generated if None is passed
-        super().__init__(COMPONENT_NAME, __version__, mqtt_topic, instance_name=None,
-                         wait_for_lock=True, discover=discover)
-        self._frn = friendly_name
+
         ###
-        # set the initial state otherwise it will be "None" (unknown).
-        self._state = False
-        # Might be that you can read your devices state on startup or know the state because
+        # set the initial state otherwise it will be "None" (unknown) and the first request
+        # will set it accordingly.
+        initial_state = None
+        # should be False/True if can read your devices state on startup or know the state because
         # you initialize a pin in a certain state.
         ###
+
+        # mqtt_topic can be adapted otherwise a default mqtt_topic will be generated if None
+        super().__init__(COMPONENT_NAME, __version__, mqtt_topic, instance_name=None,
+                         wait_for_lock=True, discover=discover, friendly_name=friendly_name,
+                         initial_state=initial_state)
+
         # If the device needs extra code, launch a new coroutine.
 
     #####################

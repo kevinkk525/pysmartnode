@@ -18,8 +18,8 @@ example config for MyComponent:
 }
 """
 
-__updated__ = "2019-10-21"
-__version__ = "1.5"
+__updated__ = "2019-10-31"
+__version__ = "1.6"
 
 import uasyncio as asyncio
 from pysmartnode import config
@@ -76,7 +76,12 @@ class MyComponent(Component):
         self.my_value = my_value
 
         self._frn = friendly_name  # will default to unique name in discovery if None
-        asyncio.get_event_loop().create_task(self._loop())
+
+        self._loop_coro = self._loop()
+        # the component might get removed in which case it should be able to locate and stop
+        # any running loops it created (otherwise the component will create Exceptions and
+        # won't be able to be fully removed from RAM)
+        asyncio.get_event_loop().create_task(self._loop_coro)
         gc.collect()
 
     async def _init_network(self):
@@ -99,6 +104,15 @@ class MyComponent(Component):
         while True:
             await asyncio.sleep(5)
             await _mqtt.publish(self._command_topic[:-4], "ON", qos=1)  # publishing to state_topic
+
+    async def _remove(self):
+        """Will be called if the component gets removed"""
+        # Cancel any loops/asyncio coroutines started by the component
+        try:
+            asyncio.cancel(self._loop_coro)
+        except Exception:
+            pass
+        await super()._remove()
 
     async def _discovery(self):
         name = "{!s}{!s}".format(COMPONENT_NAME, self._count)

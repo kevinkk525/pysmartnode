@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-10-30"
-__version__ = "0.8"
+__updated__ = "2019-10-31"
+__version__ = "0.9"
 
 from pysmartnode.utils.component import Component
 from .definitions import DISCOVERY_SWITCH
@@ -22,7 +22,8 @@ class ComponentSwitch(Component):
     """
 
     def __init__(self, component_name, version, command_topic=None, instance_name=None,
-                 wait_for_lock=True, discover=True, restore_state=True):
+                 wait_for_lock=True, discover=True, restore_state=True, friendly_name=None,
+                 initial_state=None):
         """
         :param component_name: name of the component that is subclassing this switch (used for discovery and topics)
         :param version: version of the component module. will be logged over mqtt
@@ -32,13 +33,15 @@ class ComponentSwitch(Component):
         :param restore_state: restore the retained state topic state
         meaning the previous device request has to finish before the new one is started.
         Otherwise the new one will get ignored.
+        :param friendly_name: friendly name for homeassistant gui
+        :param initial_state: intitial state of the switch. By default unknown so first state change request will set initial state.
         """
         super().__init__(component_name, version, discover=discover)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch
 
-        self._state = None  # initial state is unknown
+        self._state = initial_state  # initial state is unknown if None
         self._topic = command_topic or _mqtt.getDeviceTopic(
             "{!s}{!s}/set".format(component_name, self._count))
         _mqtt.subscribeSync(self._topic, self.on_message, self, check_retained_state=restore_state)
@@ -48,6 +51,7 @@ class ComponentSwitch(Component):
         self._name = instance_name
         self._count = ""  # declare in subclass
         self._event = None
+        self._frn = friendly_name
         gc.collect()
 
     def getStateChangeEvent(self):

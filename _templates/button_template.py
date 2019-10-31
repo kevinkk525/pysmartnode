@@ -3,21 +3,22 @@
 # Created on 2019-09-10
 
 """
-example config:
+example config for remoteConfig module or as json in components.py:
 {
     package: <package_path>
     component: Button
     constructor_args: {
-        # mqtt_topic: null     #optional, defaults to <mqtt_home>/<device_id>/Buzzer/set
-        # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
+        # mqtt_topic: null     # optional, defaults to <mqtt_home>/<device_id>/Button<_count>/set
+        # friendly_name: null  # optional, friendly name shown in homeassistant gui with mqtt discovery
+        # discover: true       # optional, if false no discovery message for homeassistant will be sent.
     }
 }
 """
 
 # A button is basically a switch with a single-shot action that deactivates itself afterwards.
 
-__updated__ = "2019-10-20"
-__version__ = "0.5"
+__updated__ = "2019-10-31"
+__version__ = "0.6"
 
 from pysmartnode import config
 from pysmartnode.utils.component.button import ComponentButton
@@ -44,13 +45,18 @@ class Button(ComponentButton):
         global _count
         self._count = _count
         _count += 1
+
+        ###
+        # set the initial state otherwise it will be "None" (unknown) and the first request
+        # will set it accordingly which in case of a button will always be an activation.
+        initial_state = False  # A button will always be False as it is single-shot,
+        # unless you have a device with a long single-shot action active during reboot.
+        # You might be able to poll the current state of a device to set the inital state correctly
+
         # mqtt_topic can be adapted otherwise a default mqtt_topic will be generated if None
         super().__init__(COMPONENT_NAME, __version__, mqtt_topic, instance_name=None,
-                         wait_for_lock=False, discover=discover)
-        self._frn = friendly_name
-        self._state = False  # A button will always be False as it is single-shot,
-        # unless you have a device with a long single-shot action. Then you might
-        # be able to poll its current state.
+                         wait_for_lock=False, discover=discover, friendly_name=friendly_name,
+                         initial_state=initial_state)
 
         # If the device needs extra code, launch a new coroutine.
 
