@@ -15,10 +15,11 @@ example config:
 }
 """
 
-# TODO: implement possibility to set sensor topics through mqtt, similar to .base implementation
+# TODO: implement possibility to set sensor topics through mqtt, similar to RemoteSensor implementation
+# TODO: make a real ComponentSwitch class so type checks won't fail
 
-__updated__ = "2019-10-11"
-__version__ = "0.1"
+__updated__ = "2019-10-30"
+__version__ = "0.2"
 
 COMPONENT_NAME = "RemoteSwitch"
 
@@ -47,7 +48,7 @@ class RemoteSwitch(Component):
         # in case switch activates a device that will need a while to finish
         self._state_time = 0
         self._timeout = timeout
-        self._subscribe(self._state_topic, self.on_message)
+        _mqtt.subscribeSync(self._state_topic, self.on_message, self)
 
     async def on_message(self, topic, msg, retain):
         """

@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-10-20"
-__version__ = "0.7"
+__updated__ = "2019-10-30"
+__version__ = "0.8"
 
 from pysmartnode.utils.component import Component
 from .definitions import DISCOVERY_SWITCH
@@ -47,7 +47,23 @@ class ComponentSwitch(Component):
         self._wfl = wait_for_lock
         self._name = instance_name
         self._count = ""  # declare in subclass
+        self._event = None
         gc.collect()
+
+    def getStateChangeEvent(self):
+        """
+        Returns an event that gets triggered on every state change
+        :return: Event
+        """
+        if self._event is None:
+            from pysmartnode.utils.event import Event
+            self._event = Event()
+        return self._event
+
+    def _setState(self, state):
+        if state != self._state and self._event is not None:
+            self._event.set(state)
+        self._state = state
 
     async def on_message(self, topic, msg, retain):
         """
@@ -71,7 +87,7 @@ class ComponentSwitch(Component):
         async with self.lock:
             res = await self._on()  # if _on() returns True the value should be published
             if res is True:
-                self._state = True
+                self._setState(True)
                 await _mqtt.publish(self._topic[:-4], "ON", qos=1, retain=True, timeout=_TIMEOUT)
             return res
 
@@ -82,7 +98,7 @@ class ComponentSwitch(Component):
         async with self.lock:
             res = await self._off()  # if _off() returns True the value should be published
             if res is True:
-                self._state = False
+                self._setState(False)
                 await _mqtt.publish(self._topic[:-4], "OFF", qos=1, retain=True, timeout=_TIMEOUT)
             return res
 
