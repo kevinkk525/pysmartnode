@@ -4,8 +4,10 @@
 ### Version 5.3.0
 * [easyGPIO] topics now use "easyGPIO" to not make them collide with module "switches.GPIO"
 * [remoteSensors] use remote sensors as if they were locally connected
-* [COMPONENTS] extended API significantly, updated to new/changed MQTT features
+* [COMPONENTS] extended API significantly, updated to new/changed MQTT features, added cleanup method
+* [SENSOR COMPONENT] major base class for a unified sensor API and features to make usage and development easier
 * [HTU21D] changed base topic to be more in line with other components
+* [DS18] rewritten for new sensor API
 * [HEATER] removed deprecated component
 * [CLIMATE] added new Climate component which is compatible to homeassistant MQTT Climate
 * [CONFIG] removed option to load components from .json files, use components.py instead
