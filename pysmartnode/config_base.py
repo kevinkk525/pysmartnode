@@ -2,8 +2,7 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-10-22 
 
-__updated__ = "2019-10-22"
-__version__ = "0.1"
+__updated__ = "2019-10-27"
 
 from sys import platform
 from micropython import const
@@ -31,7 +30,7 @@ MQTT_RECEIVE_CONFIG = False
 # sends the configuration of a device over mqtt
 # If you do not run it, you have to configure the components locally on each microcontroller
 # using a components.py file
-MQTT_TYPE = const(0)  # 0: direct, 1: IOT implementation
+MQTT_TYPE = const(0)  # 0: direct, 1: IOT implementation (not working at the moment, use direct)
 MQTT_MAX_CONCURRENT_EXECUTIONS = -1
 # MAX_CONCURRENT_EXECUTIONS: Can be used to restrict the amount of concurrently executed mqtt
 # messages to prevent message spam to crash the device. Will by default limit the concurrent
@@ -66,8 +65,8 @@ elif platform == "esp8266":
 elif platform == "linux":
     RTC_SYNC_ACTIVE = True  # This should always be True unless your system doesn't have access to the internet or sync the time
 
-# 10min, Interval sensors send a new value if not specified by specific configuration
-INTERVAL_SEND_SENSOR = const(600)
+INTERVAL_SENSOR_PUBLISH = const(600)  # publish sensor readings every 10 minutes by default
+INTERVAL_SENSOR_READ = const(120)  # read sensor every 2 minutes by default
 
 # Device specific configurations:
 #

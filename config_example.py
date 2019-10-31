@@ -33,7 +33,7 @@ MQTT_PASSWORD = ""  # optional if no authentication needed
 # WIFI_LED_ACTIVE_HIGH = True  # if led is on when output is low, change to False
 
 # WEBREPL_ACTIVE = False  # If you want to have the webrepl active. Configures and starts it automatically.
-# WEBREPL_PASSWORD = ""
+# WEBREPL_PASSWORD = ""   # Be aware that webrepl needs 1.4kB of RAM!
 
 if platform == "esp32" or platform == "esp8266":
     RTC_TIMEZONE_OFFSET = 2  # offset from GMT timezone as ntptime on esp8266 does not support timezones

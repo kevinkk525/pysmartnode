@@ -1,13 +1,12 @@
-'''
-Created on 09.03.2018
+# Author: Kevin Köck
+# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Created on 2018-03-09
 
-@author: Kevin Köck
-'''
 ##
 # Configuration management file
 ##
 
-__updated__ = "2018-10-20"
+__updated__ = "2018-10-30"
 
 from .config_base import *
 from sys import platform
@@ -44,9 +43,12 @@ class MyExc(Exception):
     pass
 
 
+# Remove once micropython PR #5275 is merged
 def cancel(t):
     try:
-        asyncio.cancel(t)
+        prev = t.pend_throw(asyncio.CancelledError())
+        if prev is False:
+            asyncio.get_event_loop().call_soon(t)
     except TypeError as e:
         try:
             print("Trapped", e)

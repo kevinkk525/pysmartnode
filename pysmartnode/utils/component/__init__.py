@@ -55,13 +55,16 @@ class Component:
         self.__discover = discover
 
     @staticmethod
-    def removeComponent(component):
+    async def removeComponent(component):
         if type(component) == str:
             component = config.getComponent(component)
         if isinstance(component, Component) is False:
             config._log.error(
                 "Can't remove a component that is not an instance of pysmartnode.utils.component.Component")
             return False
+        # call cleanup method, should stop running loops
+        await _mqtt.unsubscribe(None, component)
+        await component._remove()
         global _components
         c = _components
         p = None
@@ -74,6 +77,9 @@ class Component:
                 break
             p = c
             c = c._next_component
+
+    async def _remove(self):
+        pass
 
     @staticmethod
     async def __initNetworkProcess():
@@ -89,7 +95,8 @@ class Component:
         await config._log.asyncLog("info",
                                    "Added module {!r} version {!s} as component {!r}".format(
                                        self.COMPONENT_NAME, self.VERSION,
-                                       config.getComponentName(self)))
+                                       config.getComponentName(self)), timeout=5)
+        gc.collect()
         if config.MQTT_DISCOVERY_ENABLED is True and self.__discover is True:
             await self._discovery()
             gc.collect()
@@ -148,3 +155,17 @@ class Component:
     def _getDiscoveryTopic(component_type, name):
         return "{!s}/{!s}/{!s}/{!s}/config".format(config.MQTT_DISCOVERY_PREFIX, component_type,
                                                    sys_vars.getDeviceID(), name)
+
+    @staticmethod
+    def checkSensorType(obj, sensor_type):
+        from .sensor import ComponentSensor
+        if not isinstance(obj, ComponentSensor):
+            raise TypeError("{!s} is not of instance ComponentSensor".format(obj))
+        if sensor_type not in obj.sensor_types:
+            raise TypeError("{!s} does not support the sensor_type {!s}".format(obj, sensor_type))
+
+    @staticmethod
+    def checkSwitchType(obj):
+        from .switch import ComponentSwitch
+        if not isinstance(obj, ComponentSwitch):
+            raise TypeError("{!s} is not of instance ComponentSwitch".format(obj))

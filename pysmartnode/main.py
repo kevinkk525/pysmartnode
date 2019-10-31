@@ -1,8 +1,6 @@
-'''
-Created on 10.08.2017
-
-@author: Kevin K�ck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Created on 2017-08-10
 
 __updated__ = "2019-10-26"
 
@@ -71,7 +69,7 @@ async def _receiveConfig():
         await asyncio.sleep(1)
     gc.collect()
     _log.debug("RAM before deleting receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
-    conf.removeComponent(conf)  # removes component from Component chain
+    await conf.removeComponent(conf)  # removes component from Component chain
     del conf
     del pysmartnode.components.machine.remoteConfig
     del sys.modules["pysmartnode.components.machine.remoteConfig"]
