@@ -176,7 +176,7 @@ class Moisture(Component):
             return [None] * len(sensors)
         return res
 
-    async def _discovery(self):
+    async def _discovery(self, register=True):
         amux = not isinstance(self._adc, pyADC)
         if type(self._sensor_types) == list:
             im = len(self._sensor_types)
@@ -187,18 +187,26 @@ class Moisture(Component):
         for i in range(im):
             if self._pub_cv:
                 name = "{!s}{!s}CV".format(COMPONENT_NAME, i)
-                sens = DISCOVERY_BINARY_SENSOR.format("moisture")  # device_class
-                t = "{!s}/{!s}/conv".format(self.humidityTopic(), i)
-                await self._publishDiscovery("binary_sensor", t, name, sens,
-                                             self._frn_cv or "Moisture")
+                if register:
+                    sens = DISCOVERY_BINARY_SENSOR.format("moisture")  # device_class
+                    t = "{!s}/{!s}/conv".format(self.humidityTopic(), i)
+                    await self._publishDiscovery("binary_sensor", t, name, sens,
+                                                 self._frn_cv or "Moisture")
+                    del sens
+                else:
+                    await self._deleteDiscovery("binary_sensor", name)
             name = "{!s}{!s}".format(COMPONENT_NAME, i)
             t = "{!s}/{!s}".format(self.humidityTopic(), i)
-            sens = self._composeSensorType("humidity",  # device_class
-                                           "%",  # unit_of_measurement
-                                           _VAL_T_HUMIDITY)  # value_template
-            await self._publishDiscovery(_COMPONENT_TYPE, t, name, sens,
-                                         self._frn or "Moisture rel.")
-            del name, sens, t
+            if register:
+                sens = self._composeSensorType("humidity",  # device_class
+                                               "%",  # unit_of_measurement
+                                               _VAL_T_HUMIDITY)  # value_template
+                await self._publishDiscovery(_COMPONENT_TYPE, t, name, sens,
+                                             self._frn or "Moisture rel.")
+                del sens
+            else:
+                await self._deleteDiscovery("binary_sensor", name)
+            del name, t
             gc.collect()
 
     async def humidity(self, publish=True, timeout=5, no_stale=False) -> list:

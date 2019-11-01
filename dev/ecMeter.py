@@ -117,12 +117,15 @@ class EC(Component):
             await gen()
             await asyncio.sleep(interval)
 
-    async def _discovery(self):
+    async def _discovery(self, register=True):
         sens = '"unit_of_meas":"mS",' \
                '"val_tpl":"{{ value|float }}",'
         name = "{!s}{!s}{!s}".format(COMPONENT_NAME, self._count, "EC25")
-        await self._publishDiscovery(_COMPONENT_TYPE, self._topic_ec, name, sens,
-                                     self._frn_ec or "EC25")
+        if register:
+            await self._publishDiscovery(_COMPONENT_TYPE, self._topic_ec, name, sens,
+                                         self._frn_ec or "EC25")
+        else:
+            await self._deleteDiscovery(_COMPONENT_TYPE, name)
         del sens, name
         gc.collect()
         sens = '"unit_of_meas":"ppm",' \

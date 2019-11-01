@@ -1,8 +1,6 @@
-'''
-Created on 2018-08-17
-
-@author: Kevin Köck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Created on 2018-08-17
 
 """
 Unified Pin creation utility. Accepts pin number, name (for esp8266 NodeMCU) and Pin-Object.
@@ -37,11 +35,13 @@ def Pin(pin, *args, **kwargs):
             # generate dictionary on request so no RAM gets reserved all the time
             pins = {"D%i" % p: v for p, v in enumerate((16, 5, 4, 0, 2, 14, 12, 13, 15, 3, 1))}
         else:
-            raise TypeError("Platform {!s} does not support string pin names like {!s}".format(platform, pin))
+            raise TypeError(
+                "Platform {!s} does not support string pin names like {!s}".format(platform, pin))
         if pin in pins:
             pin = pins[pin]
         else:
-            raise TypeError("Pin type {!s}, name {!r} not found in dictionary".format(type(pin), pin))
+            raise TypeError(
+                "Pin type {!s}, name {!r} not found in dictionary".format(type(pin), pin))
         gc.collect()
     elif type(pin) != int:
         # assuming pin object

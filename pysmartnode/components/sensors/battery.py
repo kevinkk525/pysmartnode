@@ -54,11 +54,11 @@ _count = 0
 
 
 class Battery(ComponentSensor):
-    def __init__(self, adc, voltage_max, voltage_min, multiplier_adc, cutoff_pin=None,
-                 precision_voltage=2, interval_reading=1, interval_publish=None,
-                 mqtt_topic=None, friendly_name=None,
-                 friendly_name_abs=None,
-                 discover=True, expose_intervals=False, intervals_topic=None):
+    def __init__(self, adc, voltage_max: float, voltage_min: float, multiplier_adc: float,
+                 cutoff_pin=None, precision_voltage: int = 2, interval_reading: float = 1,
+                 interval_publish: float = None, mqtt_topic: str = None, friendly_name: str = None,
+                 friendly_name_abs: str = None, discover: bool = True,
+                 expose_intervals: bool = False, intervals_topic: str = None):
         super().__init__(COMPONENT_NAME, __version__, discover, interval_publish, interval_reading,
                          mqtt_topic, _log, expose_intervals, intervals_topic)
         self._adc = ADC(adc)  # unified ADC interface
@@ -79,11 +79,11 @@ class Battery(ComponentSensor):
         asyncio.get_event_loop().create_task(self._events())
         gc.collect()
 
-    def getVoltageMax(self):
+    def getVoltageMax(self) -> float:
         """Getter for consumers"""
         return self._voltage_max
 
-    def getVoltageMin(self):
+    def getVoltageMin(self) -> float:
         """Getter for consumers"""
         return self._voltage_min
 

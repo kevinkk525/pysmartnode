@@ -29,8 +29,8 @@ As Homeassistant only supports sensors and switches to be discovered, every mode
 to enable the mode.
 """
 
-__updated__ = "2019-10-20"
-__version__ = "0.5"
+__updated__ = "2019-11-01"
+__version__ = "0.6"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -260,13 +260,19 @@ class Switch(Component):
     def state(self):
         return self._component.state()
 
-    async def _discovery(self):
+    async def _discovery(self, register=True):
         count = self._component._count if hasattr(self._component, "_count") else ""
         for mode in self._modes_enabled:
             name = "{!s}{!s}_{!s}_{!s}".format(COMPONENT_NAME, count, "mode", mode)
-            await self._publishDiscovery(_COMPONENT_TYPE,
-                                         "{!s}/{!s}".format(self._topic_mode[:-4], mode), name,
-                                         DISCOVERY_SWITCH,
-                                         "{!s} Mode {!s}".format(self._component._frn, mode))
+            if register:
+                await self._publishDiscovery(_COMPONENT_TYPE,
+                                             "{!s}/{!s}".format(self._topic_mode[:-4], mode), name,
+                                             DISCOVERY_SWITCH,
+                                             "{!s} Mode {!s}".format(self._component._frn, mode))
+            else:
+                await self._deleteDiscovery(_COMPONENT_TYPE, name)
         name = "{!s}{!s}_{!s}".format(COMPONENT_NAME, count, "mode")
-        await self._publishDiscovery("sensor", self._topic_mode[:-4], name, "", self._frn_mode)
+        if register:
+            await self._publishDiscovery("sensor", self._topic_mode[:-4], name, "", self._frn_mode)
+        else:
+            await self._deleteDiscovery("sensor", name)

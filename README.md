@@ -85,12 +85,24 @@ Every loaded component will be published as *log.info* to *<home>/log/info/<devi
 
 ### API
 
-Components can be and do anything. There is a basic API and [base class](./pysmartnode/utils/component/__init__.py) which takes care of mqtt, discovery and the basic API.
-<br>Sensors all have a similar API to have a standardized usage.
-For example all temperature sensors provide the function (coroutine actually) *sensor.temperature(publish=True)* that returns the temperature as float and takes the argument *publish=True* controlling if the read value should be published to mqtt in addition to reading the value.
-This should make working with different types of sensors easier. If you are e.g. building a heating controller and need a temperature from some sensor, you can just connect any sensor and provide the heating code with that sensor by configuration. 
-As every temperature sensor has the function (actually coroutine) *temperature()* returning the current temperature in float (or None on error) it does not care about which sensor is connected.
-<br>Switch components can be integrated even easier using the [switch base class](./pysmartnode/utils/component/switch.py).
+Components can be and do anything. There is a basic API and [base class](./pysmartnode/utils/component/__init__.py) which helps with homeassistant mqtt discovery and the basic API.
+<br>Sensors all have a similar API to have a standardized usage through the [sensor base class](./pysmartnode/utils/component/sensor.py).
+The sensor base class makes developing sensors very easy as it takes care of mqtt discovery, reading and publishing intervals and the standardized API.
+All sensors now have a common API:
+- getValue(sensor_type)->sensor_type last read value
+- getTopic(sensor_type)->mqtt topic of sensor_type
+- getTemplate(sensor_type)->homeassistant value template of sensor_type
+- getTimestamp(sensor_type)->timestamp of last successful sensor reading
+- getReadingsEvent()->Event being set on next sensor reading
+
+<br>Sensor_types in definitions but can be custom, those are only the ones supported by Homeassistant.
+
+<br>Common features:
+- Reading interval and publish interval separated and not impacting each other
+- Reading and publish intervals can be changed during runtime, optionally by mqtt
+- Sensor subclass only needs to implement a _read() function reading the sensor and submitting the read values. Base class does everything else (publishing, discovery, ...)
+<br>This should make working with different types of sensors easier. If you are e.g. building a heating controller and need a temperature from some sensor, you can just connect any sensor and provide the heating code with that sensor by configuration.
+<br>Switch components can be integrated similarily easy using the [switch base class](./pysmartnode/utils/component/switch.py).
 <br>Templates for how to use the components can be found in [templates](./_templates).
 
 ### MQTT-Discovery

@@ -2,10 +2,10 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-10-12 
 
-__updated__ = "2019-10-28"
+__updated__ = "2019-10-31"
 __version__ = "0.4"
 
-from pysmartnode.components.devices.climate import BaseMode
+from pysmartnode.components.devices.climate import BaseMode, Climate
 from .definitions import ACTION_HEATING, ACTION_IDLE, MODE_HEAT, CURRENT_ACTION, \
     CURRENT_TEMPERATURE_HIGH, CURRENT_TEMPERATURE_LOW
 
@@ -15,7 +15,7 @@ class heat(BaseMode):
         super().__init__(climate)
         self._last_state = False
 
-    async def trigger(self, climate, current_temp):
+    async def trigger(self, climate: Climate, current_temp: float) -> bool:
         """Triggered whenever the situation is evaluated again"""
         if current_temp is None:
             await climate.log.asyncLog("warn", "No temperature", timeout=2, await_connection=False)
@@ -54,12 +54,12 @@ class heat(BaseMode):
                 climate.state[CURRENT_ACTION] = ACTION_IDLE
                 self._last_state = False
 
-    async def activate(self, climate):
+    async def activate(self, climate: Climate) -> bool:
         """Triggered whenever the mode changes and this mode has been activated"""
         self._last_state = climate.heating_unit.state()
         return True
 
-    async def deactivate(self, climate):
+    async def deactivate(self, climate: Climate) -> bool:
         """Triggered whenever the mode changes and this mode has been deactivated"""
         return True  # no deinit needed
 

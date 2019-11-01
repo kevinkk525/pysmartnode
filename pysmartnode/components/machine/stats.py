@@ -5,8 +5,8 @@
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2019-10-30"
-__version__ = "1.2"
+__updated__ = "2019-11-01"
+__version__ = "1.3"
 
 import gc
 
@@ -107,7 +107,9 @@ class STATS(Component):
         val["MQTT Reconnects"] = _mqtt.getReconnects()
         val["MQTT Dropped messages"] = _mqtt.getDroppedMessages()
         val["MQTT Subscriptions"] = _mqtt.getLenSubscribtions()
-        val["MQTT TimedOutOps"] = _mqtt.getTimedOutOperations()
+        if config.DEBUG:
+            # only needed for debugging and could be understood wrongly otherwise
+            val["MQTT TimedOutOps"] = _mqtt.getTimedOutOperations()
         val["Asyncio waitq"] = "{!s}/{!s}".format(len(asyncio.get_event_loop().waitq),
                                                   config.LEN_ASYNC_QUEUE)
         await _mqtt.publish(_mqtt.getDeviceTopic("status"), val, qos=1, retain=False, timeout=5)
@@ -125,9 +127,12 @@ class STATS(Component):
             await self._publish()
             await asyncio.sleep(self._interval)
 
-    async def _discovery(self):
+    async def _discovery(self, register=True):
         topic = _mqtt.getRealTopic(_mqtt.getDeviceTopic("status"))
-        await self._publishDiscovery("sensor", topic, "status", STATE_TYPE,
-                                     "Status {!s}".format(
-                                         config.DEVICE_NAME or sys_vars.getDeviceID()))
+        if register:
+            await self._publishDiscovery("sensor", topic, "status", STATE_TYPE,
+                                         "Status {!s}".format(
+                                             config.DEVICE_NAME or sys_vars.getDeviceID()))
+        else:
+            await self._deleteDiscovery("sensor", "status")
         gc.collect()

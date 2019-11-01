@@ -1,8 +1,7 @@
-'''
-Created on 09.08.2017
+# Author: Kevin Köck
+# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Created on 2017-08-09
 
-@author: Kevin Köck
-'''
 """
 example config:
 {
@@ -66,7 +65,8 @@ class Amux:
         else:
             self.__size = 8
         self._return_voltages = return_voltages
-        self._adc = _ADC(adc)  # no matter what adc is, _ADC will return an object with the unified ADC API
+        self._adc = _ADC(
+            adc)  # no matter what adc is, _ADC will return an object with the unified ADC API
 
     def setReturnVoltages(self, vol):
         self._return_voltages = vol

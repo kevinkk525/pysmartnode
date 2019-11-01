@@ -1,8 +1,6 @@
-'''
-Created on 30.10.2017
-
-@author: Kevin K�ck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Created on 2017-10-30
 
 """
 example config:
@@ -10,15 +8,15 @@ example config:
     package: .machine.easyGPIO
     component: GPIO
     constructor_args: {
-        #mqtt_topic: null   #optional, topic needs to have /GPIO/# at the end; to change a value publish to /GPIO/<pin>/set
-        #discover_pins: [1,2,3] # optional, discover all pins of the list. Otherwise no pins are discovered.
+        # mqtt_topic: null   #optional, topic needs to have /GPIO/# at the end; to change a value publish to /GPIO/<pin>/set
+        # discover_pins: [1,2,3] # optional, discover all pins of the list. Otherwise no pins are discovered.
     }
 }
 makes esp8266 listen to requested gpio changes or return pin.value() if message is published without payload
 """
 
-__updated__ = "2019-10-20"
-__version__ = "1.5"
+__updated__ = "2019-11-01"
+__version__ = "1.7"
 
 import gc
 import machine
@@ -26,7 +24,6 @@ from pysmartnode.components.machine.pin import Pin
 from pysmartnode import config
 from pysmartnode import logging
 from pysmartnode.utils.component import Component, DISCOVERY_SWITCH
-import uasyncio as asyncio
 
 _mqtt = config.getMQTT()
 
@@ -37,18 +34,22 @@ gc.collect()
 
 
 class GPIO(Component):
-    def __init__(self, topic=None, discover_pins=None):
+    def __init__(self, mqtt_topic=None, discover_pins=None):
         super().__init__(COMPONENT_NAME, __version__)
-        self._topic = topic or _mqtt.getDeviceTopic("easyGPIO/+/set")
+        self._topic = mqtt_topic or _mqtt.getDeviceTopic("easyGPIO/+/set")
         _mqtt.subscribeSync(self._topic, self.on_message, self, check_retained_state=True)
         self._d = discover_pins or []
 
-    async def _discovery(self):
+    async def _discovery(self, register=True):
         for pin in self._d:
             name = "{!s}_{!s}".format(COMPONENT_NAME, pin)
-            await self._publishDiscovery(_COMPONENT_TYPE, "{}{}".format(self._topic[:-5], pin),
-                                         name, DISCOVERY_SWITCH)
+            if register:
+                await self._publishDiscovery(_COMPONENT_TYPE, "{}{}".format(self._topic[:-5], pin),
+                                             name, DISCOVERY_SWITCH)
+            else:
+                await self._deleteDiscovery(_COMPONENT_TYPE, name)
 
+    @staticmethod
     async def on_message(self, topic, msg, retain):
         _log = logging.getLogger("easyGPIO")
         if topic.endswith("/set") is False:

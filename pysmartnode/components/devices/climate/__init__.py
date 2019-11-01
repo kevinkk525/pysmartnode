@@ -33,8 +33,8 @@ cooling_unit
 fan_unit
 """
 
-__updated__ = "2019-10-30"
-__version__ = "0.7"
+__updated__ = "2019-11-01"
+__version__ = "0.8"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -68,35 +68,11 @@ gc.collect()
 _count = 0
 
 
-class BaseMode:
-    """
-    Base class for all modes
-    """
-
-    def __init__(self, climate):
-        pass
-
-    async def trigger(self, climate, current_temp):
-        """Triggered whenever the situation is evaluated again"""
-        raise NotImplementedError
-
-    async def activate(self, climate):
-        """Triggered whenever the mode changes and this mode has been activated"""
-        raise NotImplementedError
-
-    async def deactivate(self, climate):
-        """Triggered whenever the mode changes and this mode has been deactivated"""
-        raise NotImplementedError
-
-    def __str__(self):
-        """Name of the mode, has to be the same as the classname/module"""
-        raise NotImplementedError
-
-
 class Climate(Component):
-    def __init__(self, temperature_sensor, heating_unit, modes: list, interval=300,
-                 temp_step=0.1, min_temp=16, max_temp=28, temp_low=20, temp_high=21,
-                 away_temp_low=16, away_temp_high=17,
+    def __init__(self, temperature_sensor: ComponentSensor, heating_unit: ComponentSwitch,
+                 modes: list, interval: float = 300, temp_step=0.1, min_temp: float = 16,
+                 max_temp: float = 28, temp_low: float = 20, temp_high: float = 21,
+                 away_temp_low: float = 16, away_temp_high: float = 17,
                  friendly_name=None, discover=True):
         self.checkSensorType(temperature_sensor, SENSOR_TEMPERATURE)
         self.checkSwitchType(heating_unit)
@@ -110,8 +86,8 @@ class Climate(Component):
         self._temp_step = temp_step
         self._min_temp = min_temp
         self._max_temp = max_temp
-        self.temp_sensor = temperature_sensor
-        self.heating_unit = heating_unit
+        self.temp_sensor: ComponentSensor = temperature_sensor
+        self.heating_unit: ComponentSwitch = heating_unit
         self._modes = {}
         if "off" not in modes:
             modes.append("off")
@@ -302,20 +278,49 @@ class Climate(Component):
         self.event.set()
         return False
 
-    async def _discovery(self):
+    async def _discovery(self, register=True):
         name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
         base_topic = _mqtt.getRealTopic(_mqtt.getDeviceTopic(name))
         modes = ujson.dumps([str(mode) for mode in self._modes])
         gc.collect()
-        sens = CLIMATE_DISCOVERY.format(base_topic, self._frn or name, self._composeAvailability(),
-                                        sys_vars.getDeviceID(), name,  # unique_id
-                                        _mqtt.getRealTopic(
-                                            self.temp_sensor.getTopic(SENSOR_TEMPERATURE)),
-                                        # current_temp_topic
-                                        self.temp_sensor.getTemplate(SENSOR_TEMPERATURE),
-                                        # cur_temp_template
-                                        self._temp_step, self._min_temp, self._max_temp,
-                                        modes, sys_vars.getDeviceDiscovery())
+        if register:
+            sens = CLIMATE_DISCOVERY.format(base_topic, self._frn or name,
+                                            self._composeAvailability(),
+                                            sys_vars.getDeviceID(), name,  # unique_id
+                                            _mqtt.getRealTopic(
+                                                self.temp_sensor.getTopic(SENSOR_TEMPERATURE)),
+                                            # current_temp_topic
+                                            self.temp_sensor.getTemplate(SENSOR_TEMPERATURE),
+                                            # cur_temp_template
+                                            self._temp_step, self._min_temp, self._max_temp,
+                                            modes, sys_vars.getDeviceDiscovery())
+        else:
+            sens = ""
         gc.collect()
         topic = Component._getDiscoveryTopic(_COMPONENT_TYPE, name)
         await _mqtt.publish(topic, sens, qos=1, retain=True)
+
+
+class BaseMode:
+    """
+    Base class for all modes
+    """
+
+    def __init__(self, climate: Climate):
+        pass
+
+    async def trigger(self, climate: Climate, current_temp: float) -> bool:
+        """Triggered whenever the situation is evaluated again"""
+        raise NotImplementedError
+
+    async def activate(self, climate: Climate) -> bool:
+        """Triggered whenever the mode changes and this mode has been activated"""
+        raise NotImplementedError
+
+    async def deactivate(self, climate: Climate) -> bool:
+        """Triggered whenever the mode changes and this mode has been deactivated"""
+        raise NotImplementedError
+
+    def __str__(self):
+        """Name of the mode, has to be the same as the classname/module"""
+        raise NotImplementedError

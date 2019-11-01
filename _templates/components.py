@@ -41,7 +41,7 @@ COMPONENTS = {
 }
 
 # Alternatively or additionally you can register components manually,
-# which saves a lot of RAM as the dict doesn't get loaded into RAM.
+# which saves a lot of RAM as no dict doesn't get loaded into RAM.
 # This example provides the same configuration as the COMPONENT dict above:
 
 from pysmartnode import config

@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-04-26 
 
-__updated__ = "2019-10-18"
-__version__ = "1.2"
+__updated__ = "2019-11-01"
+__version__ = "1.3"
 
 from pysmartnode import config
 import uasyncio as asyncio
@@ -63,7 +63,6 @@ class Component:
                 "Can't remove a component that is not an instance of pysmartnode.utils.component.Component")
             return False
         # call cleanup method, should stop running loops
-        await _mqtt.unsubscribe(None, component)
         await component._remove()
         global _components
         c = _components
@@ -79,7 +78,14 @@ class Component:
             c = c._next_component
 
     async def _remove(self):
-        pass
+        """Cleanup method. Stop all loops and unsubscribe all topics."""
+        await _mqtt.unsubscribe(None, self)
+        await config._log.asyncLog("info",
+                                   "Removed component {!s} module {!r} version {!s}".format(
+                                       config.getComponentName(self), self.COMPONENT_NAME,
+                                       self.VERSION), timeout=5)
+        if config.MQTT_DISCOVERY_ENABLED and self.__discover:
+            await self._discovery(False)
 
     @staticmethod
     async def __initNetworkProcess():
@@ -97,14 +103,17 @@ class Component:
                                        self.COMPONENT_NAME, self.VERSION,
                                        config.getComponentName(self)), timeout=5)
         gc.collect()
-        if config.MQTT_DISCOVERY_ENABLED is True and self.__discover is True:
-            await self._discovery()
+        if config.MQTT_DISCOVERY_ENABLED and self.__discover:
+            await self._discovery(True)
             gc.collect()
 
-    async def _discovery(self):
+    async def _discovery(self, register=True):
         """
         Implement in subclass.
-        Is only called by self._init_network if config.MQTT_DISCOVERY_ON_RECONNECT is True.
+        Is only called by self._init_network if config.MQTT_DISCOVERY_ON_RECONNECT is True
+        and by self._remove() when a componen is removed during runtime (e.g. sensor change).
+        If register is False, send discovery message with empty message "" to remove the component
+        from Homeassistant.
         """
         pass
 
@@ -117,6 +126,11 @@ class Component:
         await _mqtt.publish(topic, msg, qos=1, retain=True)
         del msg, topic
         gc.collect()
+
+    @staticmethod
+    async def _deleteDiscovery(component_type, unique_name):
+        topic = Component._getDiscoveryTopic(component_type, unique_name)
+        await _mqtt.publish(topic, "", qos=1, retain=True)
 
     @staticmethod
     def _composeAvailability():

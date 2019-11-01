@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-10-31"
-__version__ = "0.9"
+__updated__ = "2019-11-01"
+__version__ = "1.0"
 
 from pysmartnode.utils.component import Component
 from .definitions import DISCOVERY_SWITCH
@@ -116,9 +116,13 @@ class ComponentSwitch(Component):
     def state(self):
         return self._state
 
-    async def _discovery(self):
+    async def _discovery(self, register=True):
         name = self._name or "{!s}{!s}".format(self.COMPONENT_NAME, self._count)
-        await self._publishDiscovery("switch", self._topic[:-4], name, DISCOVERY_SWITCH, self._frn)
+        if register:
+            await self._publishDiscovery("switch", self._topic[:-4], name, DISCOVERY_SWITCH,
+                                         self._frn)
+        else:
+            await self._deleteDiscovery("switch", name)
         # note that _publishDiscovery does expect the state topic
         # but we have the command topic stored.
 

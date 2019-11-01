@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-10-27 
 
-__updated__ = "2019-10-30"
-__version__ = "0.3"
+__updated__ = "2019-11-01"
+__version__ = "0.4"
 
 from pysmartnode.utils.component import Component
 from pysmartnode import config
@@ -160,7 +160,7 @@ class ComponentSensor(Component):
         """
         return "{!s}{!s}".format(self.COMPONENT_NAME, self._count)
 
-    async def _discovery(self):
+    async def _discovery(self, register=True):
         for sensor_type in self._values:
             val = self._values[sensor_type]
             if len(self._values) > 0:
@@ -168,10 +168,13 @@ class ComponentSensor(Component):
             else:
                 name = self._default_name()
             tp = val[6] or self._composeSensorType(sensor_type, val[3], val[2])
-            await self._publishDiscovery("binary_sensor" if val[7] else "sensor",
-                                         self.getTopic(sensor_type), name, tp,
-                                         val[4] or "{}{}".format(sensor_type[0].upper(),
-                                                                 sensor_type[1:]))
+            if register:
+                await self._publishDiscovery("binary_sensor" if val[7] else "sensor",
+                                             self.getTopic(sensor_type), name, tp,
+                                             val[4] or "{}{}".format(sensor_type[0].upper(),
+                                                                     sensor_type[1:]))
+            else:
+                await self._deleteDiscovery("binary_sensor", name)
             del name, tp
             gc.collect()
 

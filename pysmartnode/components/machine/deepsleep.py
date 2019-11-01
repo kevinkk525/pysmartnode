@@ -1,8 +1,6 @@
-'''
-Created on 2018-07-16
-
-@author: Kevin Köck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Created on 2018-07-16
 
 """
 example config:

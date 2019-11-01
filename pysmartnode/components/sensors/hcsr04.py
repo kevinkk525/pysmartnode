@@ -92,7 +92,7 @@ class HCSR04(ComponentSensor):
         self._ec = Pin(pin_echo, mode=machine.Pin.IN)
         self._to = timeout
         self.checkSensorType(temp_sensor, SENSOR_TEMPERATURE)
-        self._temp = temp_sensor
+        self._temp: ComponentSensor = temp_sensor
         global _count
         self._count = _count
         _count += 1

@@ -27,7 +27,7 @@ COMPONENT_NAME = "WifiLED"
 
 class WIFILED(Component):
     def __init__(self, pin, active_high=True):
-        super().__init__(COMPONENT_NAME, __version__)
+        super().__init__(COMPONENT_NAME, __version__, discover=False)
         self.pin = Pin(pin, machine.Pin.OUT, value=0 if active_high else 1)
         self._active_high = active_high
         self._next = []

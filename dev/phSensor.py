@@ -32,8 +32,8 @@ ph6.86      2.68    2.53
 growing solution 3.24    3.1  (this is very wrong.., ph actually ~5.2)
 """
 
-__updated__ = "2019-10-27"
-__version__ = "0.5"
+__updated__ = "2019-11-01"
+__version__ = "0.6"
 
 from pysmartnode import config
 from pysmartnode.components.machine.adc import ADC
@@ -92,10 +92,13 @@ class PHsensor(Component):
             self.__ph = await self._read()
             await asyncio.sleep(interval)
 
-    async def _discovery(self):
+    async def _discovery(self, register=True):
         name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
-        await self._publishDiscovery(_COMPONENT_TYPE, self.acidityTopic(), name, PH_TYPE,
-                                     self._frn or "pH")
+        if register:
+            await self._publishDiscovery(_COMPONENT_TYPE, self.acidityTopic(), name, PH_TYPE,
+                                         self._frn or "pH")
+        else:
+            await self._deleteDiscovery(_COMPONENT_TYPE, name)
 
     async def _read(self, publish=True, timeout=5) -> float:
         buf = []

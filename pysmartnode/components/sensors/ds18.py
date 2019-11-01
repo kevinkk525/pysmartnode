@@ -10,7 +10,7 @@ example config:
     constructor_args: {
         pin: 5                    # pin number or label (on NodeMCU)
         # rom: 28FF016664160383"  # optional, ROM of the specific DS18 unit, can be string or bytearray (in json bytearray not possible). If not given then the first found ds18 unit will be used, no matter the ROM. Makes it possible to have a generic ds18 unit.
-        # auto_detect: false      # optional, if true and ROM is None then all connected ds18 units will automatically generate a sensor object with the given options. If a sensor is removed, so will its object. Removed sensors won't be removed from Homeassistant!
+        # auto_detect: false      # optional, if true and ROM is None then all connected ds18 units will automatically generate a sensor object with the given options. If a sensor is removed, so will its object. Removed sensors will be removed from Homeassistant too!
         # interval_publish: 600   # optional, defaults to 600. Set to interval_reading to publish with every reading
         # interval_reading: 120   # optional, defaults to 120. -1 means do not automatically read sensor and publish
         # precision_temp: 2       # precision of the temperature value published
@@ -61,13 +61,14 @@ class DS18(ComponentSensor):
     This is not a full component object in terms of mqtt and discovery. This is handled by the controller.
     It can be used as a temperature component object.
     """
-    _pins = {}
+    _pins = {}  # pin number/name:onewire()
     _last_conv = {}  # onewire:time
     _lock = config.Lock()
 
-    def __init__(self, pin, rom=None, auto_detect=False, interval_publish=None,
-                 interval_reading=None, precision_temp=2, offset_temp=0, mqtt_topic=None,
-                 friendly_name=None, discover=True, expose_intervals=False, intervals_topic=None):
+    def __init__(self, pin, rom: str = None, auto_detect=False, interval_publish: float = None,
+                 interval_reading: float = None, precision_temp: int = 2, offset_temp: float = 0,
+                 mqtt_topic=None, friendly_name=None, discover=True, expose_intervals=False,
+                 intervals_topic=None):
         """
         Class for a single ds18 unit to provide an interface to a single unit.
         :param pin: pin number/name/object
@@ -101,18 +102,18 @@ class DS18(ComponentSensor):
             self._expose = expose_intervals
         super().__init__(COMPONENT_NAME, __version__, discover, interval_publish, interval_reading,
                          mqtt_topic, _log, expose_intervals, intervals_topic)
-        if rom or not auto_detect:
+        if rom or not auto_detect:  # sensor with rom or generic sensor
             self._addSensorType(SENSOR_TEMPERATURE, precision_temp, offset_temp,
                                 VALUE_TEMPLATE_FLOAT, "°C", friendly_name)
             self._auto_detect = False
         self._generic = True if rom is None and not auto_detect else False
         if type(pin) == ds18x20.DS18X20:
-            self.sensor = pin
+            self.sensor: ds18x20.DS18X20 = pin
         else:
             self._pins[pin] = ds18x20.DS18X20(onewire.OneWire(Pin(pin)))
-            self.sensor = self._pins[pin]
+            self.sensor: ds18x20.DS18X20 = self._pins[pin]
             self._last_conv[self.sensor] = None
-        self.rom = rom
+        self.rom: str = rom
         global _count
         self._count = _count
         _count += 1
@@ -155,7 +156,7 @@ class DS18(ComponentSensor):
             else:  # generic ds18 sensor
                 rom = self.rom2str(roms[0])
                 if rom != self.rom:  # sensor replaced
-                    self.rom = rom
+                    self.rom: str = rom
                     await _log.asyncLog("info", "Found new ds18: {!s}".format(rom), timeout=5)
         if self.rom is not None:  # DS18 sensor unit
             async with self._lock:

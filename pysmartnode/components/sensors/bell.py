@@ -19,8 +19,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-21"
-__version__ = "1.3"
+__updated__ = "2019-11-01"
+__version__ = "1.4"
 
 import gc
 from pysmartnode import config
@@ -28,7 +28,7 @@ from pysmartnode import logging
 from pysmartnode.utils.event import Event
 from pysmartnode.utils.locksync import Lock
 from pysmartnode.components.machine.pin import Pin
-from pysmartnode.utils.component import Component, DISCOVERY_TIMELAPSE
+from pysmartnode.utils.component import Component, DISCOVERY_TIMELAPSE, VALUE_TEMPLATE
 import machine
 import time
 import uasyncio as asyncio
@@ -112,14 +112,29 @@ class Bell(Component):
         self._timer_bell.deinit()
         self._timer_lock.release()
 
-    async def _discovery(self):
-        await self._publishDiscovery("binary_sensor", self.topic(), "bell", '"ic":"mdi:bell",',
-                                     self._frn or "Doorbell")
+    async def _discovery(self, register=True):
+        if register:
+            await self._publishDiscovery("binary_sensor", self.getTopic(), "bell",
+                                         '"ic":"mdi:bell",', self._frn or "Doorbell")
+        else:
+            await self._deleteDiscovery("binary_sensor", "bell")
         gc.collect()
         if config.RTC_SYNC_ACTIVE is True:
-            await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("last_bell"), "last_bell",
-                                         DISCOVERY_TIMELAPSE, self._frn_l or "Last Bell")
-            gc.collect()
+            if register:
+                await self._publishDiscovery("sensor", _mqtt.getDeviceTopic("last_bell"),
+                                             "last_bell", DISCOVERY_TIMELAPSE,
+                                             self._frn_l or "Last Bell")
+                gc.collect()
+            else:
+                await self._deleteDiscovery("sensor", "last_bell")
 
-    def topic(self):
+    def getTopic(self, *args, **kwargs):
         return self._topic or _mqtt.getDeviceTopic(COMPONENT_NAME)
+
+    @staticmethod
+    def getTemplate(self, *args, **kwargs):
+        return VALUE_TEMPLATE
+
+    @staticmethod
+    def getValue(self, *args, **kwargs):
+        return None

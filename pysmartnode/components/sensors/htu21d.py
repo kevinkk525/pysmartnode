@@ -25,8 +25,8 @@ example config:
 }
 """
 
-__updated__ = "2019-10-28"
-__version__ = "3.0"
+__updated__ = "2019-11-01"
+__version__ = "3.1"
 
 import gc
 import uasyncio as asyncio
@@ -52,11 +52,12 @@ _ISSUE_HU_ADDRESS = 0xE5
 
 
 class HTU21D(ComponentSensor):
-    def __init__(self, i2c, precision_temp, precision_humid,
-                 temp_offset, humid_offset,
-                 mqtt_topic=None, interval=None, interval_reading=None,
+    def __init__(self, i2c, precision_temp: int = 2, precision_humid: int = 2,
+                 temp_offset: float = 0, humid_offset: float = 0,
+                 mqtt_topic: str = None, interval_publish: float = None,
+                 interval_reading: float = None,
                  friendly_name_temp=None, friendly_name_humid=None, discover=True):
-        super().__init__(COMPONENT_NAME, __version__, discover, interval, interval_reading,
+        super().__init__(COMPONENT_NAME, __version__, discover, interval_publish, interval_reading,
                          mqtt_topic)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying

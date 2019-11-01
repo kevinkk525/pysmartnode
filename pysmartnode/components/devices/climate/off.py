@@ -2,17 +2,17 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-10-12
 
-__updated__ = "2019-10-28"
+__updated__ = "2019-10-31"
 __version__ = "0.2"
 
-from pysmartnode.components.devices.climate import BaseMode
+from pysmartnode.components.devices.climate import BaseMode, Climate
 from .definitions import ACTION_OFF, MODE_OFF, CURRENT_ACTION
 
 
 class off(BaseMode):
     # def __init__(self, climate):
 
-    async def trigger(self, climate, current_temp):
+    async def trigger(self, climate: Climate, current_temp: float) -> bool:
         """Triggered whenever the situation is evaluated again"""
         if climate.heating_unit.state() is False and climate.state[CURRENT_ACTION] == ACTION_OFF:
             return True
@@ -21,11 +21,11 @@ class off(BaseMode):
             return True
         return False
 
-    async def activate(self, climate):
+    async def activate(self, climate: Climate) -> bool:
         """Triggered whenever the mode changes and this mode has been activated"""
         return True  # no init needed
 
-    async def deactivate(self, climate):
+    async def deactivate(self, climate: Climate) -> bool:
         """Triggered whenever the mode changes and this mode has been deactivated"""
         return True  # no deinit needed
 

@@ -42,7 +42,8 @@ ArduinoControl ADC instance
 }
 """
 
-from pysmartnode.libraries.arduinoGPIO.arduinoGPIO.arduinoControl import ArduinoControl as _ArduinoControl
+from pysmartnode.libraries.arduinoGPIO.arduinoGPIO.arduinoControl import \
+    ArduinoControl as _ArduinoControl
 from pysmartnode.components.machine.pin import Pin as PyPin
 from pysmartnode import logging
 

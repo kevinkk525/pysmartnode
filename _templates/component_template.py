@@ -1,8 +1,6 @@
-'''
-Created on 2018-06-22
-
-@author: Kevin Köck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2018 Released under the MIT license
+# Created on 2018-06-22
 
 """
 example config for MyComponent:
@@ -13,13 +11,14 @@ example config for MyComponent:
         my_value: "hi there"             
         # mqtt_topic: sometopic  # optional, defaults to home/<controller-id>/<component_name>/<component-count>/set
         # mqtt_topic2: sometopic # optional, defautls to home/sometopic
-        # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
+        # friendly_name: null    # optional, friendly name shown in homeassistant gui with mqtt discovery
+        # discover: true         # optional, if false no discovery message for homeassistant will be sent.
     }
 }
 """
 
-__updated__ = "2019-10-31"
-__version__ = "1.6"
+__updated__ = "2019-11-01"
+__version__ = "1.7"
 
 import uasyncio as asyncio
 from pysmartnode import config
@@ -114,7 +113,13 @@ class MyComponent(Component):
             pass
         await super()._remove()
 
-    async def _discovery(self):
+    async def _discovery(self, register=True):
+        """
+        Send discovery messages
+        :param register: if True send discovery message, if False send empty discovery message
+        to remove the component from homeassistant.
+        :return:
+        """
         name = "{!s}{!s}".format(COMPONENT_NAME, self._count)
         component_topic = _mqtt.getDeviceTopic(name)
         # component topic could be something completely user defined.
@@ -122,8 +127,11 @@ class MyComponent(Component):
         component_topic = self._command_topic[:-4]  # get the state topic of custom component topic
         friendly_name = self._frn  # define a friendly name for the homeassistant gui.
         # Doesn't need to be unique
-        await self._publishDiscovery(_COMPONENT_TYPE, component_topic, name, DISCOVERY_SWITCH,
-                                     friendly_name)
+        if register:
+            await self._publishDiscovery(_COMPONENT_TYPE, component_topic, name, DISCOVERY_SWITCH,
+                                         friendly_name)
+        else:
+            await self._deleteDiscovery(_COMPONENT_TYPE, name)
         del name, component_topic, friendly_name
         gc.collect()
 
