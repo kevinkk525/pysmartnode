@@ -80,14 +80,14 @@ class DHT22(ComponentSensor):
             await asyncio.sleep(1)
             self.sensor.measure()
         except Exception as e:
-            await _log.asyncLog("error", "DHT22 is not working, {!s}".format(e), timeout=10)
+            await _log.asyncLog("error", "DHT22 is not working,", e, timeout=10)
             return None, None
         await asyncio.sleep_ms(100)  # give other tasks some time as measure() is slow and blocking
         try:
             temp = self.sensor.temperature()
             humid = self.sensor.humidity()
         except Exception as e:
-            await _log.asyncLog("error", "Error reading DHT22: {!s}".format(e), timeout=10)
+            await _log.asyncLog("error", "Error reading DHT22:", e, timeout=10)
         else:
             await self._setValue(SENSOR_TEMPERATURE, temp)
             await self._setValue(SENSOR_HUMIDITY, humid)

@@ -27,7 +27,7 @@ example config:
 # The sensor can be replaced while the device is running.
 """
 
-__updated__ = "2019-10-30"
+__updated__ = "2019-11-01"
 __version__ = "3.0"
 
 from pysmartnode import config
@@ -175,14 +175,12 @@ class DS18(ComponentSensor):
                         err = e
                         continue
                 if value is None:
-                    await _log.asyncLog("error",
-                                        "Sensor rom {!s} got no value, {!s}".format(self.rom, err),
+                    await _log.asyncLog("error", "Sensor rom", self.rom, "got no value,", err,
                                         timeout=10)
                     return
                 if value == 85.0:
-                    await _log.asyncLog("error",
-                                        "Sensor rom {!s} got value 85.00 [not working correctly]".format(
-                                            self.rom), timeout=10)
+                    await _log.asyncLog("error", "Sensor rom", self.rom,
+                                        "got value 85.00 [not working correctly]", timeout=10)
                     return
                 await self._setValue(SENSOR_TEMPERATURE, value)
 

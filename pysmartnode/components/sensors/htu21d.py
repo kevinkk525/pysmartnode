@@ -90,7 +90,7 @@ class HTU21D(ComponentSensor):
             # self.i2c.stop()
             data = bytearray(3)
         except Exception as e:
-            await self._log.asyncLog("error", "Error reading sensor: {!s}".format(e), timeout=10)
+            await self._log.asyncLog("error", "Error reading sensor:", e, timeout=10)
             return None
         await asyncio.sleep_ms(50)
         try:
@@ -109,5 +109,5 @@ class HTU21D(ComponentSensor):
             raw &= 0xFFFC
             return raw
         except Exception as e:
-            await self._log.asyncLog("error", "Error reading sensor: {!s}".format(e), timeout=10)
+            await self._log.asyncLog("error", "Error reading sensor:", e, timeout=10)
             return None

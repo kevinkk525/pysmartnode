@@ -28,7 +28,7 @@ example config:
 Sensor can only be used with esp32 as esp8266 has only 1 uart at 115200 (9600 needed) 
 """
 
-__updated__ = "2019-10-29"
+__updated__ = "2019-11-01"
 __version__ = "1.8"
 
 from pysmartnode import config
@@ -127,17 +127,17 @@ class PMS5003(ComponentSensor):
     ##############################
 
     @staticmethod
-    def _error(message):
-        _log.error(message)
+    def _error(*message):
+        _log.error(*message)
 
     @staticmethod
-    def _warn(message):
-        _log.warn(message)
+    def _warn(*message):
+        _log.warn(*message)
 
     @staticmethod
-    def _debug(message):
+    def _debug(*message):
         if sensorModule.DEBUG:
-            _log.debug(message, local_only=True)
+            _log.debug(*message, local_only=True)
 
     @staticmethod
     def set_debug(value):

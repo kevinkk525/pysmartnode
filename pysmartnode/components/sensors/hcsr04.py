@@ -33,7 +33,7 @@ example config:
 # interval change can't be discovered as homeassistant doesn't offer a type
 """
 
-__updated__ = "2019-10-29"
+__updated__ = "2019-11-01"
 __version__ = "0.8"
 
 from pysmartnode.components.machine.pin import Pin
@@ -143,7 +143,7 @@ class HCSR04(ComponentSensor):
             await asyncio.sleep_ms(10)
         if warnings > 10:  # half sensor readings are bad
             await _log.asyncLog("error",
-                                "Too many bad sensor readings, error: {!s}".format(warning),
+                                "Too many bad sensor readings, error:", warning,
                                 timeout=10 if self._intrd > 20 else 0)
             return
         # removing extreme values

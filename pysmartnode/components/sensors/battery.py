@@ -26,7 +26,7 @@ example config:
 WARNING: This component has not been tested with a battery and only works in theory!
 """
 
-__updated__ = "2019-10-29"
+__updated__ = "2019-11-01"
 __version__ = "0.7"
 
 from pysmartnode import config
@@ -91,7 +91,7 @@ class Battery(ComponentSensor):
         try:
             value = self._adc.readVoltage()
         except Exception as e:
-            await _log.asyncLog("error", "Error reading sensor: {!s}".format(e), timeout=10)
+            await _log.asyncLog("error", "Error reading sensor:", e, timeout=10)
         else:
             value *= self._multiplier
             await self._setValue("voltage", value)  # applies rounding and saves value
@@ -117,17 +117,16 @@ class Battery(ComponentSensor):
                     self._event_high.set(data=voltage)
                     # no log as consumer has to take care of logging or doing something
                 else:
-                    await _log.asyncLog("warn",
-                                        "Battery voltage of {!s} exceeds maximum of {!s}".format(
-                                            voltage, self._voltage_max), timeout=5)
+                    await _log.asyncLog("warn", "Battery voltage of", voltage,
+                                        "exceeds maximum of",
+                                        self._voltage_max, timeout=5)
             elif voltage < self._voltage_min:
                 if self._event_low is not None:
                     self._event_low.set(data=voltage)
                     # no log as consumer has to take care of logging or doing something
                 else:
-                    await _log.asyncLog("warn",
-                                        "Battery voltage of {!s} lower than minimum of {!s}".format(
-                                            voltage, self._voltage_min), timeout=5)
+                    await _log.asyncLog("warn", "Battery voltage of", voltage,
+                                        "lower than minimum of", self._voltage_min, timeout=5)
                 if self._cutoff_pin is not None:
                     if self._cutoff_pin.value() == 1:
                         await _log.asyncLog("critical", "Cutting off power did not work!",

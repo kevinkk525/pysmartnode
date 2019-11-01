@@ -147,6 +147,9 @@ class ComponentSensor(Component):
                     msg = val[-1]
                     if type(msg) == bool and val[7]:  # binary sensor
                         msg = _mqtt.payload_on[0] if msg else _mqtt.payload_off[0]
+                    # elif type(msg)==float:
+                    #     msg =("{0:." + str(val[0]) + "f}").format(msg)
+                    # on some platforms this might make sense as a workaround for 25.3000000001
                     await _mqtt.publish(val[5], msg, qos=1, timeout=timeout)
         if len(d) == 1 and "value_json" not in self._values[list(d.keys())[0]][2]:
             # topic has no json template so send it without dict
@@ -258,24 +261,21 @@ class ComponentSensor(Component):
         if value is not None:
             if type(value) in (int, float):
                 try:
-                    value = round(value, s[0])  # float(("{0:." + str(s[0]) + "f}").format(value))
+                    value = round(value, s[0])
                     value += s[1]
                 except Exception as e:
                     log = self._log or logging.getLogger(self.COMPONENT_NAME)
-                    await log.asyncLog("error", "Error processing value: {!s}".format(e),
-                                       timeout=timeout)
+                    await log.asyncLog("error", "Error processing value:", e, timeout=timeout)
                     value = None
             elif type(value) not in (bool, str):
                 log = self._log or logging.getLogger(self.COMPONENT_NAME)
-                await log.asyncLog("error",
-                                   "Error processing value: {!s}, no known type".format(value),
+                await log.asyncLog("error", "Error processing value:", value, "no known type",
                                    timeout=timeout)
                 value = None
 
         else:
             log = self._log or logging.getLogger(self.COMPONENT_NAME)
-            await log.asyncLog("warn", "Got no value for {!s}".format(sensor_type),
-                               timeout=timeout)
+            await log.asyncLog("warn", "Got no value for", sensor_type, timeout=timeout)
         s[-1] = value
         if value:
             s[-2] = time.ticks_ms()
@@ -344,7 +344,7 @@ class ComponentSensor(Component):
             if config.DEBUG:
                 import sys
                 sys.print_exception(e)
-            await self._log.asyncLog("critical", "Exception in component loop: {!s}".format(e))
+            await self._log.asyncLog("critical", "Exception in component loop:", e)
 
     async def _read(self):
         """

@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-15 
 
-__updated__ = "2019-10-20"
-__version__ = "0.5"
+__updated__ = "2019-11-01"
+__version__ = "0.6"
 
 from pysmartnode.utils.component import Component
 from pysmartnode import config
@@ -58,7 +58,7 @@ class RemoteConfig(Component):
             if config.DEBUG is True:
                 _log.debug("_watcher cancelled", local_only=True)
         except Exception as e:
-            await _log.asyncLog("error", "Error watching remoteConfig: {!s}".format(e))
+            await _log.asyncLog("error", "Error watching remoteConfig:", e)
         finally:
             await mqtt.unsubscribe(self._topic, self)
             self._done = True
@@ -87,8 +87,7 @@ class RemoteConfig(Component):
             name = topic[topic.rfind("/") + 1:]
             del topic
             gc.collect()
-            _log.info("received config for component {!s}: {!s}".format(name, msg),
-                      local_only=True)
+            _log.info("received config for component", name, ":", msg, local_only=True)
             if name in self._rcomp:
                 # received config already, typically happens if process was
                 # interrupted by network error
