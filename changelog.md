@@ -1,20 +1,22 @@
 # Changelog
 
 ---------------------------------------------------
-### Version 5.3.0
-* [easyGPIO] topics now use "easyGPIO" to not make them collide with module "switches.GPIO"
+### Version 6.0.0
+* [easyGPIO] topics now use "easyGPIO" to not make them not collide with module "switches.GPIO"
 * [remoteSensors] use remote sensors as if they were locally connected
+* [remoteSwitch] use a remote switch as if it was locally connected
 * [COMPONENTS] extended API significantly, updated to new/changed MQTT features, added cleanup method
 * [SENSOR COMPONENT] major base class for a unified sensor API and features to make usage and development easier
-* [HTU21D] changed base topic to be more in line with other components
+* [Sensors] updated all sensors to use the new SENSOR COMPONENT. Some sensors therefore experience breaking changes in configuration, default topics and behaviour.
 * [DS18] rewritten for new sensor API
 * [HEATER] removed deprecated component
 * [CLIMATE] added new Climate component which is compatible to homeassistant MQTT Climate
 * [CONFIG] removed option to load components from .json files, use components.py instead
 * [STATS] Major update, publishing many device stats as hass json_attributes and RSSI as main value instead of "online/offline" which is now done directly in mqtt as availability topic. Published values: (last_boot, uptime, pysmartnode version, micropython firmware version, RAM free, RSSI, MQTT Downtime, MQTT Reconnects, Asyncio waitq used size)
-* [MQTT] Improvements, Subscriptions done by mqtt not by components, Subscribing uses subscription chain and can be called non-blocking synchronously, easy way to restore a device state from a state topic of a subscribed command_topic, prevention of uasyncio queue overflows when receiving too many messages
+* [MQTT] Improvements, Subscriptions done by mqtt not by components, Subscribing uses subscription chain and can be called non-blocking synchronously, added easy way to restore a device state from a state topic of a subscribed command_topic, prevention of uasyncio queue overflows when receiving too many messages
 * [LOGGING] Extended asyncLog() method with kwargs "timeout" and "await_connection" just like mqtt.publish
-* [TOOLS] updated esp8266 build scripts
+* [LOGGING] Now works similar to print expecting multiple args instead of one message string. Optimizes RAM usage (especially with local_only logging).
+* [TOOLS] updated esp8266 build scripts, script to strip variable type hints as those are not yet supported by micropython
 * [CONFIG] config.py update, made configuration easier and smaller by freezing standard values in ROM and custom configs in config.py will just overwrite those.
 
 ---------------------------------------------------
