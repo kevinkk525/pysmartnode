@@ -180,8 +180,10 @@ class MQTTHandler(MQTTClient):
     async def _subscribeTopics(self, start: int = 0):
         _log.debug("_subscribeTopics, start", start, local_only=True)
         try:
-            for i in range(start, len(self._subs)):
-                sub = self._subs[i]
+            for sub in self._subs:  # do not iter by length as _subs could get bigger while itering
+                i = self._subs.index(sub)
+                if i < start:
+                    continue  # iter until start position reached
                 t = sub[0]
                 if self.isDeviceTopic(t):
                     t = self.getRealTopic(t)
