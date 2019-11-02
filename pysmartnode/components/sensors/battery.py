@@ -37,7 +37,6 @@ import machine
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.components.machine.adc import ADC
 from pysmartnode.utils.component.sensor import ComponentSensor, SENSOR_BATTERY
-import time
 
 COMPONENT_NAME = "Battery"
 _VAL_T_CHARGE = "{{ value_json.relative }}"
@@ -86,7 +85,7 @@ class Battery(ComponentSensor):
         """Getter for consumers"""
         return self._voltage_min
 
-    async def _read(self, publish=True, timeout=5):
+    async def _read(self):
         try:
             value = self._adc.readVoltage()
         except Exception as e:

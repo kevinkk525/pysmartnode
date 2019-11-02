@@ -6,7 +6,6 @@ __updated__ = "2019-11-02"
 __version__ = "0.8"
 
 from .switch import ComponentSwitch
-from pysmartnode.utils.component import Component
 from pysmartnode import config
 import uasyncio as asyncio
 

@@ -153,7 +153,7 @@ class Moisture(Component):
                     res.append(None)
                 else:
                     voltage = 0
-                    for j in range(3):
+                    for _ in range(3):
                         voltage += self._adc.readVoltage(i) if amux else self._adc.readVoltage()
                     voltage /= 3
                     res.append(self._getPercentage(sensor, voltage))

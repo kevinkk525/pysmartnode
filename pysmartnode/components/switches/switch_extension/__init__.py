@@ -30,7 +30,7 @@ to enable the mode.
 """
 
 __updated__ = "2019-11-02"
-__version__ = "0.6"
+__version__ = "0.7"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -173,7 +173,7 @@ class Switch(Component):
             if _mqtt.matchesSubscription(topic, self._topic_mode, ignore_command=True) and retain:
                 # for retained state on state topic
                 _mode = msg
-                await _mqtt.unsubscribe(topic, self, await_connection=False)
+                await _mqtt.unsubscribe(topic, self)
             elif retain:
                 # retained switch states for the different modes don't matter.
                 # State is restored by retained mode topic

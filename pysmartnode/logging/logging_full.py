@@ -2,10 +2,10 @@
 # Copyright Kevin Köck 2017-2019 Released under the MIT license
 # Created on 2017-07-19
 
-__updated__ = "2019-11-01"
-__version__ = "2.8"
+__updated__ = "2019-11-02"
+__version__ = "2.9"
 
-# TODO: Add possibility to use real logging module on esp32_lobo and save logs locally or to sdcard
+# TODO: Add possibility to use real logging module on esp32 and save logs locally or to sdcard
 
 import gc
 from pysmartnode.utils import sys_vars
@@ -22,11 +22,10 @@ async def asyncLog(name, level, *message, timeout=None, await_connection=True):
     if config.getMQTT():
         base_topic = "{!s}/log/{!s}/{!s}".format(config.MQTT_HOME, "{!s}", sys_vars.getDeviceID())
         # if level is before id other clients can subscribe to e.g. all critical logs
-        await config.getMQTT().publish(base_topic.format(level),
-                                       b"[{!s}] {}".format(name,
-                                                           message if len(message) > 1 else
-                                                           message[0]),
-                                       qos=1, timeout=timeout, await_connection=await_connection)
+        message = (b"{} " * (len(message) + 1)).format("[{}]".format(name), *message)
+        gc.collect()
+        await config.getMQTT().publish(base_topic.format(level), message, qos=1, timeout=timeout,
+                                       await_connection=await_connection)
         # format message as bytes so there's no need to encode it later.
 
 

@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2018-2019 Released under the MIT license
 # Created on 2018-03-10
 
-__updated__ = "2019-11-01"
-__version__ = "2.5"
+__updated__ = "2019-11-02"
+__version__ = "2.6"
 
 import gc
 from pysmartnode.utils import sys_vars
@@ -25,11 +25,10 @@ class Logging:
         if timeout == 0:
             return
         if config.getMQTT() and not local_only:
+            message = (b"{} " * len(message)).format(*message)
             asyncio.get_event_loop().create_task(
-                config.getMQTT().publish(self.base_topic.format(level),
-                                         b"{}".format(message if len(message) > 1 else
-                                                      message[0]),
-                                         qos=1, timeout=timeout, await_connection=True))
+                config.getMQTT().publish(self.base_topic.format(level), message, qos=1,
+                                         timeout=timeout, await_connection=True))
             # format message as bytes so there's no need to encode it later.
 
     def critical(self, *message, local_only=False):

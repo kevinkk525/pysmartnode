@@ -60,10 +60,8 @@ class ComponentSensor(Component):
 
     async def _remove(self):
         """Called by component base class when a sensor component should be removed"""
-        try:
+        if self._loop_coro is not None:
             asyncio.cancel(self._loop_coro)
-        except:
-            pass
         await super()._remove()
 
     def _addSensorType(self, sensor_type: str, precision: int, offset: float, value_template: str,

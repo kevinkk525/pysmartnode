@@ -61,13 +61,25 @@ git submodule update --recursive --remote
 You should have the latest micropython firmware and include the directory "pysmartnode" as frozen bytecode into your firmware. (Put it in the "module" directory before building the firmware)
 On ESP32 frozen bytecode is not neccessary but should be considered if not using psram.
 
+# Warning:
+Many modules use Variable Annotations ([PEP526](https://www.python.org/dev/peps/pep-0526/)) but micropython doesn't support
+[PEP 526 (Syntax for Variable Annotations (provisional))](https://github.com/micropython/micropython/issues/2415#issuecomment-548173512) yet.
+<br> This means that every build, .mpy or directly uploaded file with variable annotations will fail.
+<br> To work around this problem, the files have to be stripped of their variable annotations. This can be done with the python module "strip-hints".
+
+<br><br> In tools there is a [script](./tools/esp8266/esp8266_remove_hints.sh) that will replace all files with varibale annotations with a stripped version of the file.
+<br> Use that script after syncing/copying the files in the modules directory before building the
+firmware. You have to adapt the path in the script, so you could point it to any directory, doesn't
+ need to be the esp8266 modules directory.
+
+
 ### 2.2. Dependencies
 
 Required external modules are:
 
 * uasyncio (>=V2.0)
 * uasnycio-core (>=V2.0)
-* micropython-mqtt-as, my own fork that has many changes: ([mqtt_as](https://github.com/kevinkk525/micropython-mqtt)) 
+* micropython-mqtt-as, my own fork that has some needed features: ([mqtt_as](https://github.com/kevinkk525/micropython-mqtt))
 
 All required modules are in this repository and don't need to be aquired manually. 
 Just put the directories `micropython_mqtt_as` and `uasyncio` from `external_modules` into your `modules` directory before building the firmware or run the correct script in section `Tools`.
@@ -76,8 +88,8 @@ Uasyncio is copied from the official repository and I will update the file as so
 
 ## 3. Components
 The included components can be found in the directory "pysmartnode/components".
-Their description and configuration will soon be added to the wiki but for now you can check the files itself. 
-They contain an example configuration of the component and some description. 
+<br>Their description and configuration will soon be added to the wiki but for now you can check the files itself.
+<br>They contain an example configuration of the component and some description.
 The example configuration however is in [hjson](https://github.com/hjson/hjson-py), which is easier than *json* and has the possibility to have comments in it.
 This format is used in the *SmartServer* (see 4.1.), if you want to put the configuration onto your controller, you have to convert it to json.
 
@@ -128,8 +140,11 @@ In this file you have to specify the WIFI and MQTT parameters of your home envir
 There are also some optional parameters to configure base modules and behaviour.
 
 ### Project configuration
+
 The project configuration is done in the file *config.py* which should be created by copying the [config_example.py](./config_example.py) as *config.py*.
 If you have a filesystem, copy it onto the device or put it as frozen bytecode in your modules directory.
+
+In *config.py* only those configurations have to be provided, that overwrite the default values found in [base_config](./pysmartnode.base_config.py)
 
 The basic configuration options are:
 * WIFI: SSID and PASSPHRASE
@@ -145,6 +160,8 @@ Optional configurations for the network are:
 * MQTT_TYPE: support for an experimental connection type (will be described when fully tested, documented and implemented). Not working at the moment.
 * WIFI_LED: Set option to a pin number to use the connected LED to display the Wifi status. If the initial connect to the WIFI was successful then it will blink 5 times very quickly. While connected it will blink quickly one time every 30 seconds. When not connected it will make 3 long blinks every 5 seconds.
 * WIFI_LED_ACTIVE_HIGH: Set to False if the connected LED is active low.
+* WEBREPL_ACTIVE: Starts the webrepl from pysmartnode scripts without modifying the boot.py, also intializes the webrepl so calling "webrepl_setup" is not needed.
+* WEBREPL_PASSWORD: Set a password for the webrepl.
 
 Platform dependent options are
 - for esp32_LoBo:
@@ -166,7 +183,8 @@ Platform dependent options are
     * RTC_SYNC_ACTIVE: use synced time. Only disable if the underlying OS has no internet access and can't sync its time. Micropython doesn't sync the time on unix. 
 
 A few additional options define some constants:
-* INTERVAL_SEND_SENSOR: defines an interval, in which sensors are publishing their value if no interval is provided in the component configuration
+* INTERVAL_SENSOR_PUBLISH: defines the interval in which sensors are publishing their value if no interval is provided in the component configuration
+* INTERVAL_SENSOR_READ: defines the interval in which sensors are read if configuration is not provided by the component.
 * DEVICE_NAME: set to a unique device name otherwise the device id will be used. This is relevant for homeassistant mqtt autodiscovery so the device gets recognized by its device_name instead of the id. It is also used with the unix port instead of the unique chip id (which is not available on the unix port) and it therefore has to be UNIQUE in your network or it will result in problems.
 * DEBUG: Will display additional information, useful for development only
 * DEBUG_STOP_AFTER_EXECUTION: normally if an uncatched exception occurs and the loop exits, it will reset the device and the message will be logged after restart. This disables it and will stop at the repl after the exception.
@@ -211,6 +229,7 @@ A small overview of the directory structure:
  * /:                   contains a modified boot.py usable on esp8266 and esp32, the project configuration file, ...
  * _templates:          contains templates for building own scripts/components/config.. not to be uploaded to the device
  * _testing:            contains tests of some modules, not needed on the device
+ * dev:                 contains modules that are in development and either contain bugs, are not functional yet or just experimental
  * external_modules:    contains the needed external modules like mqtt_as and uasyncio. Can be ignored if the dependencies of this project are available.
  * pysmartnode :        contains the project files, the configuration library and main startup script
     * components:       contains all the component libraries grouped by type
@@ -225,14 +244,12 @@ A small overview of the directory structure:
     * networking:       wifi and mqtt handling
     * utils:            base classes, helping functions, decorators and wrappers. May be helpful in some custom components. Example: asyncio Event class
         * component:                basic component classes
-        * subscriptionHandlers:     used in mqtt library to manage subscriptions. Different implementations with different strengths and weaknesses. Shortly described in [mqtt.py](./pysmartnode/networking/mqtt.py)
         * wrappers:                 wrappers for all sorts of things
         
 ## 7. Project Flowchart
 
 I'd like to provide a small flowchart which makes it easier to understand how this project works and which file is called when.
 It shows which modules are imported by which files first (as some are imported in different files of course) in a temporal flow. Only the most important modules are shown, not util modules.
-(Not up to date to version >5.0.0 yet)
 
 ![flowchart](./file_flowchart.jpg)
 
