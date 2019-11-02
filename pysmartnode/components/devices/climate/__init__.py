@@ -33,7 +33,7 @@ cooling_unit
 fan_unit
 """
 
-__updated__ = "2019-11-01"
+__updated__ = "2019-11-02"
 __version__ = "0.8"
 
 from pysmartnode import config
@@ -65,7 +65,7 @@ _log = logging.getLogger(COMPONENT_NAME)
 
 gc.collect()
 
-_count = 0
+_unit_index = -1
 
 
 class Climate(Component):
@@ -76,12 +76,10 @@ class Climate(Component):
                  friendly_name=None, discover=True):
         self.checkSensorType(temperature_sensor, SENSOR_TEMPERATURE)
         self.checkSwitchType(heating_unit)
-        super().__init__(COMPONENT_NAME, __version__, discover)
-
         # This makes it possible to use multiple instances of MyComponent
-        global _count
-        self._count = _count
-        _count += 1
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover)
 
         self._temp_step = temp_step
         self._min_temp = min_temp

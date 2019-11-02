@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-10-27 
 
-__updated__ = "2019-11-01"
-__version__ = "0.4"
+__updated__ = "2019-11-02"
+__version__ = "0.5"
 
 from pysmartnode.utils.component import Component
 from pysmartnode import config
@@ -17,12 +17,13 @@ _mqtt = config.getMQTT()
 
 
 class ComponentSensor(Component):
-    def __init__(self, component_name, version, discover, interval_publish=None,
+    def __init__(self, component_name, version, unit_index: int, discover, interval_publish=None,
                  interval_reading=None, mqtt_topic=None, log=None,
                  expose_intervals=False, intervals_topic=None):
         """
         :param component_name: Name of the component, used for default topics and logging
         :param version: version of the component module, used for logging purposes
+        :param unit_index: counter of the registerd unit of this sensor_type (used for default topics)
         :param discover: if the sensor component should send its homeassistnat discovery message
         :param interval_publish: seconds, set to interval_reading to publish every reading. -1 for not publishing.
         :param interval_reading: seconds, set to -1 for not reading/publishing periodically. >0 possible for reading, 0 not allowed for reading..
@@ -33,9 +34,9 @@ class ComponentSensor(Component):
         :param mqtt_topic: optional custom mqtt topic
         :param expose_intervals: Expose intervals to mqtt so they can be changed remotely
         :param intervals_topic: if expose_intervals then use this topic to change intervals.
-        Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set
+        Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set
         """
-        super().__init__(component_name, version, discover)
+        super().__init__(component_name, version, unit_index, discover)
         self._values = {}
         self._log = log or logging.getLogger(component_name)
         # _intpb can be >0, -1 for not publishing or 0/None for INTERVAL_SENSOR_PUBLISH
@@ -302,10 +303,7 @@ class ComponentSensor(Component):
                     self._event.set()
                 if pb:
                     if pbc is not None:
-                        try:
-                            asyncio.cancel(pbc)
-                        except:
-                            pass
+                        asyncio.cancel(pbc)
                     vals = 0
                     # counting sensor_types which have a topic as those get published separately
                     for tp in self._values:
@@ -333,10 +331,7 @@ class ComponentSensor(Component):
                         break
         except asyncio.CancelledError:
             if pbc is not None:
-                try:
-                    asyncio.cancel(pbc)
-                except Exception:
-                    pass
+                asyncio.cancel(pbc)
             raise
         except NotImplementedError:
             raise

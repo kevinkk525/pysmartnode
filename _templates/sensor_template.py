@@ -20,13 +20,13 @@ example config:
         # friendly_name_humid: null  # optional, friendly name shown in homeassistant gui with mqtt discovery
         # discover: true             # optional, if false no discovery message for homeassistant will be sent.
         # expose_intervals: false    # optional, expose intervals to mqtt so they can be changed remotely
-        # intervals_topic: null      # optional, if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
+        # intervals_topic: null      # optional, if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
 """
 
-__updated__ = "2019-10-30"
-__version__ = "2.1"
+__updated__ = "2019-11-02"
+__version__ = "2.2"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -49,7 +49,7 @@ _log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
-_count = 0
+_unit_index = -1
 
 
 class MySensor(ComponentSensor):
@@ -68,17 +68,22 @@ class MySensor(ComponentSensor):
         :param interval_reading: seconds, set to -1 for not reading/publishing periodically. >0 possible for reading, 0 not allowed for reading.
         If reading interval is lower than the timeout of publishing all sensor readings would be,
         a separate publish coroutine will be started so the reading interval won't be impacted.
-        :param mqtt_topic: optional custom mqtt topic, defaults to <home>/<device-id>/<COMPONENT_NAME><_count>
+        :param mqtt_topic: optional custom mqtt topic, defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>
         :param friendly_name_temp: friendly name in homeassistant GUI for temperature component
         :param friendly_name_humid: friendly name in homeassistant GUI for humidity component
         :param discover: if the sensor component should send its homeassistnat discovery message
         :param expose_intervals: Expose intervals to mqtt so they can be changed remotely
         :param intervals_topic: if expose_intervals then use this topic to change intervals.
-        Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set
+        Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set
         Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
         """
-        super().__init__(COMPONENT_NAME, __version__, discover, interval_publish, interval_reading,
-                         mqtt_topic, _log, expose_intervals, intervals_topic)
+        # This makes it possible to use multiple instances of MySensor and have unique identifier
+        # It is needed for every default value for mqtt.
+        # Initialize before super()__init__(...) to not pass the wrong value.
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch
@@ -87,11 +92,6 @@ class MySensor(ComponentSensor):
                             "°C", friendly_name_temp)
         self._addSensorType(SENSOR_HUMIDITY, precision_humid, humid_offset, _VAL_T_HUMIDITY, "%",
                             friendly_name_humid)
-
-        # This makes it possible to use multiple instances of MySensor and have unique identifier
-        global _count
-        self._count = _count
-        _count += 1
 
         ##############################
         # create sensor object

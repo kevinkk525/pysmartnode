@@ -10,15 +10,15 @@ example config:
     package: <package_path>
     component: Switch
     constructor_args: {
-        # mqtt_topic: null    # optional, defaults to <mqtt_home>/<device_id>/Switch<_count>/set
+        # mqtt_topic: null    # optional, defaults to <mqtt_home>/<device_id>/Switch<_unit_index>/set
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
         # discover: true      # optional, if false no discovery message for homeassistant will be sent.
     }
 }
 """
 
-__updated__ = "2019-10-31"
-__version__ = "1.7"
+__updated__ = "2019-11-02"
+__version__ = "1.8"
 
 from pysmartnode import config
 from pysmartnode.utils.component.switch import ComponentSwitch
@@ -31,7 +31,7 @@ COMPONENT_NAME = "Switch"
 ####################
 
 _mqtt = config.getMQTT()
-_count = 0
+_unit_index = -1
 
 
 class Switch(ComponentSwitch):
@@ -41,10 +41,10 @@ class Switch(ComponentSwitch):
         # hardware components like a power switch
 
         # This makes it possible to use multiple instances of Button.
-        # It is needed for every default value.
-        global _count
-        self._count = _count
-        _count += 1
+        # It is needed for every default value for mqtt.
+        # Initialize before super()__init__(...) to not pass the wrong value.
+        global _unit_index
+        _unit_index += 1
 
         ###
         # set the initial state otherwise it will be "None" (unknown) and the first request
@@ -55,7 +55,7 @@ class Switch(ComponentSwitch):
         ###
 
         # mqtt_topic can be adapted otherwise a default mqtt_topic will be generated if None
-        super().__init__(COMPONENT_NAME, __version__, mqtt_topic, instance_name=None,
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, instance_name=None,
                          wait_for_lock=True, discover=discover, friendly_name=friendly_name,
                          initial_state=initial_state)
 

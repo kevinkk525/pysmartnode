@@ -67,7 +67,7 @@ _log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
-_count = 0
+_unit_index = -1
 
 
 # TODO: add some connectivity checks of the "sensor"
@@ -79,8 +79,11 @@ class EC(Component):
     def __init__(self, r1, ra, adc, power_pin, ground_pin, ppm_conversion, temp_coef, k,
                  temp_sensor, precision_ec=3, interval=None, topic_ec=None, topic_ppm=None,
                  friendly_name_ec=None, friendly_name_ppm=None):
-        super().__init__(COMPONENT_NAME, __version__)
-        self._interval = interval or config.INTERVAL_SEND_SENSOR
+        # This makes it possible to use multiple instances of MySensor
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index)
+        self._interval = interval or config.INTERVAL_SENSOR_PUBLISH
         self._prec_ec = int(precision_ec)
         self._adc = ADC(adc)
         self._ppin = Pin(power_pin, machine.Pin.OUT)
@@ -100,10 +103,6 @@ class EC(Component):
         self._ec25 = None
         self._ppm = None
         self._time = 0
-        # This makes it possible to use multiple instances of MySensor
-        global _count
-        self._count = _count
-        _count += 1
         self._topic_ec = topic_ec or _mqtt.getDeviceTopic("{!s}/{!s}".format("EC", self._count))
         self._topic_ppm = topic_ppm or _mqtt.getDeviceTopic("{!s}/{!s}".format("PPM", self._count))
         self._frn_ec = friendly_name_ec

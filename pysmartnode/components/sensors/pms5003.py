@@ -22,13 +22,13 @@ example config:
         # friendly_name: [...]   # optional, list of friendly names for each published category
         # discover: true            # optional, if false no discovery message for homeassistant will be sent.
         # expose_intervals: Expose intervals to mqtt so they can be changed remotely
-        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
+        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
 Sensor can only be used with esp32 as esp8266 has only 1 uart at 115200 (9600 needed) 
 """
 
-__updated__ = "2019-11-01"
+__updated__ = "2019-11-02"
 __version__ = "1.8"
 
 from pysmartnode import config
@@ -83,8 +83,8 @@ class PMS5003(ComponentSensor):
         :param expose_intervals: intervals can be changed through mqtt
         :param intervals_topic:
         """
-        super().__init__(COMPONENT_NAME, __version__, discover, interval_publish, interval_reading,
-                         mqtt_topic, _log, expose_intervals, intervals_topic)
+        super().__init__(COMPONENT_NAME, __version__, 0, discover, interval_publish,
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
         if type(friendly_name) is not None:
             if type(friendly_name) == list:
                 if len(friendly_name) != 12:

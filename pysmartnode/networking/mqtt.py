@@ -180,8 +180,8 @@ class MQTTHandler(MQTTClient):
     async def _subscribeTopics(self, start: int = 0):
         _log.debug("_subscribeTopics, start", start, local_only=True)
         try:
-            for sub in self._subs:  # do not iter by length as _subs could get bigger while itering
-                i = self._subs.index(sub)
+            for i, sub in enumerate(self._subs):
+                # do not iter by range(start,length(_subs)) as _subs could get bigger while itering
                 if i < start:
                     continue  # iter until start position reached
                 t = sub[0]

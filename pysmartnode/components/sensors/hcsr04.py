@@ -27,13 +27,13 @@ example config:
         # friendly_name: "Distance" # optional, friendly name for homeassistant gui by mqtt discovery
         # discover: true            # optional, if false no discovery message for homeassistant will be sent.
         # expose_intervals: Expose intervals to mqtt so they can be changed remotely
-        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
+        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
 # interval change can't be discovered as homeassistant doesn't offer a type
 """
 
-__updated__ = "2019-11-01"
+__updated__ = "2019-11-02"
 __version__ = "0.8"
 
 from pysmartnode.components.machine.pin import Pin
@@ -56,7 +56,7 @@ _log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
-_count = 0
+_unit_index = -1
 
 
 class HCSR04(ComponentSensor):
@@ -82,20 +82,19 @@ class HCSR04(ComponentSensor):
         :param discover: boolean, if the device should publish its discovery
         :param expose_intervals: Expose intervals to mqtt so they can be changed remotely
         :param intervals_topic: if expose_intervals then use this topic to change intervals.
-        Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set
+        Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set
         Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
         """
-        super().__init__(COMPONENT_NAME, __version__, discover, interval_publish, interval_reading,
-                         mqtt_topic, _log, expose_intervals, intervals_topic)
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
         self._tr = Pin(pin_trigger, mode=machine.Pin.OUT)
         self._tr.value(0)
         self._ec = Pin(pin_echo, mode=machine.Pin.IN)
         self._to = timeout
         self.checkSensorType(temp_sensor, SENSOR_TEMPERATURE)
         self._temp: ComponentSensor = temp_sensor
-        global _count
-        self._count = _count
-        _count += 1
         self._addSensorType("distance", precision, offset, value_template or VALUE_TEMPLATE_FLOAT,
                             "cm", friendly_name, discovery_type=DISCOVERY_DISTANCE)
 
@@ -152,8 +151,8 @@ class HCSR04(ComponentSensor):
         val.remove(min(val))
         val.remove(min(val))
         pt = 0
-        for i in range(len(val)):
-            pt += val[i]
+        for v in val:
+            pt += v
         pt /= len(val)
         if temp is None:
             dt = (pt / 2) / 29.14

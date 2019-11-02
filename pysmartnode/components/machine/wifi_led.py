@@ -8,8 +8,8 @@ Best to be activated in config.py so it can display the status before receving/l
 Therefore no example configuration given.
 """
 
-__updated__ = "2019-10-26"
-__version__ = "1.3"
+__updated__ = "2019-11-02"
+__version__ = "1.4"
 
 import gc
 import machine
@@ -27,7 +27,7 @@ COMPONENT_NAME = "WifiLED"
 
 class WIFILED(Component):
     def __init__(self, pin, active_high=True):
-        super().__init__(COMPONENT_NAME, __version__, discover=False)
+        super().__init__(COMPONENT_NAME, __version__, discover=False, unit_index=0)
         self.pin = Pin(pin, machine.Pin.OUT, value=0 if active_high else 1)
         self._active_high = active_high
         self._next = []

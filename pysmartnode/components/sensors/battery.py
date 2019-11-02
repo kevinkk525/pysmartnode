@@ -20,13 +20,13 @@ example config:
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
         # friendly_name_abs: null # optional, friendly name for absolute voltage
         # expose_intervals: Expose intervals to mqtt so they can be changed remotely
-        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
+        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
 WARNING: This component has not been tested with a battery and only works in theory!
 """
 
-__updated__ = "2019-11-01"
+__updated__ = "2019-11-02"
 __version__ = "0.7"
 
 from pysmartnode import config
@@ -50,7 +50,7 @@ _log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
-_count = 0
+_unit_index = -1
 
 
 class Battery(ComponentSensor):
@@ -59,8 +59,10 @@ class Battery(ComponentSensor):
                  interval_publish: float = None, mqtt_topic: str = None, friendly_name: str = None,
                  friendly_name_abs: str = None, discover: bool = True,
                  expose_intervals: bool = False, intervals_topic: str = None):
-        super().__init__(COMPONENT_NAME, __version__, discover, interval_publish, interval_reading,
-                         mqtt_topic, _log, expose_intervals, intervals_topic)
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
         self._adc = ADC(adc)  # unified ADC interface
         self._voltage_max = voltage_max
         self._voltage_min = voltage_min
@@ -70,9 +72,6 @@ class Battery(ComponentSensor):
             self._cutoff_pin.value(0)
         self._event_low = None
         self._event_high = None
-        global _count
-        self._count = _count
-        _count += 1
         self._addSensorType(SENSOR_BATTERY, 2, 0, _VAL_T_CHARGE, "%", friendly_name_abs)
         self._addSensorType("voltage", precision_voltage, 0, _VAL_T_VOLTAGE, "V", friendly_name,
                             None, _TYPE_VOLTAGE)

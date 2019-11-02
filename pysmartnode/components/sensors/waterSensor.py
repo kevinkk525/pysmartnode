@@ -18,7 +18,7 @@ Simple water sensor using 2 wires in water. As soon as some conductivity is poss
         # friendly_name: null       # optional, friendly name for the homeassistant gui
         # discover: true            # optional, if false no discovery message for homeassistant will be sent.
         # expose_intervals: Expose intervals to mqtt so they can be changed remotely
-        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
+        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 } 
 Will publish on any state change and in the given interval. State changes are detected in the interval_reading.
@@ -31,7 +31,7 @@ Put a Resistor (~10kR) between the power pin (or permanent power) and the adc pi
 Connect the wires to the adc pin and gnd.
 """
 
-__updated__ = "2019-10-29"
+__updated__ = "2019-11-02"
 __version__ = "1.5"
 
 from pysmartnode import config
@@ -46,7 +46,7 @@ from pysmartnode.utils.component.sensor import ComponentSensor, SENSOR_BINARY_MO
     VALUE_TEMPLATE
 
 COMPONENT_NAME = "WaterSensor"
-_count = 0
+_unit_index = -1
 
 _log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
@@ -60,14 +60,13 @@ class WaterSensor(ComponentSensor):
                  interval_reading=1, mqtt_topic=None, friendly_name=None, discover=True,
                  expose_intervals=False, intervals_topic=None):
         interval_publish = interval_publish or -1
-        super().__init__(COMPONENT_NAME, __version__, discover, interval_publish, interval_reading,
-                         mqtt_topic, _log, expose_intervals, intervals_topic)
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
         self._adc = ADC(adc)
         self._ppin = Pin(power_pin, machine.Pin.OUT) if power_pin is not None else None
         self._cv = cutoff_voltage or self._adc.maxVoltage()
-        global _count
-        self._count = _count
-        _count += 1
         self._lv = None
         self._addSensorType(SENSOR_BINARY_MOISTURE, 0, 0, VALUE_TEMPLATE, "", friendly_name,
                             mqtt_topic, None, True)

@@ -40,7 +40,7 @@ _log = logging.getLogger(COMPONENT_NAME)
 
 gc.collect()
 
-_count = 0
+_unit_index = -1
 
 COMMAND_ON = "~/raspberry-remote/send {!s} {!s} 1"
 COMMAND_OFF = "~/raspberry-remote/send {!s} {!s} 0"
@@ -57,9 +57,9 @@ class RF433(Switch):
         self._log = _log
 
         # This makes it possible to use multiple instances of Switch
-        global _count
+        global _unit_index
         self._count = _count
-        _count += 1
+        _unit_index += 1
         self._topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}{!s}".format(COMPONENT_NAME, self._count),
                                                          is_request=True)
         self._subscribe(self._topic, self.on_message)

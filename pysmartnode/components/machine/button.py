@@ -40,8 +40,8 @@ Example configuration:
 }
 """
 
-__updated__ = "2019-10-19"
-__version__ = "0.4"
+__updated__ = "2019-11-02"
+__version__ = "0.5"
 
 from pysmartnode import logging
 from pysmartnode.utils.abutton import Pushbutton
@@ -57,6 +57,7 @@ loaded_components = {
 COMPONENT_NAME = "Button"
 
 _log = logging.getLogger("button")
+_unit_index = -1
 
 
 class Button(Pushbutton, Component):
@@ -91,7 +92,9 @@ class Button(Pushbutton, Component):
             long_pressed_component = loaded_components[long_pressed_component]
         pin = Pin(pin, machine.Pin.IN, pull)
         Pushbutton.__init__(self, pin, suppress=suppress)
-        Component.__init__(self, COMPONENT_NAME, __version__)
+        global _unit_index
+        _unit_index += 1
+        Component.__init__(self, COMPONENT_NAME, __version__, _unit_index)
         if pressed_component is not None:
             self.press_func(getattr(pressed_component, pressed_method))
         if released_component is not None:

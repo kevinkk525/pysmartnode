@@ -18,7 +18,7 @@ example config:
 }
 """
 
-__updated__ = "2019-10-11"
+__updated__ = "2019-11-02"
 __version__ = "3.2"
 
 import gc
@@ -40,7 +40,7 @@ COMPONENT_NAME = "LEDNotification"
 
 gc.collect()
 
-_count = 0
+_unit_index = -1
 
 
 class LEDNotification(ComponentButton):
@@ -51,15 +51,14 @@ class LEDNotification(ComponentButton):
         self.off_time = off_time
         self.iters = iters
         # This makes it possible to use multiple instances of LED
-        global _count
-        self._count = _count
-        _count += 1
-        super().__init__(COMPONENT_NAME, __version__, mqtt_topic, discover=discover)
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, discover=discover)
         self._frn = friendly_name
         gc.collect()
 
     async def _on(self):
-        for i in range(0, self.iters):
+        for _ in range(self.iters):
             self.pin.value(1)
             await asyncio.sleep_ms(self.on_time)
             self.pin.value(0)

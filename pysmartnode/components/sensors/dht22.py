@@ -18,12 +18,12 @@ example config:
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
         # discover: true            # optional, if false no discovery message for homeassistant will be sent.
         # expose_intervals: Expose intervals to mqtt so they can be changed remotely
-        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
+        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
 """
 
-__updated__ = "2019-11-01"
+__updated__ = "2019-11-02"
 __version__ = "1.0"
 
 from pysmartnode import config
@@ -49,7 +49,7 @@ _log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
-_count = 0
+_unit_index = -1
 
 
 class DHT22(ComponentSensor):
@@ -58,16 +58,15 @@ class DHT22(ComponentSensor):
                  interval_publish=None, interval_reading=None, mqtt_topic=None,
                  friendly_name_temp=None, friendly_name_humid=None,
                  discover=True, expose_intervals=False, intervals_topic=None):
+        # This makes it possible to use multiple instances of MySensor and have unique identifier
+        global _unit_index
+        _unit_index += 1
         super().__init__(COMPONENT_NAME, __version__, discover, interval_publish, interval_reading,
                          mqtt_topic, _log, expose_intervals, intervals_topic)
         self._addSensorType(SENSOR_TEMPERATURE, precision_temp, offset_temp, _VAL_T_TEMPERATURE,
                             "°C", friendly_name_temp)
         self._addSensorType(SENSOR_HUMIDITY, precision_humid, offset_humid, _VAL_T_HUMIDITY, "%",
                             friendly_name_humid)
-        # This makes it possible to use multiple instances of MySensor and have unique identifier
-        global _count
-        self._count = _count
-        _count += 1
         ##############################
         # create sensor object
         self.sensor = Sensor(Pin(pin))  # add neccessary constructor arguments here

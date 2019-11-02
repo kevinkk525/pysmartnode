@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-11-01"
-__version__ = "1.0"
+__updated__ = "2019-11-02"
+__version__ = "1.1"
 
 from pysmartnode.utils.component import Component
 from .definitions import DISCOVERY_SWITCH
@@ -21,12 +21,13 @@ class ComponentSwitch(Component):
     Use it according to the template.
     """
 
-    def __init__(self, component_name, version, command_topic=None, instance_name=None,
-                 wait_for_lock=True, discover=True, restore_state=True, friendly_name=None,
-                 initial_state=None):
+    def __init__(self, component_name, version, unit_index: int, command_topic=None,
+                 instance_name=None, wait_for_lock=True, discover=True, restore_state=True,
+                 friendly_name=None, initial_state=None):
         """
         :param component_name: name of the component that is subclassing this switch (used for discovery and topics)
         :param version: version of the component module. will be logged over mqtt
+        :param unit_index: counter of the registerd unit of this sensor_type (used for default topics)
         :param command_topic: command_topic of subclass which controls the switch state. optional.
         :param instance_name: name of the instance. If not provided will get composed of component_name<count>
         :param wait_for_lock: if True then every request waits for the lock to become available,
@@ -36,7 +37,7 @@ class ComponentSwitch(Component):
         :param friendly_name: friendly name for homeassistant gui
         :param initial_state: intitial state of the switch. By default unknown so first state change request will set initial state.
         """
-        super().__init__(component_name, version, discover=discover)
+        super().__init__(component_name, version, unit_index, discover=discover)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch
@@ -49,7 +50,6 @@ class ComponentSwitch(Component):
         # in case switch activates a device that will need a while to finish
         self._wfl = wait_for_lock
         self._name = instance_name
-        self._count = ""  # declare in subclass
         self._event = None
         self._frn = friendly_name
         gc.collect()

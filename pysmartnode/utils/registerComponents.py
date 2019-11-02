@@ -3,8 +3,8 @@ import uasyncio as asyncio
 from pysmartnode import config
 from sys import platform
 
-__updated__ = "2019-09-15"
-__version__ = "0.4"
+__updated__ = "2019-11-02"
+__version__ = "0.5"
 
 if config.DEBUG:
     def __printRAM(start, info=""):
@@ -38,10 +38,10 @@ def _getArgs(args):
     if type(args) != list:
         return []
     COMPONENTS = config.COMPONENTS
-    for i in range(0, len(args)):
-        if type(args[i]) == str:
-            if args[i] in COMPONENTS:
-                args[i] = COMPONENTS[args[i]]
+    for i, arg in enumerate(args):
+        if type(arg) == str:
+            if arg in COMPONENTS:
+                args[i] = COMPONENTS[arg]
     return args
 
 
@@ -64,7 +64,6 @@ def registerComponent(componentname, component, _log):
     __printRAM(mem_start)
     res = True
     COMPONENTS = config.COMPONENTS
-    loop = asyncio.get_event_loop()
     version = None
     if componentname in COMPONENTS:
         _log.error("Component {!r} already added".format(componentname))

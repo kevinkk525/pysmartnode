@@ -19,7 +19,7 @@ example config:
         # friendly_name: null     # optional, friendly name shown in homeassistant gui with mqtt discovery
         # discover: true          # optional, if false no discovery message for homeassistant will be sent
         # expose_intervals:       # optional, expose intervals to mqtt so they can be changed remotely
-        # intervals_topic:        # optional, if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
+        # intervals_topic:        # optional, if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
 # This module is to be used if only 1 ds18 sensor is connected and the ROM doesn't matter.
@@ -27,7 +27,7 @@ example config:
 # The sensor can be replaced while the device is running.
 """
 
-__updated__ = "2019-11-01"
+__updated__ = "2019-11-02"
 __version__ = "3.0"
 
 from pysmartnode import config
@@ -51,7 +51,7 @@ COMPONENT_NAME = "DS18"
 
 _log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
-_count = 0
+_unit_index = -1
 gc.collect()
 
 
@@ -85,7 +85,7 @@ class DS18(ComponentSensor):
         :param discover: if DS18 object should send discovery message for homeassistnat
         :param expose_intervals: Expose intervals to mqtt so they can be changed remotely
         :param intervals_topic: if expose_intervals then use this topic to change intervals.
-        Defaults to <home>/<device-id>/<COMPONENT_NAME><_count>/interval/set
+        Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set
         Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
         """
         if rom is None and auto_detect:
@@ -100,8 +100,10 @@ class DS18(ComponentSensor):
             self._offs = offset_temp
             self._discover = discover
             self._expose = expose_intervals
-        super().__init__(COMPONENT_NAME, __version__, discover, interval_publish, interval_reading,
-                         mqtt_topic, _log, expose_intervals, intervals_topic)
+            global _unit_index
+            _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
         if rom or not auto_detect:  # sensor with rom or generic sensor
             self._addSensorType(SENSOR_TEMPERATURE, precision_temp, offset_temp,
                                 VALUE_TEMPLATE_FLOAT, "°C", friendly_name)
@@ -114,9 +116,6 @@ class DS18(ComponentSensor):
             self.sensor: ds18x20.DS18X20 = self._pins[pin]
             self._last_conv[self.sensor] = None
         self.rom: str = rom
-        global _count
-        self._count = _count
-        _count += 1
         gc.collect()
 
     def _default_name(self):

@@ -18,7 +18,7 @@ example config:
 # TODO: implement possibility to set sensor topics through mqtt, similar to RemoteSensor implementation
 # TODO: make a real ComponentSwitch class so type checks won't fail
 
-__updated__ = "2019-10-30"
+__updated__ = "2019-11-02"
 __version__ = "0.2"
 
 COMPONENT_NAME = "RemoteSwitch"
@@ -30,6 +30,7 @@ from micropython import const
 
 _mqtt = config.getMQTT()
 _TIMEOUT = const(10)  # wait for a single reconnect but should be short enough if not connected
+_unit_index = -1
 
 
 class RemoteSwitch(Component):
@@ -39,8 +40,9 @@ class RemoteSwitch(Component):
     """
 
     def __init__(self, command_topic, state_topic, timeout=_TIMEOUT):
-        super().__init__(COMPONENT_NAME, __version__, discover=False)
-
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover=False)
         self._state = False
         self._topic = command_topic
         self._state_topic = state_topic

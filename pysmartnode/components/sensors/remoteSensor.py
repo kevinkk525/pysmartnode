@@ -10,7 +10,7 @@ example config:
     constructor_args: {
         sensor_type: "temperature" # sensor_type of remote sensor
         mqtt_topic: sometopic      # topic of the remote sensor, if None, then the command topic can be used to set a topic to listen to
-        # command_topic: sometopic # optional, defaults to <home>/<client-id>/<COMPONENT_NAME><_count>/topic/set
+        # command_topic: sometopic # optional, defaults to <home>/<client-id>/<COMPONENT_NAME><_unit_index>/topic/set
         # value_template: null     # optional, defaults to {{ value }} taking input "as is" (str,float,int). possible is {{ value_json.<sensor_type> }}
         # stale_time: 900          # optional, defaults to 900, time after which the remote sensor is considered unavailable
     }
@@ -25,7 +25,7 @@ this sensor and the _init_network is called, the topic value should have been re
 
 # TODO: implement support for multiple sensor_types that share one topic in one component
 
-__updated__ = "2019-10-31"
+__updated__ = "2019-11-02"
 __version__ = "0.1"
 
 import gc
@@ -39,16 +39,15 @@ COMPONENT_NAME = "RemoteSensor"
 _mqtt = config.getMQTT()
 gc.collect()
 
-_count = 0
+_unit_index = -1
 
 
 class RemoteSensor(ComponentSensor):
     def __init__(self, sensor_type, mqtt_topic=None, command_topic=None,
                  value_template=None, stale_time=900):
         # This makes it possible to use multiple instances of BaseRemote
-        global _count
-        self._count = _count
-        _count += 1
+        global _unit_index
+        _unit_index += 1
         self._value_type = None  # in case of dictionary it will be determined by json
         v = value_template
         if "value_json." in value_template:
@@ -63,7 +62,8 @@ class RemoteSensor(ComponentSensor):
             else:
                 raise TypeError("value_template type {!s} not supported".format(v))
         self._log = logging.getLogger("{}_{}{}".format(COMPONENT_NAME, sensor_type, self._count))
-        super().__init__(COMPONENT_NAME, __version__, False, -1, -1, None, self._log, False, None)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, False, -1, -1, None, self._log,
+                         False, None)
         self._addSensorType(sensor_type, 2, 0, value_template, "")
         # no unit_of_measurement as only used for mqtt discovery
         self._stale_time = stale_time

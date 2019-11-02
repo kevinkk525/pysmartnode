@@ -45,7 +45,7 @@ _COMPONENT_TYPE = "switch"
 _mqtt = config.getMQTT()
 _log = logging.getLogger(COMPONENT_NAME)
 
-_count = 0
+_unit_index = -1
 
 
 # TODO: remove debug messages
@@ -65,9 +65,9 @@ class RFPump(RF433):
         self._off_time = off_time or on_time
         self._on_time = on_time
         # This makes it possible to use multiple instances of Pump, _count of rf433 switch will be incremented too
-        global _count
+        global _unit_index
         self._count = _count
-        _count += 1
+        _unit_index += 1
         self._topic = mqtt_topic or _mqtt.getDeviceTopic("{!s}{!s}".format(COMPONENT_NAME, self._count),
                                                          is_request=True)
         self._log = _log

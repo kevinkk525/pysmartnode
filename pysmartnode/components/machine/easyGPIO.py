@@ -12,11 +12,12 @@ example config:
         # discover_pins: [1,2,3] # optional, discover all pins of the list. Otherwise no pins are discovered.
     }
 }
-makes esp8266 listen to requested gpio changes or return pin.value() if message is published without payload
+Makes esp8266 listen to requested gpio changes or return pin.value() if message is published without payload.
+This component is just a generic interface to device pins, it does not offer ComponentSwitch features.
 """
 
-__updated__ = "2019-11-01"
-__version__ = "1.7"
+__updated__ = "2019-11-02"
+__version__ = "1.8"
 
 import gc
 import machine
@@ -35,7 +36,7 @@ gc.collect()
 
 class GPIO(Component):
     def __init__(self, mqtt_topic=None, discover_pins=None):
-        super().__init__(COMPONENT_NAME, __version__)
+        super().__init__(COMPONENT_NAME, __version__, unit_index=0)
         self._topic = mqtt_topic or _mqtt.getDeviceTopic("easyGPIO/+/set")
         _mqtt.subscribeSync(self._topic, self.on_message, self, check_retained_state=True)
         self._d = discover_pins or []
@@ -50,7 +51,7 @@ class GPIO(Component):
                 await self._deleteDiscovery(_COMPONENT_TYPE, name)
 
     @staticmethod
-    async def on_message(self, topic, msg, retain):
+    async def on_message(topic, msg, retain):
         _log = logging.getLogger("easyGPIO")
         if topic.endswith("/set") is False:
             if retain:
@@ -67,15 +68,15 @@ class GPIO(Component):
             await _log.asyncLog("pin {!r} does not exist: {!s}".format(pin, e))
             return False
         if msg != "":
-            value = None
             if msg in _mqtt.payload_on:
                 value = 1
             elif msg in _mqtt.payload_off:
                 value = 0
-            try:
-                value = int(msg)
-            except:
-                pass
+            else:
+                try:
+                    value = int(msg)
+                except ValueError:
+                    value = None
             if value is None:
                 await _log.logAsync("error",
                                     "pin {!r} got no supported value {!r}".format(pin, msg))

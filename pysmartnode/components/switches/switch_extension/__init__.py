@@ -29,12 +29,11 @@ As Homeassistant only supports sensors and switches to be discovered, every mode
 to enable the mode.
 """
 
-__updated__ = "2019-11-01"
+__updated__ = "2019-11-02"
 __version__ = "0.6"
 
 from pysmartnode import config
 from pysmartnode import logging
-import uasyncio as asyncio
 import gc
 from pysmartnode.utils.component.switch import Component, ComponentSwitch, DISCOVERY_SWITCH
 from pysmartnode.config import Lock
@@ -47,6 +46,7 @@ _COMPONENT_TYPE = "switch"
 
 _mqtt = config.getMQTT()
 _log = logging.getLogger(COMPONENT_NAME)
+_unit_index = -1
 
 
 class BaseMode:
@@ -88,7 +88,9 @@ Mode = BaseMode()
 class Switch(Component):
     def __init__(self, component: ComponentSwitch, modes_enabled: list,
                  mqtt_topic_mode=None, friendly_name_mode=None, discover=True):
-        super().__init__(COMPONENT_NAME, __version__, discover)
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover)
         if type(component) == str:
             self._component = config.getComponent(component)
             if self._component is None:

@@ -1,3 +1,4 @@
+#!/bin/bash
 HOST="192.168.178.51"
 USER=""
 PASS=""

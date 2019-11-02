@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-10-31"
-__version__ = "0.7"
+__updated__ = "2019-11-02"
+__version__ = "0.8"
 
 from .switch import ComponentSwitch
 from pysmartnode.utils.component import Component
@@ -21,11 +21,13 @@ class ComponentButton(ComponentSwitch):
     Otherwise it would be a Switch.
     """
 
-    def __init__(self, component_name, version, command_topic=None, instance_name=None,
-                 wait_for_lock=False, discover=True, friendly_name=None, initial_state=False):
+    def __init__(self, component_name, version, unit_index: int, command_topic=None,
+                 instance_name=None, wait_for_lock=False, discover=True, friendly_name=None,
+                 initial_state=False):
         """
         :param component_name: name of the component that is subclassing this switch (used for discovery and topics)
         :param version: version of the component module. will be logged over mqtt
+        :param unit_index: counter of the registerd unit of this sensor_type (used for default topics)
         :param command_topic: command_topic of subclass which controls the switch state. optional.
         :param instance_name: name of the instance. If not provided will get composed of component_name<count>
         :param wait_for_lock: if True then every request waits for the lock to become available,
@@ -35,8 +37,8 @@ class ComponentButton(ComponentSwitch):
         :param friendly_name: friendly name for homeassistant gui
         :param initial_state: the initial state of the button, typically False ("OFF") for Pushbutton
         """
-        super().__init__(component_name, version, command_topic, instance_name, wait_for_lock,
-                         discover, restore_state=False, friendly_name=friendly_name,
+        super().__init__(component_name, version, unit_index, command_topic, instance_name,
+                         wait_for_lock, discover, restore_state=False, friendly_name=friendly_name,
                          initial_state=initial_state)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying

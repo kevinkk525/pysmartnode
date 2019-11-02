@@ -44,8 +44,8 @@ timestamp: Datetime object or timestamp string.'''
 
 def generateList(b, binary: bool):
     b = b.split("\n")
-    for i in range(len(b)):
-        b[i] = b[i][:b[i].find(":")]
+    for i, v in enumerate(b):
+        b[i] = v[:v.find(":")]
     for i in b:
         print("SENSOR_{!s}{!s} = {!r}".format("BINARY_" if binary else "", i.upper(), i))
 

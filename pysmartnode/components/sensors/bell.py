@@ -19,7 +19,7 @@ example config:
 }
 """
 
-__updated__ = "2019-11-01"
+__updated__ = "2019-11-02"
 __version__ = "1.4"
 
 import gc
@@ -45,7 +45,7 @@ class Bell(Component):
     def __init__(self, pin, debounce_time, on_time=None, irq_direction=None, mqtt_topic=None,
                  friendly_name=None,
                  friendly_name_last=None, discover=True):
-        super().__init__(COMPONENT_NAME, __version__, discover)
+        super().__init__(COMPONENT_NAME, __version__, unit_index=0, discover=discover)
         self._topic = mqtt_topic
         self._PIN_BELL_IRQ_DIRECTION = irq_direction or machine.Pin.IRQ_FALLING
         self._debounce_time = debounce_time
@@ -63,7 +63,7 @@ class Bell(Component):
             self._pin_bell = Pin(self._pin_bell, machine.Pin.IN)
         self._event_bell = Event()
         self._timer_lock = Lock()
-        irq = self._pin_bell.irq(trigger=self._PIN_BELL_IRQ_DIRECTION, handler=self.__irqBell)
+        self._pin_bell.irq(trigger=self._PIN_BELL_IRQ_DIRECTION, handler=self.__irqBell)
         self._event_bell.clear()
         asyncio.get_event_loop().create_task(self.__bell())
         self._timer_bell = machine.Timer(1)

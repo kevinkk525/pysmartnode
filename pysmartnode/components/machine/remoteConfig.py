@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-15 
 
-__updated__ = "2019-11-01"
-__version__ = "0.6"
+__updated__ = "2019-11-02"
+__version__ = "0.7"
 
 from pysmartnode.utils.component import Component
 from pysmartnode import config
@@ -22,7 +22,7 @@ WAIT = 1.5 if platform == "esp8266" else 0.5
 
 class RemoteConfig(Component):
     def __init__(self):
-        super().__init__(COMPONENT_NAME, __version__)
+        super().__init__(COMPONENT_NAME, __version__, unit_index=0)
         self._topic = "{!s}/login/{!s}/#".format(_mqtt.mqtt_home, _mqtt.client_id)
         self._watcher_coro = self._watcher()
         self._icomp = None

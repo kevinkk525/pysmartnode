@@ -49,7 +49,7 @@ _log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
-_count = 0
+_unit_index = -1
 
 PH_TYPE = '"unit_of_meas":"pH",' \
           '"val_tpl":"{{ value|float }}",' \
@@ -62,17 +62,15 @@ class PHsensor(Component):
                  voltage_calibration_1, pH_calibration_value_1,
                  precision=2, interval=None, mqtt_topic=None,
                  friendly_name=None, discover=True):
-        super().__init__(COMPONENT_NAME, __version__, discover)
+        # This makes it possible to use multiple instances of MySensor
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover)
         self._interval = interval or config.INTERVAL_SENSOR_PUBLISH
         self._topic = mqtt_topic
         self._frn = friendly_name
         self._adc = ADC(adc)
         self._adc_multi = adc_multi
-
-        # This makes it possible to use multiple instances of MySensor
-        global _count
-        self._count = _count
-        _count += 1
 
         self.__ph = None
 

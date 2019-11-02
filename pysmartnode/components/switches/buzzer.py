@@ -19,7 +19,7 @@ example config:
 }
 """
 
-__updated__ = "2019-10-11"
+__updated__ = "2019-11-02"
 __version__ = "3.2"
 
 import gc
@@ -41,7 +41,7 @@ COMPONENT_NAME = "Buzzer"
 
 gc.collect()
 
-_count = 0
+_unit_index = -1
 
 
 class Buzzer(ComponentButton):
@@ -54,15 +54,14 @@ class Buzzer(ComponentButton):
         self.pin = PWM(self.pin, freq=freq)
         self.pin.duty(0)
         # This makes it possible to use multiple instances of Buzzer
-        global _count
-        self._count = _count
-        _count += 1
-        super().__init__(COMPONENT_NAME, __version__, mqtt_topic, discover=discover)
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, discover=discover)
         self._frn = friendly_name
         gc.collect()
 
     async def _on(self):
-        for i in range(0, self.iters):
+        for _ in range(self.iters):
             for duty in self.values:
                 self.pin.duty(duty)
                 await asyncio.sleep_ms(self.on_time)

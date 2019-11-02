@@ -8,7 +8,7 @@ example config for remoteConfig module or as json in components.py:
     package: <package_path>
     component: Button
     constructor_args: {
-        # mqtt_topic: null     # optional, defaults to <mqtt_home>/<device_id>/Button<_count>/set
+        # mqtt_topic: null     # optional, defaults to <mqtt_home>/<device_id>/Button<_unit_index>/set
         # friendly_name: null  # optional, friendly name shown in homeassistant gui with mqtt discovery
         # discover: true       # optional, if false no discovery message for homeassistant will be sent.
     }
@@ -17,8 +17,8 @@ example config for remoteConfig module or as json in components.py:
 
 # A button is basically a switch with a single-shot action that deactivates itself afterwards.
 
-__updated__ = "2019-10-31"
-__version__ = "0.6"
+__updated__ = "2019-11-02"
+__version__ = "0.7"
 
 from pysmartnode import config
 from pysmartnode.utils.component.button import ComponentButton
@@ -31,7 +31,7 @@ COMPONENT_NAME = "Button"
 ####################
 
 _mqtt = config.getMQTT()
-_count = 0
+_unit_index = -1
 
 
 class Button(ComponentButton):
@@ -42,9 +42,9 @@ class Button(ComponentButton):
 
         # This makes it possible to use multiple instances of Button.
         # It is needed for every default value for mqtt.
-        global _count
-        self._count = _count
-        _count += 1
+        # Initialize before super()__init__(...) to not pass the wrong value.
+        global _unit_index
+        _unit_index += 1
 
         ###
         # set the initial state otherwise it will be "None" (unknown) and the first request
@@ -54,7 +54,7 @@ class Button(ComponentButton):
         # You might be able to poll the current state of a device to set the inital state correctly
 
         # mqtt_topic can be adapted otherwise a default mqtt_topic will be generated if None
-        super().__init__(COMPONENT_NAME, __version__, mqtt_topic, instance_name=None,
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, instance_name=None,
                          wait_for_lock=False, discover=discover, friendly_name=friendly_name,
                          initial_state=initial_state)
 
