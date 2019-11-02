@@ -61,13 +61,13 @@ git submodule update --recursive --remote
 You should have the latest micropython firmware and include the directory "pysmartnode" as frozen bytecode into your firmware. (Put it in the "module" directory before building the firmware)
 On ESP32 frozen bytecode is not neccessary but should be considered if not using psram.
 
-# Warning:
+#### Warning
 Many modules use Variable Annotations ([PEP526](https://www.python.org/dev/peps/pep-0526/)) but micropython doesn't support
-[PEP 526 (Syntax for Variable Annotations (provisional))](https://github.com/micropython/micropython/issues/2415#issuecomment-548173512) yet.
+[PEP 526 (Syntax for Variable Annotations)](https://github.com/micropython/micropython/issues/2415#issuecomment-548173512) yet.
 <br> This means that every build, .mpy or directly uploaded file with variable annotations will fail.
 <br> To work around this problem, the files have to be stripped of their variable annotations. This can be done with the python module "strip-hints".
 
-<br><br> In tools there is a [script](./tools/esp8266/esp8266_remove_hints.sh) that will replace all files with varibale annotations with a stripped version of the file.
+<br> In tools there is a [script](./tools/esp8266/esp8266_remove_hints.sh) that will replace all files with varibale annotations with a stripped version of the file.
 <br> Use that script after syncing/copying the files in the modules directory before building the
 firmware. You have to adapt the path in the script, so you could point it to any directory, doesn't
  need to be the esp8266 modules directory.
@@ -77,8 +77,7 @@ firmware. You have to adapt the path in the script, so you could point it to any
 
 Required external modules are:
 
-* uasyncio (>=V2.0)
-* uasnycio-core (>=V2.0)
+* uasyncio (>=V2.0) (if not already part of the firmware)
 * micropython-mqtt-as, my own fork that has some needed features: ([mqtt_as](https://github.com/kevinkk525/micropython-mqtt))
 
 All required modules are in this repository and don't need to be aquired manually. 
@@ -93,7 +92,7 @@ The included components can be found in the directory "pysmartnode/components".
 The example configuration however is in [hjson](https://github.com/hjson/hjson-py), which is easier than *json* and has the possibility to have comments in it.
 This format is used in the *SmartServer* (see 4.1.), if you want to put the configuration onto your controller, you have to convert it to json.
 
-Every loaded component will be published as *log.info* to *<home>/log/info/<device_id>* with the version of the module.
+Every loaded component will be published as *log.info* to "<home>/log/info/<device_id>" with the version of the module.
 
 ### API
 
@@ -113,6 +112,7 @@ All sensors now have a common API:
 - Reading interval and publish interval separated and not impacting each other
 - Reading and publish intervals can be changed during runtime, optionally by mqtt
 - Sensor subclass only needs to implement a _read() function reading the sensor and submitting the read values. Base class does everything else (publishing, discovery, ...)
+
 <br>This should make working with different types of sensors easier. If you are e.g. building a heating controller and need a temperature from some sensor, you can just connect any sensor and provide the heating code with that sensor by configuration.
 <br>Switch components can be integrated similarily easy using the [switch base class](./pysmartnode/utils/component/switch.py).
 <br>Templates for how to use the components can be found in [templates](./_templates).
@@ -144,7 +144,7 @@ There are also some optional parameters to configure base modules and behaviour.
 The project configuration is done in the file *config.py* which should be created by copying the [config_example.py](./config_example.py) as *config.py*.
 If you have a filesystem, copy it onto the device or put it as frozen bytecode in your modules directory.
 
-In *config.py* only those configurations have to be provided, that overwrite the default values found in [base_config](./pysmartnode.base_config.py)
+In *config.py* only those configurations have to be provided, that overwrite the default values found in [base_config](./pysmartnode/base_config.py).
 
 The basic configuration options are:
 * WIFI: SSID and PASSPHRASE
@@ -219,7 +219,7 @@ The basic configuration options of a component are when using SmartServer or COM
 ## 5. Tools
 
 The tools directory contains a lot of scripts I use to synchronize the project files with the build directory of the microcontroller and for building and flashing firmwares.
-They are heavily specialized to my environment and mostly for usage in eclipse as an external tool although I'm using PyCharm mainly now.
+They are heavily specialized to my environment (my home path e.g.). These can be run in a linux shell (windows wsl too).
 I'm not that skilled in making these very generally usable but I keep them in the repository in case someone finds them useful or even contributes better ones. (Would be very happy about that!)
 
 ## 6. Structure overview
