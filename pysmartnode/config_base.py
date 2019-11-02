@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-10-22 
 
-__updated__ = "2019-10-27"
+__updated__ = "2019-11-02"
 
 from sys import platform
 from micropython import const
@@ -30,7 +30,7 @@ MQTT_RECEIVE_CONFIG = False
 # sends the configuration of a device over mqtt
 # If you do not run it, you have to configure the components locally on each microcontroller
 # using a components.py file
-MQTT_TYPE = const(0)  # 0: direct, 1: IOT implementation (not working at the moment, use direct)
+MQTT_TYPE = const(1)  # 1: direct, 0: IOT implementation (not working at the moment, use direct)
 MQTT_MAX_CONCURRENT_EXECUTIONS = -1
 # MAX_CONCURRENT_EXECUTIONS: Can be used to restrict the amount of concurrently executed mqtt
 # messages to prevent message spam to crash the device. Will by default limit the concurrent

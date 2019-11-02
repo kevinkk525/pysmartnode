@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2018-2019 Released under the MIT license
 # Created on 2018-02-17
 
-__updated__ = "2019-10-28"
-__version__ = "5.3"
+__updated__ = "2019-11-02"
+__version__ = "5.4"
 
 import gc
 import ujson
@@ -15,7 +15,11 @@ from pysmartnode import config
 from sys import platform
 from pysmartnode import logging
 from pysmartnode.utils import sys_vars
-from micropython_mqtt_as.mqtt_as import MQTTClient, Lock
+
+if config.MQTT_TYPE:
+    from micropython_mqtt_as.mqtt_as import MQTTClient, Lock
+else:
+    from dev.mqtt_iot import MQTTClient, Lock  # Currently not working/developed
 import uasyncio as asyncio
 import os
 
@@ -58,7 +62,7 @@ class MQTTHandler(MQTTClient):
         self._reconnected_subs = []
         self._wifi_coro = None
         self._wifi_subs = []
-        self._pub_coro = None
+        self._ops_coros = [None, None]  # publish and (un)sub operations, can be concurrently
         self.__unsub_tmp = []
         self.__last_disconnect = None  # ticks_ms() of last disconnect
         self.__downtime = 0  # mqtt downtime in seconds
@@ -477,35 +481,36 @@ class MQTTHandler(MQTTClient):
         while not self._isconnected:
             await asyncio.sleep_ms(50)
 
-    async def _operationTimeout(self, coro, *args):
+    async def _operationTimeout(self, coro, *args, i):
         try:
             await coro(*args)
         except asyncio.CancelledError:
             raise  # in case the calling function need to handle Cancellation too
         finally:
-            self._pub_coro = None
+            self._ops_coros[i] = None
 
     async def _preprocessor(self, coroutine, *args, timeout=None, await_connection=True):
         coro = None
         start = time.ticks_ms()
+        i = 0 if len(args) == 4 else 1  # 0: publish, 1:(un)sub
         try:
             while timeout is None or time.ticks_diff(time.ticks_ms(), start) < timeout * 1000:
                 if not await_connection and not self._isconnected:
                     return False
-                if self._pub_coro is coro is None:
-                    coro = self._operationTimeout(coroutine, *args)
+                if self._ops_coros[i] is coro is None:
+                    coro = self._operationTimeout(coroutine, *args, i=i)
                     asyncio.get_event_loop().create_task(coro)
-                    self._pub_coro = coro
+                    self._ops_coros[i] = coro
                 elif coro:
-                    if self._pub_coro != coro:
+                    if self._ops_coros[i] != coro:
                         return True  # published
                 await asyncio.sleep_ms(20)
-            _log.debug("timeout on", args, local_only=True)
+            _log.debug("timeout on", "(un)sub" if i else "publish", args, local_only=True)
             self.__timedout += 1
         except asyncio.CancelledError:
             raise  # the caller should be cancelled too
         finally:
-            if coro and self._pub_coro == coro:
+            if coro and self._ops_coros[i] == coro:
                 async with self.lock:
                     asyncio.cancel(coro)
                 return False

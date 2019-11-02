@@ -75,12 +75,7 @@ _log = logging.getLogger("config")
 gc.collect()
 __printRAM(_mem, "Imported logging")
 
-if MQTT_TYPE == 1:
-    from pysmartnode.networking.mqtt_iot import MQTTHandler, \
-        Lock  # Lock possibly needed by other modules
-else:  # 0 and wrong configuration options
-    from pysmartnode.networking.mqtt_direct import MQTTHandler, \
-        Lock  # Lock possibly needed by other modules
+from pysmartnode.networking.mqtt import MQTTHandler, Lock  # Lock possibly needed by other modules
 
 gc.collect()
 __printRAM(_mem, "Imported MQTTHandler")
