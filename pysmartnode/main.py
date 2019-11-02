@@ -21,6 +21,24 @@ if sys.platform != "linux":
     rtc = machine.RTC()
 
 _log = logging.getLogger("main")
+
+if config.WEBREPL_ACTIVE is True:
+    try:
+        import webrepl_cfg
+    except ImportError:
+        try:
+            with open("webrepl_cfg.py", "w") as f:
+                f.write("PASS = %r\n" % config.WEBREPL_PASSWORD)
+        except Exception as e:
+            _log.critical("Can't start webrepl: {!s}".format(e), local_only=True)
+    try:
+        import webrepl
+
+        webrepl.start()
+    except Exception as e:
+        _log.critical("Can't start webrepl: {!s}".format(e))
+    # webrepl started here to start it as quickly as possible.
+
 gc.collect()
 
 loop = asyncio.get_event_loop()
@@ -86,22 +104,6 @@ def start_services(state):
             import network
             s = network.WLAN(network.STA_IF)
             print("Connected, local ip {!r}".format(s.ifconfig()[0]))
-        if config.WEBREPL_ACTIVE is True:
-            try:
-                import webrepl_cfg
-            except ImportError:
-                try:
-                    with open("webrepl_cfg.py", "w") as f:
-                        f.write("PASS = %r\n" % config.WEBREPL_PASSWORD)
-                except Exception as e:
-                    _log.critical("Can't start webrepl: {!s}".format(e), local_only=True)
-            try:
-                import webrepl
-
-                webrepl.start()
-            except Exception as e:
-                _log.critical("Can't start webrepl: {!s}".format(e))
-            # webrepl started here to start it as quickly as possible.
 
 
 def main():
