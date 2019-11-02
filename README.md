@@ -144,7 +144,7 @@ There are also some optional parameters to configure base modules and behaviour.
 The project configuration is done in the file *config.py* which should be created by copying the [config_example.py](./config_example.py) as *config.py*.
 If you have a filesystem, copy it onto the device or put it as frozen bytecode in your modules directory.
 
-In *config.py* only those configurations have to be provided, that overwrite the default values found in [base_config](./pysmartnode/base_config.py).
+In *config.py* only those configurations have to be provided, that overwrite the default values found in [config_base](./pysmartnode/config_base.py).
 
 The basic configuration options are:
 * WIFI: SSID and PASSPHRASE
