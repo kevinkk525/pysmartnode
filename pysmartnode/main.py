@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2017-2019 Released under the MIT license
 # Created on 2017-08-10
 
-__updated__ = "2019-10-26"
+__updated__ = "2019-11-02"
 
 import gc
 
@@ -10,24 +10,6 @@ gc.collect()
 print(gc.mem_free())
 
 from pysmartnode import config
-
-if hasattr(config, "WEBREPL_ACTIVE") and config.WEBREPL_ACTIVE is True:
-    try:
-        import webrepl_cfg
-    except:
-        try:
-            with open("webrepl_cfg.py", "w") as f:
-                f.write("PASS = %r\n" % config.WEBREPL_PASSWORD)
-        except Exception as e:
-            config._log.critical("Can't start webrepl: {!s}".format(e), local_only=True)
-    try:
-        import webrepl
-
-        webrepl.start()
-    except Exception as e:
-        config._log.critical("Can't start webrepl: {!s}".format(e))
-    # webrepl started here to start it as quickly as possible.
-
 from pysmartnode import logging
 import uasyncio as asyncio
 import sys
@@ -38,7 +20,7 @@ if sys.platform != "linux":
 
     rtc = machine.RTC()
 
-_log = logging.getLogger("pysmartnode")
+_log = logging.getLogger("main")
 gc.collect()
 
 loop = asyncio.get_event_loop()
@@ -80,7 +62,9 @@ async def _receiveConfig():
 services_started = False
 
 
-def start_services(client):
+def start_services(state):
+    if not state:  # Wifi disconnected
+        return
     global services_started
     if services_started is False:
         if sys.platform == "esp32_LoBo":
@@ -102,6 +86,22 @@ def start_services(client):
             import network
             s = network.WLAN(network.STA_IF)
             print("Connected, local ip {!r}".format(s.ifconfig()[0]))
+        if config.WEBREPL_ACTIVE is True:
+            try:
+                import webrepl_cfg
+            except ImportError:
+                try:
+                    with open("webrepl_cfg.py", "w") as f:
+                        f.write("PASS = %r\n" % config.WEBREPL_PASSWORD)
+                except Exception as e:
+                    _log.critical("Can't start webrepl: {!s}".format(e), local_only=True)
+            try:
+                import webrepl
+
+                webrepl.start()
+            except Exception as e:
+                _log.critical("Can't start webrepl: {!s}".format(e))
+            # webrepl started here to start it as quickly as possible.
 
 
 def main():
@@ -121,7 +121,7 @@ def main():
         wl = WIFILED(config.WIFI_LED, config.WIFI_LED_ACTIVE_HIGH)
         config.addComponent("wifi_led", wl)
 
-    config.getMQTT().registerConnectedCallback(start_services)
+    config.getMQTT().registerWifiCallback(start_services)
     if config.MQTT_RECEIVE_CONFIG is False:
         # load components even if network is unavailable as components might not depend on it
         loop.create_task(config._loadComponentsFile())
