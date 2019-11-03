@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2017-2019 Released under the MIT license
 # Created on 2017-08-10
 
-__updated__ = "2019-11-02"
+__updated__ = "2019-11-03"
 
 import gc
 
@@ -22,7 +22,7 @@ if sys.platform != "linux":
 
 _log = logging.getLogger("main")
 
-if config.WEBREPL_ACTIVE is True:
+if config.WEBREPL_ACTIVE:
     try:
         import webrepl_cfg
     except ImportError:
@@ -42,6 +42,37 @@ if config.WEBREPL_ACTIVE is True:
 gc.collect()
 
 loop = asyncio.get_event_loop()
+
+print("free ram {!r}".format(gc.mem_free()))
+gc.collect()
+
+if config.USE_SOFTWARE_WATCHDOG:
+    from pysmartnode.components.machine.watchdog import WDT
+
+    wdt = WDT(timeout=config.MQTT_KEEPALIVE * 2)
+    config.addComponent("wdt", wdt)
+    gc.collect()
+
+if config.WIFI_LED is not None:
+    from pysmartnode.components.machine.wifi_led import WIFILED
+
+    wl = WIFILED(config.WIFI_LED, config.WIFI_LED_ACTIVE_HIGH)
+    config.addComponent("wifi_led", wl)
+    gc.collect()
+
+if not config.MQTT_RECEIVE_CONFIG:  # otherwise ignore as config will be received
+    try:
+        import components
+    except ImportError:
+        _log.critical("components.py does not exist")
+    except Exception as e:
+        _log.critical("components.py: {!s}".format(e))
+    else:
+        gc.collect()
+        if hasattr(components, "COMPONENTS") and type(components.COMPONENTS) == dict:
+            # load components even if network is unavailable as components
+            # might not depend on it
+            loop.create_task(config.registerComponent(components.COMPONENTS))
 
 
 async def _resetReason():
@@ -65,7 +96,7 @@ async def _receiveConfig():
     conf = pysmartnode.components.machine.remoteConfig.RemoteConfig()
     gc.collect()
     _log.debug("RAM after creating receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
-    while conf.done() is False:
+    while not conf.done():
         await asyncio.sleep(1)
     gc.collect()
     _log.debug("RAM before deleting receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
@@ -97,7 +128,7 @@ def start_services(state):
             import pysmartnode.networking.wifi_esp8266
             del pysmartnode.networking.wifi_esp8266
             del sys.modules["pysmartnode.networking.wifi_esp8266"]
-        if config.MQTT_RECEIVE_CONFIG is True:
+        if config.MQTT_RECEIVE_CONFIG:
             loop.create_task(_receiveConfig())
         services_started = True
         if sys.platform != "linux":
@@ -107,26 +138,10 @@ def start_services(state):
 
 
 def main():
-    loop.create_task(_resetReason())
     print("free ram {!r}".format(gc.mem_free()))
     gc.collect()
-
-    if hasattr(config, "USE_SOFTWARE_WATCHDOG") and config.USE_SOFTWARE_WATCHDOG:
-        from pysmartnode.components.machine.watchdog import WDT
-
-        wdt = WDT(timeout=config.MQTT_KEEPALIVE * 2)
-        config.addComponent("wdt", wdt)
-
-    if hasattr(config, "WIFI_LED") and config.WIFI_LED is not None:
-        from pysmartnode.components.machine.wifi_led import WIFILED
-
-        wl = WIFILED(config.WIFI_LED, config.WIFI_LED_ACTIVE_HIGH)
-        config.addComponent("wifi_led", wl)
-
+    loop.create_task(_resetReason())
     config.getMQTT().registerWifiCallback(start_services)
-    if config.MQTT_RECEIVE_CONFIG is False:
-        # load components even if network is unavailable as components might not depend on it
-        loop.create_task(config._loadComponentsFile())
 
     print("Starting uasyncio loop")
     try:
@@ -138,7 +153,7 @@ def main():
             pass
         if config.DEBUG_STOP_AFTER_EXCEPTION:
             # want to see the exception trace in debug mode
-            if hasattr(config, "USE_SOFTWARE_WATCHDOG") and config.USE_SOFTWARE_WATCHDOG:
+            if config.USE_SOFTWARE_WATCHDOG:
                 wdt.deinit()  # so it doesn't reset the board
             raise e
         # just log the exception and reset the microcontroller

@@ -6,7 +6,7 @@
 # Configuration management file
 ##
 
-__updated__ = "2018-10-30"
+__updated__ = "2018-11-03"
 
 from .config_base import *
 from sys import platform
@@ -86,12 +86,15 @@ gc.collect()
 __printRAM(_mem, "Created MQTT")
 
 
-def registerComponent(name, data):
+async def registerComponent(name, data=None):
     _log.debug("RAM before import registerComponents: {!s}".format(gc.mem_free()), local_only=True)
     import pysmartnode.utils.registerComponents
     gc.collect()
     _log.debug("RAM after import registerComponents: {!s}".format(gc.mem_free()), local_only=True)
-    res = pysmartnode.utils.registerComponents.registerComponent(name, data, _log)
+    if data is None:
+        res = await pysmartnode.utils.registerComponents.registerComponentsAsync(name, _log)
+    else:
+        res = pysmartnode.utils.registerComponents.registerComponent(name, data, _log)
     _log.debug("RAM before deleting registerComponents: {!s}".format(gc.mem_free()),
                local_only=True)
     del pysmartnode.utils.registerComponents
@@ -100,37 +103,6 @@ def registerComponent(name, data):
     _log.debug("RAM after deleting registerComponents: {!s}".format(gc.mem_free()),
                local_only=True)
     return res
-
-
-async def _loadComponentsFile():
-    try:
-        import components
-    except ImportError:
-        _log.critical("components.py does not exist")
-        return False
-    except Exception as e:
-        _log.critical("components.py: {!s}".format(e))
-        return False
-    if hasattr(components, "COMPONENTS") is False:
-        return True  # should be all done
-    else:
-        gc.collect()
-        _log.debug("RAM before import registerComponents: {!s}".format(gc.mem_free()),
-                   local_only=True)
-        import pysmartnode.utils.registerComponents
-        gc.collect()
-        _log.debug("RAM after import registerComponents: {!s}".format(gc.mem_free()),
-                   local_only=True)
-        await pysmartnode.utils.registerComponents.registerComponentsAsync(components.COMPONENTS,
-                                                                           _log)
-        _log.debug("RAM before deleting registerComponents: {!s}".format(gc.mem_free()),
-                   local_only=True)
-        del pysmartnode.utils.registerComponents
-        del sys.modules["pysmartnode.utils.registerComponents"]
-        gc.collect()
-        _log.debug("RAM after deleting registerComponents: {!s}".format(gc.mem_free()),
-                   local_only=True)
-        return True
 
 
 def getComponent(name):

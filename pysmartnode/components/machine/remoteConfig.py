@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-15 
 
-__updated__ = "2019-11-02"
-__version__ = "0.7"
+__updated__ = "2019-11-03"
+__version__ = "0.8"
 
 from pysmartnode.utils.component import Component
 from pysmartnode import config
@@ -94,7 +94,7 @@ class RemoteConfig(Component):
                 return False
             self._rcomp.append(name)
             self._saveComponent(name, msg)
-            config.registerComponent(name, msg)
+            await config.registerComponent(name, msg)
         if len(self._rcomp) == self._icomp:  # received all components
             asyncio.cancel(self._watcher_coro)
         return False
