@@ -81,10 +81,9 @@ class Component:
     async def _remove(self):
         """Cleanup method. Stop all loops and unsubscribe all topics."""
         await _mqtt.unsubscribe(None, self)
-        await config._log.asyncLog("info",
-                                   "Removed component {!s} module {!r} version {!s}".format(
-                                       config.getComponentName(self), self.COMPONENT_NAME,
-                                       self.VERSION), timeout=5)
+        await config._log.asyncLog("info", "Removed component", config.getComponentName(self),
+                                   "module", self.COMPONENT_NAME, "version", self.VERSION,
+                                   timeout=5)
         if config.MQTT_DISCOVERY_ENABLED and self.__discover:
             await self._discovery(False)
 
@@ -99,10 +98,9 @@ class Component:
         _init_queue_start = None
 
     async def _init_network(self):
-        await config._log.asyncLog("info",
-                                   "Added module {!r} version {!s} as component {!r}".format(
-                                       self.COMPONENT_NAME, self.VERSION,
-                                       config.getComponentName(self)), timeout=5)
+        await config._log.asyncLog("info", "Added module", self.COMPONENT_NAME, "version",
+                                   self.VERSION, "as component", config.getComponentName(self),
+                                   timeout=5)
         gc.collect()
         if config.MQTT_DISCOVERY_ENABLED and self.__discover:
             await self._discovery(True)

@@ -151,12 +151,12 @@ class DS18(ComponentSensor):
                         await self.removeComponent(roms[rom])
                         # will stop its loop and remove component and unsubcribe every topic
                         del self._instances[rom]
-                        await _log.asyncLog("info", "DS18 removed: {!s}".format(rom), timeout=5)
+                        await _log.asyncLog("info", "DS18 removed:", rom, timeout=5)
             else:  # generic ds18 sensor
                 rom = self.rom2str(roms[0])
                 if rom != self.rom:  # sensor replaced
                     self.rom: str = rom
-                    await _log.asyncLog("info", "Found new ds18: {!s}".format(rom), timeout=5)
+                    await _log.asyncLog("info", "Found new ds18:", rom, timeout=5)
         if self.rom is not None:  # DS18 sensor unit
             async with self._lock:
                 if self._last_conv[self.sensor] is None or \

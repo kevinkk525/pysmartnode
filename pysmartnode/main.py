@@ -66,7 +66,7 @@ if not config.MQTT_RECEIVE_CONFIG:  # otherwise ignore as config will be receive
     except ImportError:
         _log.critical("components.py does not exist")
     except Exception as e:
-        _log.critical("components.py: {!s}".format(e))
+        _log.critical("components.py:", e)
     else:
         gc.collect()
         if hasattr(components, "COMPONENTS") and type(components.COMPONENTS) == dict:
@@ -77,35 +77,35 @@ if not config.MQTT_RECEIVE_CONFIG:  # otherwise ignore as config will be receive
 
 async def _resetReason():
     if sys.platform == "esp8266" and rtc.memory() != b"":
-        await _log.asyncLog("critical", "Reset reason: {!s}".format(rtc.memory().decode()))
+        await _log.asyncLog("critical", "Reset reason:", rtc.memory().decode())
         rtc.memory(b"")
     else:
         if "reset_reason.txt" not in os.listdir():
             return
         with open("reset_reason.txt", "r") as f:
-            await _log.asyncLog("critical", "Reset reason: {!s}".format(f.read()))
+            await _log.asyncLog("critical", "Reset reason:", f.read())
         os.remove("reset_reason.txt")
 
 
 async def _receiveConfig():
     await asyncio.sleep(2)
-    _log.debug("RAM before import receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
+    _log.debug("RAM before import receiveConfig:", gc.mem_free(), local_only=True)
     import pysmartnode.components.machine.remoteConfig
     gc.collect()
-    _log.debug("RAM after import receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
+    _log.debug("RAM after import receiveConfig:", gc.mem_free(), local_only=True)
     conf = pysmartnode.components.machine.remoteConfig.RemoteConfig()
     gc.collect()
-    _log.debug("RAM after creating receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
+    _log.debug("RAM after creating receiveConfig:", gc.mem_free(), local_only=True)
     while not conf.done():
         await asyncio.sleep(1)
     gc.collect()
-    _log.debug("RAM before deleting receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
+    _log.debug("RAM before deleting receiveConfig:", gc.mem_free(), local_only=True)
     await conf.removeComponent(conf)  # removes component from Component chain
     del conf
     del pysmartnode.components.machine.remoteConfig
     del sys.modules["pysmartnode.components.machine.remoteConfig"]
     gc.collect()
-    _log.debug("RAM after deleting receiveConfig: {!s}".format(gc.mem_free()), local_only=True)
+    _log.debug("RAM after deleting receiveConfig:", gc.mem_free(), local_only=True)
 
 
 services_started = False

@@ -87,21 +87,26 @@ __printRAM(_mem, "Created MQTT")
 
 
 async def registerComponent(name, data=None):
-    _log.debug("RAM before import registerComponents: {!s}".format(gc.mem_free()), local_only=True)
+    """
+    Can be used to register a component with name and data dict.
+    Also possible to register multiple components when passing dictionary as name arg
+    :param name: str if data is dict, else dict containing multiple components
+    :param data: dict if name given, else None
+    :return: bool
+    """
+    _log.debug("RAM before import registerComponents:", gc.mem_free(), local_only=True)
     import pysmartnode.utils.registerComponents
     gc.collect()
-    _log.debug("RAM after import registerComponents: {!s}".format(gc.mem_free()), local_only=True)
+    _log.debug("RAM after import registerComponents:", gc.mem_free(), local_only=True)
     if data is None:
         res = await pysmartnode.utils.registerComponents.registerComponentsAsync(name, _log)
     else:
         res = pysmartnode.utils.registerComponents.registerComponent(name, data, _log)
-    _log.debug("RAM before deleting registerComponents: {!s}".format(gc.mem_free()),
-               local_only=True)
+    _log.debug("RAM before deleting registerComponents:", gc.mem_free(), local_only=True)
     del pysmartnode.utils.registerComponents
     del sys.modules["pysmartnode.utils.registerComponents"]
     gc.collect()
-    _log.debug("RAM after deleting registerComponents: {!s}".format(gc.mem_free()),
-               local_only=True)
+    _log.debug("RAM after deleting registerComponents:", gc.mem_free(), local_only=True)
     return res
 
 
