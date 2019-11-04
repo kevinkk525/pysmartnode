@@ -6,7 +6,7 @@
 # Configuration management file
 ##
 
-__updated__ = "2018-11-03"
+__updated__ = "2018-11-04"
 
 from .config_base import *
 from sys import platform
@@ -35,30 +35,6 @@ gc.collect()
 __printRAM(_mem, "Imported .sys_vars")
 
 import uasyncio as asyncio
-
-
-###
-# Workaround to cancel coroutines that haven't yielded
-class MyExc(Exception):
-    pass
-
-
-# Remove once micropython PR #5275 is merged
-def cancel(t):
-    try:
-        prev = t.pend_throw(asyncio.CancelledError())
-        if prev is False:
-            asyncio.get_event_loop().call_soon(t)
-    except TypeError as e:
-        try:
-            print("Trapped", e)
-            t.throw(MyExc())
-        except MyExc:
-            pass
-
-
-asyncio.cancel = cancel
-###
 
 loop = asyncio.get_event_loop(runq_len=LEN_ASYNC_RQUEUE, waitq_len=LEN_ASYNC_QUEUE)
 
