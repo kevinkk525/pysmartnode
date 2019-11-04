@@ -110,6 +110,7 @@ class STATS(Component):
         if config.DEBUG:
             # only needed for debugging and could be understood wrongly otherwise
             val["MQTT TimedOutOps"] = _mqtt.getTimedOutOperations()
+            val["MQTT Repubs"] = _mqtt.REPUB_COUNT
         val["Asyncio waitq"] = "{!s}/{!s}".format(len(asyncio.get_event_loop().waitq),
                                                   config.LEN_ASYNC_QUEUE)
         await _mqtt.publish(_mqtt.getDeviceTopic("status"), val, qos=1, retain=False, timeout=5)

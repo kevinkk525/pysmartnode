@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2018-2019 Released under the MIT license
 # Created on 2018-02-17
 
-__updated__ = "2019-11-02"
-__version__ = "5.4"
+__updated__ = "2019-11-04"
+__version__ = "5.5"
 
 import gc
 import ujson
@@ -106,6 +106,19 @@ class MQTTHandler(MQTTClient):
         """Supports callbacks and coroutines.
         Will get canceled if connection changes during execution"""
         self._reconnected_subs.append(cb)
+
+    async def disconnect(self):
+        """
+        Changed disconnect to async method so the last will can be published
+        before disconnecting because it indicates if the device is available.
+        Therefore it is neccessary to send this message before disconnecting.
+        """
+        if not await self.publish(self._lw_topic, self._lw_msg, self._lw_retain, self._lw_qos,
+                                  timeout=5, await_connection=False):
+            self.close()
+            # force close the socket so last will message will be published by broker
+            # if still connected.
+        super().disconnect()
 
     async def _connectCaller(self):
         if platform == "esp8266":
@@ -516,5 +529,5 @@ class MQTTHandler(MQTTClient):
                 async with self.lock:
                     asyncio.cancel(coro)
                 return False
-            # else: return value during process
+            # else: returns value during process
         return False

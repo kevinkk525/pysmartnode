@@ -71,7 +71,7 @@ _unit_index = -1
 class Climate(Component):
     def __init__(self, temperature_sensor: ComponentSensor, heating_unit: ComponentSwitch,
                  modes: list, interval: float = 300, temp_step=0.1, min_temp: float = 16,
-                 max_temp: float = 28, temp_low: float = 20, temp_high: float = 21,
+                 max_temp: float = 26, temp_low: float = 20, temp_high: float = 21,
                  away_temp_low: float = 16, away_temp_high: float = 17,
                  friendly_name=None, discover=True):
         self.checkSensorType(temperature_sensor, SENSOR_TEMPERATURE)

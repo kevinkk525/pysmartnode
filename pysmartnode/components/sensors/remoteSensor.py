@@ -25,8 +25,8 @@ this sensor and the _init_network is called, the topic value should have been re
 
 # TODO: implement support for multiple sensor_types that share one topic in one component
 
-__updated__ = "2019-11-02"
-__version__ = "0.1"
+__updated__ = "2019-11-04"
+__version__ = "0.2"
 
 import gc
 import time
@@ -52,6 +52,8 @@ class RemoteSensor(ComponentSensor):
         v = value_template
         if "value_json." in value_template:
             self._dict_tpl = v[v.find("value_json.") + len("value_json."):v.rfind("}}")].strip()
+            if "|" in self._dict_tpl:
+                self._dict_tpl = self._dict_tpl[:self._dict_tpl.find("|")]
         else:
             self._dict_tpl = None
         if "|" in value_template:
@@ -61,7 +63,7 @@ class RemoteSensor(ComponentSensor):
                 self._value_type = tp[v]
             else:
                 raise TypeError("value_template type {!s} not supported".format(v))
-        self._log = logging.getLogger("{}_{}{}".format(COMPONENT_NAME, sensor_type, self._count))
+        self._log = logging.getLogger("{}_{}{}".format(COMPONENT_NAME, sensor_type, _unit_index))
         super().__init__(COMPONENT_NAME, __version__, _unit_index, False, -1, -1, None, self._log,
                          False, None)
         self._addSensorType(sensor_type, 2, 0, value_template, "")
@@ -77,15 +79,27 @@ class RemoteSensor(ComponentSensor):
             self._command_topic = None
             _mqtt.subscribeSync(self._topic, self.on_message, self)
 
+    async def _init_network(self):
+        await super()._init_network()
+        if self._topic is None:
+            await _mqtt.awaitSubscriptionsDone()
+            # block other components to have time to receive the retained state topic
+            # because other components (like climate) might depend on that topic in
+            # their discovery message.
+            # (Climate awaitsSubscriptionsDone() before discovery but can't rely on
+            # components awaiting all subscriptions.
+
     async def _read(self):
         # will be called every time sensor is being read because self._intrd==-1
         sensor_type = list(self.sensor_types)[0]
-        if time.ticks_diff(time.ticks_ms(), self.getTimestamp(sensor_type)) > self._stale_time:
+        timestamp = self.getTimestamp(sensor_type) or 0
+        if time.ticks_diff(time.ticks_ms(), timestamp) / 1000 > self._stale_time:
             await self._setValue(sensor_type, None)  # will publish error message because no value
         # if value isn't stale, do nothing
 
     async def _changeTopic(self, topic, msg, retain):
-        if retain and self._command_topic is not None:
+        if not retain and self._command_topic is not None:
+            # if retain then state topic will be unsubscribed automatically
             await _mqtt.unsubscribe(self._command_topic[:-4], self)
         if self._topic is not None:
             await _mqtt.unsubscribe(self._topic, self)
