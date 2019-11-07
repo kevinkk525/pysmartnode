@@ -1,8 +1,6 @@
-'''
-Created on 09.08.2017
-
-@author: Kevin K�ck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Created on 2017-08-09
 
 """
 example config:
@@ -18,8 +16,8 @@ example config:
 }
 """
 
-__updated__ = "2018-08-18"
-__version__ = "0.7"
+__updated__ = "2019-11-02"
+__version__ = "0.8"
 
 import machine
 from pysmartnode.components.machine.pin import Pin as PyPin
@@ -33,9 +31,7 @@ class Mux:
         self.shcp = PyPin(shift_pin, machine.Pin.OUT)
         self.stcp = PyPin(store_pin, machine.Pin.OUT)
         self.ds = PyPin(data_pin, machine.Pin.OUT)
-        self.__data = bytearray()
-        for i in range(0, 8 * number_multiplexer):
-            self.__data.append(0)
+        self.__data = bytearray(8 * number_multiplexer)
         self.__size = number_multiplexer
         self.write()
 

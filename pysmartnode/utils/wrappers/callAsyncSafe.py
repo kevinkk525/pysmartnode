@@ -6,4 +6,4 @@ async def callAsyncSafe(func, name, args, kwargs=None):
     try:
         await func(*args, **kwargs)
     except Exception as e:
-        _log.error("Error calling async init function {!r}, error: {!s}".format(name, e))
+        _log.error("Error calling async function {!r}, error: {!s}".format(name, e))

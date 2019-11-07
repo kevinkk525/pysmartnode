@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-03-31 
 
-__updated__ = "2019-04-08"
-__version__ = "0.1"
+__updated__ = "2019-11-02"
+__version__ = "0.2"
 
 """
 ArduinoControl Instance
@@ -42,7 +42,8 @@ ArduinoControl ADC instance
 }
 """
 
-from pysmartnode.libraries.arduinoGPIO.arduinoGPIO.arduinoControl import ArduinoControl as _ArduinoControl
+from pysmartnode.libraries.arduinoGPIO.arduinoGPIO.arduinoControl import \
+    ArduinoControl as _ArduinoControl
 from pysmartnode.components.machine.pin import Pin as PyPin
 from pysmartnode import logging
 
@@ -58,9 +59,9 @@ class ArduinoControl(_ArduinoControl):
         """
         pin = PyPin(pin)
         if type(expected_devices) == list:
-            for i in range(len(expected_devices)):
-                if type(expected_devices[i]) == str:
-                    expected_devices[i] = self.str2rom(expected_devices[i])
+            for i, d in enumerate(expected_devices):
+                if type(d) == str:
+                    expected_devices[i] = self.str2rom(d)
         super().__init__(pin, expected_devices)
 
     def _error(self, message):

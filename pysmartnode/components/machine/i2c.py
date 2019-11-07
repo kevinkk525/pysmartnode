@@ -1,8 +1,8 @@
-'''
-Created on 28.10.2017
+# Author: Kevin Köck
+# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Created on 2017-10-28
 
-@author: Kevin K�ck
-'''
+COMPONENT_NAME = "I2C"
 
 """
 example config:

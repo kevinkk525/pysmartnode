@@ -1,13 +1,11 @@
-'''
-Created on 19.07.2017
+# Author: Kevin Köck
+# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Created on 2017-07-19
 
-@author: Kevin K�ck
-'''
+__updated__ = "2019-11-02"
+__version__ = "2.9"
 
-__updated__ = "2018-09-28"
-__version__ = "2.5"
-
-# TODO: Add possibility to use real logging module on esp32_lobo and save logs locally or to sdcard
+# TODO: Add possibility to use real logging module on esp32 and save logs locally or to sdcard
 
 import gc
 from pysmartnode.utils import sys_vars
@@ -18,53 +16,64 @@ gc.collect()
 import time
 
 
-async def asyncLog(name, message, level):
-    if config.getMQTT() is not None:
+async def asyncLog(name, level, *message, timeout=None, await_connection=True):
+    if level == "debug" and not config.DEBUG:  # ignore debug messages if debug is disabled
+        return
+    if config.getMQTT():
         base_topic = "{!s}/log/{!s}/{!s}".format(config.MQTT_HOME, "{!s}", sys_vars.getDeviceID())
         # if level is before id other clients can subscribe to e.g. all critical logs
-        await config.getMQTT().publish(base_topic.format(level), "[{!s}] {}".format(name, message), qos=1)
-    else:
-        print(level, message)
+        message = (b"{} " * (len(message) + 1)).format("[{}]".format(name), *message)
+        gc.collect()
+        await config.getMQTT().publish(base_topic.format(level), message, qos=1, timeout=timeout,
+                                       await_connection=await_connection)
+        # format message as bytes so there's no need to encode it later.
 
 
-def log(name, message, level, local_only=False, return_only=False):
+def log(name, level, *message, local_only=False, return_only=False, timeout=None):
+    if level == "debug" and not config.DEBUG:  # ignore debug messages if debug is disabled
+        return
     if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE:
         if hasattr(time, "strftime"):
-            print("[{}] [{!s}] [{!s}] {}".format(time.strftime("%Y-%m-%d %H:%M:%S"), name, level, message))
+            print("[{}]".format(time.strftime("%Y-%m-%d %H:%M:%S")), "[{}]".format(name),
+                  "[{}]".format(level), *message)
         else:
             t = time.localtime()
-            print("[{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}] [{!s}] [{!s}] {}".format(t[0], t[1], t[2], t[3], t[4],
-                                                                                    t[5], name, level, message))
+            print("[{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}]".format(*t), "[{}]".format(name),
+                  "[{}]".format(level), *message)
     else:
-        print("[{!s}] [{!s}] {}".format(name, level, message))
+        print("[{!s}] [{!s}]".format(name, level), *message)
     if return_only:
         return
-    if local_only is False:
-        asyncio.get_event_loop().create_task(asyncLog(name, message, level))
+    if not local_only:
+        asyncio.get_event_loop().create_task(asyncLog(name, level, *message, timeout=timeout,
+                                                      await_connection=True))
 
 
 class Logger:
     def __init__(self, name):
         self.name = name
 
-    def critical(self, message, local_only=False):
-        log(self.name, message, "critical", local_only)
+    def critical(self, *message, local_only=False):
+        log(self.name, "critical", *message, local_only=local_only, timeout=None)
 
-    def error(self, message, local_only=False):
-        log(self.name, message, "error", local_only)
+    def error(self, *message, local_only=False):
+        log(self.name, "error", *message, local_only=local_only, timeout=None)
 
-    def warn(self, message, local_only=False):
-        log(self.name, message, "warn", local_only)
+    def warn(self, *message, local_only=False):
+        log(self.name, "warn", *message, local_only=local_only, timeout=None)
 
-    def info(self, message, local_only=False):
-        log(self.name, message, "info", local_only)
+    def info(self, *message, local_only=False):
+        log(self.name, "info", *message, local_only=local_only, timeout=20)
 
-    def debug(self, message, local_only=False):
-        log(self.name, message, "debug", local_only)
+    def debug(self, *message, local_only=False):
+        log(self.name, "debug", *message, local_only=local_only, timeout=5)
 
-    async def asyncLog(self, level, message):
-        log(self.name, message, level, return_only=True)
-        await asyncLog(self.name, message, level)
+    async def asyncLog(self, level, *message, timeout=None, await_connection=True):
+        log(self.name, level, *message, return_only=True)
+        if timeout == 0:
+            return
+        await asyncLog(self.name, level, *message, timeout=timeout,
+                       await_connection=await_connection)
 
 
 def getLogger(name):

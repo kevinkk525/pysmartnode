@@ -1,8 +1,6 @@
-'''
-Created on 2018-07-16
-
-@author: Kevin Köck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Created on 2018-07-16
 
 """
 example config:
@@ -18,8 +16,8 @@ Does not publish anything, just unifies reading of esp8266 ADC, esp32, Amux, Aru
 You can pass any ADC object or pin number to ADC() and it will return a corretly subclassed pyADC object
 """
 
-__version__ = "1.0"
-__updated__ = "2019-04-04"
+__version__ = "1.1"
+__updated__ = "2019-11-02"
 
 import machine
 from sys import platform
@@ -31,14 +29,16 @@ class pyADC:
     """
 
     def __init__(self, *args, **kwargs):
+        pass
+
+    def readRaw(self) -> int:
         # just loboris fork compatibility although support officialy dropped.
         if isinstance(self, machine.ADC):
             # Subclass of hardware ADC
-            self.readRaw = self.read if platform != "esp32_Lobo" else self.readraw
-        else:
-            self.readRaw = self.read  # on non-hardware ADCs read() always returns raw values
+            return self.read() if platform != "esp32_Lobo" else self.readraw()
+        return self.read()  # on non-hardware ADCs read() always returns raw values
 
-    def readVoltage(self):
+    def readVoltage(self) -> float:
         """
         Return voltage according to used platform. Atten values are not recognized
         :return: float
@@ -50,20 +50,22 @@ class pyADC:
         elif platform == "esp32_LoBo":
             return self.read() / 1000  # loboris fork returns mV
         else:
-            raise NotImplementedError("Platform {!s} not implemented, please report".format(platform))
+            raise NotImplementedError(
+                "Platform {!s} not implemented, please report".format(platform))
 
     def __str__(self):
         return "pyADC generic instance"
 
     __repr__ = __str__
 
-    def maxVoltage(self):
+    @staticmethod
+    def maxVoltage() -> float:
         return 3.3  # esp standard voltage
 
     # The following methods are overwritten by machineADC, the machine.ADC class, by the proper hardware methods
     # In other subclasses they have to be implemented
 
-    def read(self):
+    def read(self) -> int:
         raise NotImplementedError("Implement your subclass correctly!")
 
     def atten(self, *args, **kwargs):
@@ -78,7 +80,7 @@ class machineADC(machine.ADC, pyADC):
     pass
 
 
-def ADC(pin, atten=None, *args, **kwargs):
+def ADC(pin, atten=None, *args, **kwargs) -> pyADC:
     if type(pin) == str:
         raise TypeError("ADC pin can't be string")
     if isinstance(pin, pyADC):
@@ -107,5 +109,6 @@ def ADC(pin, atten=None, *args, **kwargs):
         elif platform == "esp8266":
             return machineADC(pin, *args, **kwargs)  # esp8266 does not require a pin object
         else:
-            raise NotImplementedError("Platform {!s} not implemented, please report".format(platform))
+            raise NotImplementedError(
+                "Platform {!s} not implemented, please report".format(platform))
     raise TypeError("Unknown type {!s} for ADC object".format(type(pin)))

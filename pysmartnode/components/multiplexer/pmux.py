@@ -1,8 +1,7 @@
-'''
-Created on 09.08.2017
+# Author: Kevin Köck
+# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Created on 2017-08-09
 
-@author: Kevin Köck
-'''
 """
 example config:
 {

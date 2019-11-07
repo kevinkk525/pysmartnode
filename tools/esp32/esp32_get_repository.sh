@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+sudo apt-get install git wget libncurses-dev flex bison gperf python python-pip python-setuptools python-serial python-click python-cryptography python-future python-pyparsing python-pyelftools cmake ninja-build ccache
+pip3 install pyserial pyparsing esptool rshell
 cd ~/
 git clone https://github.com/micropython/micropython.git
 cd micropython
@@ -14,8 +16,8 @@ git submodule update --init
 cd ..
 mkdir esp
 cd esp
-wget https://dl.espressif.com/dl/xtensa-esp32-elf-gcc8_2_0-esp32-2019r1-linux-amd64.tar.gz
-tar -zxvf xtensa-esp32-elf-gcc8_2_0-esp32-2019r1-linux-amd64.tar.gz
+wget https://dl.espressif.com/dl/xtensa-esp32-elf-linux64-1.22.0-80-g6c4433a-5.2.0.tar.gz
+tar -zxvf xtensa-esp32-elf-linux64-1.22.0-80-g6c4433a-5.2.0.tar.gz
 export PATH="$HOME/esp/xtensa-esp32-elf/bin:$PATH"
 cd ..
 cd micropython/ports/esp32
@@ -31,4 +33,4 @@ cd ..
 git submodule update --init
 make -C mpy-cross
 cd ports/esp32
-make PYTHON=python2
+make PYTHON=python2 -j12

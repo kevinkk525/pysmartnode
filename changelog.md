@@ -1,8 +1,59 @@
 # Changelog
 
 ---------------------------------------------------
+### Version 6.0.0
+* [easyGPIO] topics now use "easyGPIO" to not make them not collide with module "switches.GPIO"
+* [remoteSensors] use remote sensors as if they were locally connected
+* [remoteSwitch] use a remote switch as if it was locally connected
+* [COMPONENTS] extended API significantly, updated to new/changed MQTT features, added cleanup method
+* [SENSOR COMPONENT] major base class for a unified sensor API and features to make usage and development easier
+* [Sensors] updated all sensors to use the new SENSOR COMPONENT. Some sensors therefore experience breaking changes in configuration, default topics and behaviour.
+* [DS18] rewritten for new sensor API
+* [HEATER] removed deprecated component
+* [CLIMATE] added new Climate component which is compatible to homeassistant MQTT Climate
+* [CONFIG] removed option to load components from .json files, use components.py instead
+* [STATS] Major update, publishing many device stats as hass json_attributes and RSSI as main value instead of "online/offline" which is now done directly in mqtt as availability topic. Published values: (last_boot, uptime, pysmartnode version, micropython firmware version, RAM free, RSSI, MQTT Downtime, MQTT Reconnects, Asyncio waitq used size)
+* [MQTT] Improvements, Subscriptions done by mqtt not by components, Subscribing uses subscription chain and can be called non-blocking synchronously, added easy way to restore a device state from a state topic of a subscribed command_topic, prevention of uasyncio queue overflows when receiving too many messages
+* [LOGGING] Extended asyncLog() method with kwargs "timeout" and "await_connection" just like mqtt.publish
+* [LOGGING] Now works similar to print expecting multiple args instead of one message string. Optimizes RAM usage (especially with local_only logging).
+* [TOOLS] updated esp8266 build scripts, script to strip variable type hints as those are not yet supported by micropython
+* [CONFIG] config.py update, made configuration easier and smaller by freezing standard values in ROM and custom configs in config.py will just overwrite those.
+
+---------------------------------------------------
+### Version 5.2.0
+* [WIFI] reworked duplicate wifi code, optimized wifi/mqtt handling
+* [WIFI_LED] now also blinks on wifi (dis-)connect and mqtt reconnect
+* [MQTT] Introduction of operation timeout and connection checks to prevent code from being blocked by network issues
+* [MQTT] important bugfix if receive_config = False
+* [MQTT] multiple optimizations, generalizations, code safety improvements
+* [MQTT] changed API from async def publish(self, topic, msg, qos=0, retain=False) back to async def publish(self, topic, msg, retain=False, qos=0) to stay compatible to umqtt library although differently from paho-mqtt
+* [COMPONENTS] optimized and extended Switch and Button classes
+
+---------------------------------------------------
+### Version 5.1.0
+* [MQTT] Bugfixes in unsubscribe()
+* [WEBREPL] It is now possible to configure the webrepl in config.py and it will automatically be started.
+* [COMPONENTS] Extended by a generic SWITCH class. See description, adds "on" and "off" coroutines so it can be controlled by other components
+* [Templates] Extended the Switch template with "on" and "off" coroutines
+* [Generic_Switch] Wrapper for all SWITCH classes using the Switch template to extend functionality (e.g. safety shutdown, repeating mode, ...)
+* [Bell] Bugfix and moved to "sensors" package
+* [Switches] New package that better reflects the 2 basic component types sensors and switches
+* [LED, Buzzer] moved to package "switches"
+* [GPIO] moved to package "switches". easyGPIO however stays in "machine" as it is very generic and can be used as both sensor and switch
+* Various beautifications, small bugfixes and optimizations
+
+---------------------------------------------------
+### Version 5.0.1
+* [MQTT] Port is configureable now
+* [ESP8266 WIFI] Possibility to set wifi sleep mode. No sleep makes wifi more reliable
+* [UNIX] Module improvements, new module RF-Pump in new custom-component directory outside standard components
+* [Tools] Updated scripts to set up initial repositories for building firmware for esp8266/esp32
+* [WIFI-LED] Added option to activate a LED in config.py that displays the wifi status (5 short blinks on initial connect, 1 short blink every 30secs when connected, 3 long blinks every 5secs when not connected).
+* [GPIO] GPIO module supports setting pins active_low 
+
+---------------------------------------------------
 #### Version 5.0.0
-* [MQTT] Integrated Homeassistant auto discovery feature
+* [MQTT] Integrated Homeassistant mqtt discovery feature
 * [COMPONENTS] Completely changed the way components are integrated to support homeassistant mqtt discovery. Every component now has to use a common base component class. This is a major change breaking compatibility with previous pysmartnode/components versions and often component configurations. 
 * [COMPONENTS, MQTT] Mqtt subscriptions are not callback based anymore but component based. But within a component they are callback based.
 * [COMPONENTS] Updated most components accordingly. Some topics and configurations have changed, check your configs! Not updated components were moved to _dev as they need more looking at.

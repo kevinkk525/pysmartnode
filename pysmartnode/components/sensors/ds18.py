@@ -1,47 +1,43 @@
-'''
-Created on 2018-06-25
-
-@author: Kevin Köck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2019 Released under the MIT license
+# Created on 2019-10-26
 
 """
 example config:
-# DS18 general controller:
-{
-    package: .sensors.ds18
-    component: DS18_Controller
-    constructor_args: {
-        pin: 5                    # pin number or label (on NodeMCU)
-        # interval: 600           # optional, defaults to 600. controller reads units in this interval
-        # auto_discovery: False   # optional, if True then one object for each found DS18 Unit will be created. Only use this for reading all sensors.
-    }
-}
-# Controller doesn't publish discovery messages and only reads configured DS18 units.
-
 {
     package: .sensors.ds18
     component: DS18
     constructor_args: {
-        rom: "28FF016664160383"   # ROM of the specific DS18 unit, can be string or bytearray (in json bytearray not possible)
-        # controller: "ds18"      # optional, name of controller instance. Not needed if only one instance created)
+        pin: 5                    # pin number or label (on NodeMCU)
+        # rom: 28FF016664160383"  # optional, ROM of the specific DS18 unit, can be string or bytearray (in json bytearray not possible). If not given then the first found ds18 unit will be used, no matter the ROM. Makes it possible to have a generic ds18 unit.
+        # auto_detect: false      # optional, if true and ROM is None then all connected ds18 units will automatically generate a sensor object with the given options. If a sensor is removed, so will its object. Removed sensors will be removed from Homeassistant too!
+        # interval_publish: 600   # optional, defaults to 600. Set to interval_reading to publish with every reading
+        # interval_reading: 120   # optional, defaults to 120. -1 means do not automatically read sensor and publish
         # precision_temp: 2       # precision of the temperature value published
         # offset_temp: 0          # offset for temperature to compensate bad sensor reading offsets
-        # mqtt_topic: sometopic   # optional, defaults to home/<controller-id>/DS18/<ROM> 
+        # mqtt_topic: sometopic   # optional, defaults to home/<device-id>/DS18
         # friendly_name: null     # optional, friendly name shown in homeassistant gui with mqtt discovery
+        # discover: true          # optional, if false no discovery message for homeassistant will be sent
+        # expose_intervals:       # optional, expose intervals to mqtt so they can be changed remotely
+        # intervals_topic:        # optional, if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
-# Specific DS18 unit. 
+# This module is to be used if only 1 ds18 sensor is connected and the ROM doesn't matter.
+# It therefore provides a generic ds18 component for an exchangeable ds18 unit.
+# The sensor can be replaced while the device is running.
 """
 
-__updated__ = "2019-06-04"
-__version__ = "2.4"
+__updated__ = "2019-11-02"
+__version__ = "3.0"
 
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
 import gc
+import time
 from pysmartnode.components.machine.pin import Pin
-from pysmartnode.utils.component import Component, DISCOVERY_SENSOR
+from pysmartnode.utils.component.sensor import ComponentSensor, SENSOR_TEMPERATURE, \
+    VALUE_TEMPLATE_FLOAT
 
 ####################
 # import your library here
@@ -50,93 +46,142 @@ import onewire
 
 # choose a component name that will be used for logging (not in leightweight_log) and
 # a default mqtt topic that can be changed by received or local component configuration
-_component_name = "DS18"
-# define the type of the component according to the homeassistant specifications
-_component_type = "sensor"
+COMPONENT_NAME = "DS18"
 ####################
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
+_unit_index = -1
 gc.collect()
 
-_ds18_controller = None
-_instances = []
 
+class DS18(ComponentSensor):
+    """
+    Helping class to use a singluar DS18 unit.
+    This is not a full component object in terms of mqtt and discovery. This is handled by the controller.
+    It can be used as a temperature component object.
+    """
+    _pins = {}  # pin number/name:onewire()
+    _last_conv = {}  # onewire:time
+    _lock = config.Lock()
 
-class DS18_Controller(ds18x20.DS18X20):
-    def __init__(self, pin, interval=None, auto_discovery=False):
+    def __init__(self, pin, rom: str = None, auto_detect=False, interval_publish: float = None,
+                 interval_reading: float = None, precision_temp: int = 2, offset_temp: float = 0,
+                 mqtt_topic=None, friendly_name=None, discover=True, expose_intervals=False,
+                 intervals_topic=None):
         """
-        The DS18 onewire controller. Reads all connected (and configured) units.
-        :param pin: Pin object or integer or name
-        :param interval: how often the sensors are read and published
-        :param auto_discovery: if True then one object for each found DS18 unit will be created. This is only useful if
-        the Units are not going to be used in other components and only the read temperature is interesting.
+        Class for a single ds18 unit to provide an interface to a single unit.
+        :param pin: pin number/name/object
+        :param rom: optional, ROM of the specific DS18 unit, can be string or bytearray
+        (in json bytearray not possible). If not given then the first found ds18 unit will be used,
+        no matter the ROM. Makes it possible to have a generic ds18 unit.
+        :param auto_detect: optional, if true and ROM is None then all connected ds18 units will automatically generate a sensor object with the given options.
+        :param interval_publish: seconds, set to interval_reading to publish every reading. -1 for not publishing.
+        :param interval_reading: seconds, set to -1 for not reading/publishing periodically. >0 possible for reading, 0 not allowed for reading..
+        :param precision_temp: the precision to for returning/publishing values
+        :param offset_temp: temperature offset to adjust bad sensor readings
+        :param mqtt_topic: optional mqtt topic of sensor
+        :param friendly_name: friendly name in homeassistant
+        :param discover: if DS18 object should send discovery message for homeassistnat
+        :param expose_intervals: Expose intervals to mqtt so they can be changed remotely
+        :param intervals_topic: if expose_intervals then use this topic to change intervals.
+        Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set
+        Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
         """
-        self._interval = interval or config.INTERVAL_SEND_SENSOR
-        ds18x20.DS18X20.__init__(self, onewire.OneWire(Pin(pin)))
+        if rom is None and auto_detect:
+            # only a dummy sensor for detecting connected sensors
+            self._interval_reading = interval_reading
+            self._interval_publishing = interval_publish
+            interval_reading = 60  # scan every 60 seconds for new units
+            interval_publish = -1
+            self._instances = {}  # rom:object
+            self._auto_detect = True
+            self._prec = precision_temp
+            self._offs = offset_temp
+            self._discover = discover
+            self._expose = expose_intervals
+            global _unit_index
+            _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
+        if rom or not auto_detect:  # sensor with rom or generic sensor
+            self._addSensorType(SENSOR_TEMPERATURE, precision_temp, offset_temp,
+                                VALUE_TEMPLATE_FLOAT, "°C", friendly_name)
+            self._auto_detect = False
+        self._generic = True if rom is None and not auto_detect else False
+        if type(pin) == ds18x20.DS18X20:
+            self.sensor: ds18x20.DS18X20 = pin
+        else:
+            self._pins[pin] = ds18x20.DS18X20(onewire.OneWire(Pin(pin)))
+            self.sensor: ds18x20.DS18X20 = self._pins[pin]
+            self._last_conv[self.sensor] = None
+        self.rom: str = rom
         gc.collect()
-        self._lock = config.Lock()
-        global _ds18_controller
-        _ds18_controller = self
-        asyncio.get_event_loop().create_task(self._loop(auto_discovery))
 
-    async def _loop(self, auto_discovery=False):
-        roms = []
-        for _ in range(4):
-            roms_n = self.scan()
-            for rom in roms_n:
-                if rom not in roms:
-                    roms.append(rom)
-            await asyncio.sleep_ms(100)
-        if auto_discovery is True:
-            for rom in roms:
-                DS18(rom)
-                await asyncio.sleep_ms(100)  # give discovery time to publish
-        roms = [self.rom2str(rom) for rom in roms]
-        await _log.asyncLog("info", "Found ds18: {!s}".format(roms))
-        interval = self._interval
-        await asyncio.sleep(1)
-        while True:
-            async with self._lock:
-                await asyncio.sleep_ms(100)  # just in case lock has been released before single sensor has been read
-                self.convert_temp()  # This way all sensors convert temp only once instead of for every sensor
-                await asyncio.sleep_ms(750)
-                for ds in _instances:
-                    await ds.temperature(single_sensor=False)
-            await asyncio.sleep(interval)
+    def _default_name(self):
+        """Change default name to include sensor ROM. Will change name and default topic."""
+        if self.rom is None or self._generic:
+            return "{!s}".format(COMPONENT_NAME)
+        else:
+            return "{!s}_{!s}".format(COMPONENT_NAME, self.rom)
 
-    async def read(self, rom: bytearray, topic: str, prec: int, offs: float, publish=True, single_sensor=True) -> float:
-        # Won't scan for available sensors. Missing or defective ones are recognized when reading temperature
-        if single_sensor:
-            async with self._lock:
-                self.convert_temp()
-                await asyncio.sleep_ms(750)
-        value = None
-        err = None
-        for _ in range(3):
-            try:
-                value = self.read_temp(rom)
-            except Exception as e:
+    async def _read(self):
+        if self._auto_detect or self._generic:  # auto_detect unit or generic sensor
+            roms = []
+            for _ in range(4):
+                roms_n = self.sensor.scan()
+                for rom in roms_n:
+                    if rom not in roms:
+                        roms.append(rom)
                 await asyncio.sleep_ms(100)
-                err = e
-                continue
-        if value is None:
-            await _log.asyncLog("error", "Sensor rom {!s} got no value, {!s}".format(rom, err))
-        if value is not None:
-            if value == 85.0:
-                await _log.asyncLog("error", "Sensor rom {!s} got value 85.00 [not working correctly]".format(rom))
+            if len(roms) == 0:
+                await _log.asyncLog("error", "Found no ds18 unit", timeout=10)
+                return
+            if self._auto_detect:  # auto_detect instance
+                for rom in roms:
+                    rom = self.rom2str(rom)
+                    if rom not in self._instances:
+                        self._instances[rom] = DS18(self.sensor, rom, False,
+                                                    self._interval_publishing,
+                                                    self._interval_reading, self._prec,
+                                                    self._offs, None, None, self._discover,
+                                                    self._expose)
+                for rom in self._instances:
+                    if rom not in roms:  # sensor not connected anymore
+                        await self.removeComponent(roms[rom])
+                        # will stop its loop and remove component and unsubcribe every topic
+                        del self._instances[rom]
+                        await _log.asyncLog("info", "DS18 removed:", rom, timeout=5)
+            else:  # generic ds18 sensor
+                rom = self.rom2str(roms[0])
+                if rom != self.rom:  # sensor replaced
+                    self.rom: str = rom
+                    await _log.asyncLog("info", "Found new ds18:", rom, timeout=5)
+        if self.rom is not None:  # DS18 sensor unit
+            async with self._lock:
+                if self._last_conv[self.sensor] is None or \
+                        time.ticks_diff(time.ticks_ms(), self._last_conv[self.sensor]) > 5000:
+                    # if sensors did convert time more than 5 seconds ago, convert temp again
+                    self.sensor.convert_temp()
+                    await asyncio.sleep_ms(750)
                 value = None
-            try:
-                value = round(value, prec)
-                value += offs
-            except Exception as e:
-                await _log.asyncLog("error", "Error rounding value {!s} of rom {!s}".format(value, rom))
-                value = None
-        if publish:
-            if value is not None:
-                topic = topic or _mqtt.getDeviceTopic("DS18/{!s}".format(self.rom2str(rom)))
-                await _mqtt.publish(topic, ("{0:." + str(prec) + "f}").format(value))
-        return value
+                err = None
+                for _ in range(3):
+                    try:
+                        value = self.sensor.read_temp(self.str2rom(self.rom))
+                    except Exception as e:
+                        await asyncio.sleep_ms(100)
+                        err = e
+                        continue
+                if value is None:
+                    await _log.asyncLog("error", "Sensor rom", self.rom, "got no value,", err,
+                                        timeout=10)
+                    return
+                if value == 85.0:
+                    await _log.asyncLog("error", "Sensor rom", self.rom,
+                                        "got value 85.00 [not working correctly]", timeout=10)
+                    return
+                await self._setValue(SENSOR_TEMPERATURE, value)
 
     @staticmethod
     def rom2str(rom: bytearray) -> str:
@@ -148,65 +193,3 @@ class DS18_Controller(ds18x20.DS18X20):
         for i in range(8):
             a[i] = int(rom[i * 2:i * 2 + 2], 16)
         return a
-
-
-class DS18(Component):
-    """
-    Helping class to use a singluar DS18 unit.
-    This is not a full component object in terms of mqtt and discovery. This is handled by the controller.
-    It can be used as a temperature component object.
-    """
-
-    def __init__(self, rom, precision_temp=2, offset_temp=0, mqtt_topic=None, friendly_name=None,
-                 controller: DS18_Controller = None):
-        """
-        Class for a single ds18 unit to provide an interface to a single unit not needing to specify
-        the ROM on temperature read calls.
-        :param rom: str or bytearray, device specific ROM
-        :param controller: DS18 object. If ds18 are connected on different pins, different DS18 objects are needed
-        """
-        super().__init__()
-        if controller is None:
-            global _ds18_controller
-            if _ds18_controller is None:
-                raise TypeError("No DS18 object, create the onewire ds18 controller instance first")
-            self._ds = _ds18_controller
-        else:
-            self._ds = controller
-        self._r = rom if type(rom) == bytearray else self._ds.str2rom(rom)
-        self._topic = mqtt_topic  # can be None instead of default to save RAM
-        self._frn = friendly_name
-        _instances.append(self)
-
-        ##############################
-        # adapt to your sensor by extending/removing unneeded values like in the constructor arguments
-        self._prec_temp = int(precision_temp)
-        ###
-        self._offs_temp = float(offset_temp)
-        ##############################
-
-    async def _discovery(self):
-        # not scanning for available roms
-        sens = DISCOVERY_SENSOR.format("temperature",  # device_class
-                                       "°C",  # unit_of_measurement
-                                       "{{ value|float }}")  # value_template
-        rom = self._ds.rom2str(self._r)
-        topic = self._topic or _mqtt.getDeviceTopic("DS18/{!s}".format(rom))
-        name = "{!s}_{!s}".format(_component_name, rom)
-        await self._publishDiscovery(_component_type, topic, name, sens, self._frn or "Temperature")
-        del rom, topic, name, sens
-        gc.collect()
-
-    def __str__(self):
-        return "DS18({!s})".format(self._ds.rom2str(self._r))
-
-    __repr__ = __str__
-
-    async def temperature(self, publish=True, single_sensor=True) -> float:
-        """
-        Read temperature of DS18 unit
-        :param publish: bool, publish the read value
-        :param single_sensor: only used by the controller to optimize reading of multiple sensors.
-        :return: float
-        """
-        return await self._ds.read(self._r, self._topic, self._prec_temp, self._offs_temp, publish, single_sensor)

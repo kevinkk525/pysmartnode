@@ -19,21 +19,26 @@ example config:
         # temp_sensor: "ds18"   # optional, name of temperature sensor if temperature compensated measurement is needed
         # precision: 2          # precision of the distance value published
         # offset: 0             # offset for distance value to compensate bad sensor reading offsets
-        # interval: 600         # optional, defaults to 600. can be changed anytime
+        # interval_publish: 600   #optional, defaults to 600. Set to interval_reading to publish with every reading
+        # interval_reading: 120   # optional, defaults to 120. -1 means do not automatically read sensor and publish values
         # mqtt_topic: null      # optional, distance gets published to this topic
         # mqtt_topic_interval: null     # optional, topic need to have /set at the end. Interval can be changed here
         # value_template: "{{ 60.0 - float(value) }}" # optional, can be used to measure the reverse distance (e.g. water level)
         # friendly_name: "Distance" # optional, friendly name for homeassistant gui by mqtt discovery
+        # discover: true            # optional, if false no discovery message for homeassistant will be sent.
+        # expose_intervals: Expose intervals to mqtt so they can be changed remotely
+        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
 # interval change can't be discovered as homeassistant doesn't offer a type
 """
 
-__updated__ = "2019-06-04"
-__version__ = "0.3"
+__updated__ = "2019-11-02"
+__version__ = "0.8"
 
 from pysmartnode.components.machine.pin import Pin
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component.sensor import ComponentSensor, SENSOR_TEMPERATURE, \
+    VALUE_TEMPLATE_FLOAT
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
@@ -41,26 +46,25 @@ import machine
 import time
 import gc
 
-_component_name = "hcsr04"
-# define the type of the component according to the homeassistant specifications
-_component_type = "sensor"
+COMPONENT_NAME = "hcsr04"
 
 DISCOVERY_DISTANCE = '"unit_of_meas":"cm",' \
-                     '"val_tpl":"{!s}",' \
+                     '"val_tpl":"{{ value|float }}",' \
                      '"ic":"mdi:axis-arrow",'
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
-_count = 0
+_unit_index = -1
 
 
-class HCSR04(Component):
-    def __init__(self, pin_trigger, pin_echo, timeout=30000, temp_sensor=None,
+class HCSR04(ComponentSensor):
+    def __init__(self, pin_trigger, pin_echo, timeout=30000, temp_sensor: ComponentSensor = None,
                  precision=2, offset=0,
-                 interval=None, mqtt_topic=None,
-                 mqtt_topic_interval=None, value_template=None, friendly_name=None):
+                 interval_publish=None, interval_reading=None, mqtt_topic=None,
+                 value_template=None, friendly_name=None,
+                 discover=True, expose_intervals=False, intervals_topic=None):
         """
         HC-SR04 ultrasonic sensor.
         Be sure to connect it to 5V but use a voltage divider to connect the Echo pin to an ESP.
@@ -70,50 +74,29 @@ class HCSR04(Component):
         :param temp_sensor: temperature sensor object
         :param precision: int, precision of distance value published and returned
         :param offset: float, distance value offset, shouldn't be needed
-        :param interval: float, interval in which the distance value gets measured and published
+        :param interval_publish: seconds, set to interval_reading to publish every reading. -1 for not publishing.
+        :param interval_reading: seconds, set to -1 for not reading/publishing periodically. >0 possible for reading, 0 not allowed for reading..
         :param mqtt_topic: distance mqtt topic
-        :param mqtt_topic_interval: interval mqtt topic for changing the reading interval
         :param value_template: optional template can be used to measure the reverse distance (e.g. water level)
         :param friendly_name: friendly name for homeassistant gui by mqtt discovery, defaults to "Distance"
+        :param discover: boolean, if the device should publish its discovery
+        :param expose_intervals: Expose intervals to mqtt so they can be changed remotely
+        :param intervals_topic: if expose_intervals then use this topic to change intervals.
+        Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set
+        Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
         """
-        super().__init__()
-        self._frn = friendly_name
-        self._valt = value_template
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
         self._tr = Pin(pin_trigger, mode=machine.Pin.OUT)
         self._tr.value(0)
         self._ec = Pin(pin_echo, mode=machine.Pin.IN)
         self._to = timeout
-        self._temp = temp_sensor
-        self._pr = int(precision)
-        self._off = float(offset)
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic("hcsr04")
-        self._topic_int = mqtt_topic_interval or _mqtt.getDeviceTopic("hcsr04/interval", is_request=True)
-        self.interval = interval or config.INTERVAL_SEND_SENSOR  # can be changed anytime
-        global _count
-        self._count = _count
-        _count += 1
-        self._subscribe(self._topic_int, self._changeInterval)
-
-    async def _init(self):
-        await super()._init()
-        gen = self.distance
-        await asyncio.sleep(1)
-        while True:
-            await gen()
-            t = time.ticks_ms()
-            while time.ticks_diff(time.ticks_ms(), t) < self.interval:
-                # this way interval can be changed and sensor reacts within 1s
-                await asyncio.sleep(1)
-
-    async def _discovery(self):
-        # interval change can't be discovered as homeassistant doesn't offer a type
-        sens = DISCOVERY_DISTANCE.format("{{ value|float }}" if self._valt is None else self._valt)
-        name = "{!s}{!s}".format(_component_name, self._count)
-        await self._publishDiscovery(_component_type, self._topic, name, sens, self._frn or "Distance")
-
-    async def _changeInterval(self, topic, msg, retain):
-        self.interval = float(msg)
-        return True  # will publish the new interval
+        self.checkSensorType(temp_sensor, SENSOR_TEMPERATURE)
+        self._temp: ComponentSensor = temp_sensor
+        self._addSensorType("distance", precision, offset, value_template or VALUE_TEMPLATE_FLOAT,
+                            "cm", friendly_name, discovery_type=DISCOVERY_DISTANCE)
 
     def _pulse(self) -> int:
         """
@@ -133,17 +116,16 @@ class HCSR04(Component):
                 raise OSError("Object too far")
             raise e
 
-    async def _read(self, temp=None, ignore_errors=False, publish=True) -> float:
-        """
-        Returns distance in cm.
-        Optionally compensated by temperature in °C.
-        :return: float
-        """
-        if temp is None:
-            if self._temp is not None:
-                temp = await self._temp.temperature(publish=False)
-                if temp is None:
-                    await _log.asyncLog("warn", "Couldn't read temp sensor, using fallback caluclation")
+    async def _read(self):
+        if self._temp is not None:
+            temp = await self._temp.getValue(SENSOR_TEMPERATURE, publish=self._intrd > 5,
+                                             timeout=5 if self._intrd > 20 else 0)
+            if temp is None:  # only log errors if reading interval allows it
+                await _log.asyncLog("warn",
+                                    "Couldn't read temp sensor, using fallback calculation",
+                                    timeout=10 if self._intrd > 20 else 0)
+        else:
+            temp = None
         val = []
         warnings = 0  # probably not going to happen that both warning types occur at the same time
         warning = "minimum distance reached or different problem"
@@ -159,41 +141,24 @@ class HCSR04(Component):
                 warnings += 1
             await asyncio.sleep_ms(10)
         if warnings > 10:  # half sensor readings are bad
-            if ignore_errors is False:
-                await _log.asyncLog("error", "Too many bad sensor readings, error: {!s}".format(warning))
-            return None
+            await _log.asyncLog("error",
+                                "Too many bad sensor readings, error:", warning,
+                                timeout=10 if self._intrd > 20 else 0)
+            return
         # removing extreme values
         val.remove(max(val))
         val.remove(max(val))
         val.remove(min(val))
         val.remove(min(val))
         pt = 0
-        for i in range(len(val)):
-            pt += val[i]
+        for v in val:
+            pt += v
         pt /= len(val)
         if temp is None:
             dt = (pt / 2) / 29.14
         else:
             dt = (pt / 2) * ((331.5 + (0.6 * temp)) / 10000)
         if dt < 0:
-            await _log.asyncLog("warn", "Sensor reading <0")
-            return None
-        try:
-            dt = round(dt, self._pr)
-            dt += self._off
-        except Exception as e:
-            await _log.asyncLog("error", "Error rounding value {!s}".format(dt))
-            return dt
-        if publish:
-            await _mqtt.publish(self._topic, ("{0:." + str(self._pr) + "f}").format(dt))
-        return dt
-
-    async def distance(self, temp=None, ignore_errors=False, publish=True) -> float:
-        """
-        Returns distance in cm, optionally temperature compensated
-        :param temp: temperature value for compensation, optional
-        :param ignore_errors: prevent bad readings from being published to the log in case the application expects those
-        :param publish: if value should be published
-        :return:
-        """
-        return await self._read(temp, ignore_errors, publish)
+            await _log.asyncLog("warn", "Sensor reading <0", timeout=10 if self._intrd > 20 else 0)
+            return
+        await self._setValue("distance", dt, timeout=10 if self._intrd > 20 else 0)

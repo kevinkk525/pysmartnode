@@ -1,8 +1,6 @@
-'''
-Created on 2018-07-16
-
-@author: Kevin Köck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Created on 2018-07-16
 
 """
 example config:
@@ -16,17 +14,20 @@ example config:
         multiplier_adc: 2.5 # calculate the needed multiplier to get from the voltage read by adc to the real voltage
         cutoff_pin: null    # optional, pin number or object of a pin that will cut off the power if pin.value(1) 
         precision_voltage: 2 # optional, the precision of the voltage published by mqtt
-        # interval: 600     # optional, defaults to 600s, interval in which voltage gets published
+        # interval_publish: 600   #optional, defaults to 600. Set to interval_reading to publish with every reading
         # mqtt_topic: null  # optional, defaults to <home>/<device-id>/battery
-        # interval_watching: 1 # optional, the interval in which the voltage will be checked, defaults to 1s
+        # interval_reading: 1 # optional, the interval in which the voltage will be checked, defaults to 1s
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
-        # friendly_name_abs: null # optional, friendly name for absolute voltage     
+        # friendly_name_abs: null # optional, friendly name for absolute voltage
+        # expose_intervals: Expose intervals to mqtt so they can be changed remotely
+        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
+WARNING: This component has not been tested with a battery and only works in theory!
 """
 
-__version__ = "0.2"
-__updated__ = "2018-08-18"
+__updated__ = "2019-11-02"
+__version__ = "0.7"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -35,26 +36,32 @@ import gc
 import machine
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.components.machine.adc import ADC
-from pysmartnode.utils.component import Component, DISCOVERY_SENSOR
-import time
+from pysmartnode.utils.component.sensor import ComponentSensor, SENSOR_BATTERY
 
-_component_name = "Battery"
-_component_type = "sensor"
+COMPONENT_NAME = "Battery"
+_VAL_T_CHARGE = "{{ value_json.relative }}"
+_VAL_T_VOLTAGE = "{{ value_json.absolute }}"
+_TYPE_VOLTAGE = '"unit_of_meas":"V",' \
+                '"val_tpl":{{ value_json.absolute }},' \
+                '"ic":"mdi:car-battery"'
 
-_log = logging.getLogger(_component_name)
+_log = logging.getLogger(COMPONENT_NAME)
 _mqtt = config.getMQTT()
 gc.collect()
 
+_unit_index = -1
 
-class Battery(Component):
-    def __init__(self, adc, voltage_max, voltage_min, multiplier_adc, cutoff_pin=None,
-                 precision_voltage=2, interval_watching=1,
-                 interval=None, mqtt_topic=None, friendly_name=None, friendly_name_abs=None):
-        super().__init__()
-        self._interval = interval or config.INTERVAL_SEND_SENSOR
-        self._interval_watching = interval_watching
-        self._topic = mqtt_topic or _mqtt.getDeviceTopic(_component_name)
-        self._precision = int(precision_voltage)
+
+class Battery(ComponentSensor):
+    def __init__(self, adc, voltage_max: float, voltage_min: float, multiplier_adc: float,
+                 cutoff_pin=None, precision_voltage: int = 2, interval_reading: float = 1,
+                 interval_publish: float = None, mqtt_topic: str = None, friendly_name: str = None,
+                 friendly_name_abs: str = None, discover: bool = True,
+                 expose_intervals: bool = False, intervals_topic: str = None):
+        global _unit_index
+        _unit_index += 1
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
         self._adc = ADC(adc)  # unified ADC interface
         self._voltage_max = voltage_max
         self._voltage_min = voltage_min
@@ -62,94 +69,75 @@ class Battery(Component):
         self._cutoff_pin = None if cutoff_pin is None else (Pin(cutoff_pin, machine.Pin.OUT))
         if self._cutoff_pin is not None:
             self._cutoff_pin.value(0)
-        self._frn = friendly_name
-        self._frn_abs = friendly_name_abs
-        gc.collect()
         self._event_low = None
         self._event_high = None
+        self._addSensorType(SENSOR_BATTERY, 2, 0, _VAL_T_CHARGE, "%", friendly_name_abs)
+        self._addSensorType("voltage", precision_voltage, 0, _VAL_T_VOLTAGE, "V", friendly_name,
+                            None, _TYPE_VOLTAGE)
+        asyncio.get_event_loop().create_task(self._events())
+        gc.collect()
 
-    def getVoltageMax(self):
+    def getVoltageMax(self) -> float:
         """Getter for consumers"""
         return self._voltage_max
 
-    def getVoltageMin(self):
+    def getVoltageMin(self) -> float:
         """Getter for consumers"""
         return self._voltage_min
 
-    async def _read(self, publish=True):
+    async def _read(self):
         try:
             value = self._adc.readVoltage()
         except Exception as e:
-            _log.error("Error reading sensor {!s}: {!s}".format(_component_name, e))
-            return None
-        if value is not None:
+            await _log.asyncLog("error", "Error reading sensor:", e, timeout=10)
+        else:
             value *= self._multiplier
-            value = round(value, self._precision)
-        if value is None:
-            _log.warn("Sensor {!s} got no value".format(_component_name))
-        elif publish:
-            await _mqtt.publish(self._topic, ("{0:." + str(self._precision) + "f}").format(value))
-        return value
+            await self._setValue("voltage", value)  # applies rounding and saves value
+            value = await self.getValue("voltage")
+            if value:
+                value = (value - self._voltage_min) / (self._voltage_max - self._voltage_min)
+                await self._setValue(SENSOR_BATTERY, value)
 
-    async def voltage(self, publish=True):
-        return await self._read(publish=publish)
-
-    async def _init(self):
-        await super()._init()
-        interval = self._interval
-        interval_watching = self._interval_watching
-        t = time.ticks_ms()
+    async def _events(self):
+        ev = self.getReadingsEvent()
         while True:
-            # reset enets on next reading so consumers don't need to do it as there might be multiple consumers awaiting
+            # reset events on next reading so consumers don't need to do it as there
+            # might be multiple consumers awaiting
             if self._event_low is not None:
-                self._event_low.release()
+                self._event_low.clear()
             if self._event_high is not None:
-                self._event_high.release()
-            if time.ticks_ms() > t:
-                # publish interval
-                voltage = self._read()
-                t = time.ticks_ms() + interval
-            else:
-                voltage = self._read(publish=False)
+                self._event_high.clear()
+            await ev
+            voltage = await self.getValue("voltage")
+            ev.clear()
             if voltage > self._voltage_max:
                 if self._event_high is not None:
                     self._event_high.set(data=voltage)
                     # no log as consumer has to take care of logging or doing something
                 else:
-                    _log.warn("Battery voltage of {!s} exceeds maximum of {!s}".format(voltage, self._voltage_max))
+                    await _log.asyncLog("warn", "Battery voltage of", voltage,
+                                        "exceeds maximum of",
+                                        self._voltage_max, timeout=5)
             elif voltage < self._voltage_min:
                 if self._event_low is not None:
                     self._event_low.set(data=voltage)
                     # no log as consumer has to take care of logging or doing something
                 else:
-                    _log.warn("Battery voltage of {!s} lower than minimum of {!s}".format(voltage, self._voltage_min))
+                    await _log.asyncLog("warn", "Battery voltage of", voltage,
+                                        "lower than minimum of", self._voltage_min, timeout=5)
                 if self._cutoff_pin is not None:
                     if self._cutoff_pin.value() == 1:
-                        _log.critical("Cutting off power did not work!")
+                        await _log.asyncLog("critical", "Cutting off power did not work!",
+                                            timeout=5)
                         self._cutoff_pin.value(0)  # trying again
                         await asyncio.sleep(1)
                     else:
-                        _log.warn("Cutting off power")
+                        await _log.asyncLog("warn", "Cutting off power", timeout=5)
                     await asyncio.sleep(5)  # time to send all logs and for consumers to get done
                     self._cutoff_pin.value(1)
-            await asyncio.sleep(interval_watching)
 
     def registerEventHigh(self, event):
         self._event_high = event
 
     def registerEventLow(self, event):
         self._event_low = event
-
-    async def _discovery(self):
-        sens = DISCOVERY_SENSOR.format("battery",  # device_class
-                                       "%",  # unit_of_measurement
-                                       "{{ value_json.relative }}")  # value_template
-        await self._publishDiscovery(_component_type, self._topic, _component_name + "r", sens,
-                                     self._frn or "Battery %")
-        sens = '"unit_of_meas":"V",' \
-               '"val_tpl":"{{ value_json.absolute }}",' \
-               '"ic":"mdi:car-battery"'
-        await self._publishDiscovery(_component_type, self._topic, _component_name + "a", sens,
-                                     self._frn_abs or "Battery Volt")
-        del sens
-        gc.collect()

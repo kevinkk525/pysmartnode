@@ -1,8 +1,6 @@
-'''
-Created on 14.07.2017
-
-@author: Kevin Köck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Created on 2017-07-14
 
 import time
 

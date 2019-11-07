@@ -1,8 +1,6 @@
-'''
-Created on 20.03.2018
-
-@author: Kevin K�ck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Created on 2018-03-20
 
 from pysmartnode import config
 import machine
@@ -12,7 +10,8 @@ import time
 if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE:
     rtc = machine.RTC()
     print("Synchronize time from NTP server ...")
-    rtc.ntp_sync(server=config.RTC_SERVER, update_period=36000, tz=config.RTC_TIMEZONE)  # update every 10h
+    rtc.ntp_sync(server=config.RTC_SERVER, update_period=36000,
+                 tz=config.RTC_TIMEZONE)  # update every 10h
     tmo = 100
     while not rtc.synced():
         time.sleep_ms(100)
