@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2018-2019 Released under the MIT license
 # Created on 2018-02-17
 
-__updated__ = "2019-11-04"
-__version__ = "5.5"
+__updated__ = "2019-11-07"
+__version__ = "5.6"
 
 import gc
 import ujson
@@ -214,7 +214,8 @@ class MQTTHandler(MQTTClient):
                     if self._sub_retained is True:  # no state message received
                         self._subs[i] = sub[:3]
                         self._sub_retained = False
-                        _log.debug("Unsubcribing state topic", t[:-4], local_only=True)
+                        _log.debug("Unsubscribing state topic", t[:-4], "in _subsscribeTopics",
+                                   local_only=True)
                         await self._preprocessor(super().unsubscribe, t[:-4],
                                                  await_connection=False)
                 _log.debug("_subscribing", t, local_only=True)
@@ -296,13 +297,15 @@ class MQTTHandler(MQTTClient):
         t = []
         for sub in self._subs:
             if topic is None and sub[2] == component:
-                r.append(sub)
-                if sub[0] not in t:
-                    t.append(sub[0])
+                if sub not in r:  # already unsubscribed but _subscribeTopics still active
+                    r.append(sub)
+                    if sub[0] not in t:
+                        t.append(sub[0])
             elif sub[0] == topic and (component is None or component == sub[2]):
-                r.append(sub)
-                if sub[0] not in t:
-                    t.append(sub[0])
+                if sub not in r:  # already unsubscribed but _subscribeTopics still active
+                    r.append(sub)
+                    if sub[0] not in t:
+                        t.append(sub[0])
         if not r:
             _log.error("Can't unsubscribe, topic not found:", topic, "component", component,
                        local_only=True)
@@ -319,6 +322,7 @@ class MQTTHandler(MQTTClient):
         # so the subs list doesn't get messed up. _sub_coro will remove values on finish.
         if self._sub_coro:
             return s
+        # remove pending unsubscribe requests
         for sub in r:
             self._subs.remove(sub)
         self.__unsub_tmp = []
@@ -422,7 +426,7 @@ class MQTTHandler(MQTTClient):
             _log.warn("Subscribed topic", topic, "not found, should solve itself", local_only=True)
 
     async def _execute_callback(self, sub, topic, msg, retained):
-        if len(sub) == 4 and "/+/" not in sub[0]:  # sub can't end with /#/set but /+/set
+        if len(sub) == 4 and "/+" not in sub[0]:  # sub can't end with /#/set but /+/set
             # retained state topic received without wildcards (could receive multiple states)
             self._subs[self._subs.index(sub)] = sub[:3]
             self._sub_retained = False
@@ -430,7 +434,7 @@ class MQTTHandler(MQTTClient):
                 t = self.getRealTopic(sub[0])[:-4]
             else:
                 t = sub[0][:-4]
-            _log.debug("Unsubcribing state topic", t, local_only=True)
+            _log.debug("Unsubscribing state topic", t, "in _exec_cb", local_only=True)
             await self._preprocessor(super().unsubscribe, t, await_connection=False)
             del t
             gc.collect()

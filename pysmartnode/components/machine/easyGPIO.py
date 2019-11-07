@@ -16,7 +16,7 @@ Makes esp8266 listen to requested gpio changes or return pin.value() if message 
 This component is just a generic interface to device pins, it does not offer ComponentSwitch features.
 """
 
-__updated__ = "2019-11-02"
+__updated__ = "2019-11-07"
 __version__ = "1.8"
 
 import gc
@@ -28,7 +28,7 @@ from pysmartnode.utils.component import Component, DISCOVERY_SWITCH
 
 _mqtt = config.getMQTT()
 
-COMPONENT_NAME = "easayGPIO"
+COMPONENT_NAME = "easyGPIO"
 _COMPONENT_TYPE = "switch"
 
 gc.collect()
