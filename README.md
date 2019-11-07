@@ -72,6 +72,10 @@ Many modules use Variable Annotations ([PEP526](https://www.python.org/dev/peps/
 firmware. You have to adapt the path in the script, so you could point it to any directory, doesn't
  need to be the esp8266 modules directory.
 
+Alternatively a prebuilt firmware for the esp8266 can be used that should be attached to every release on github. On esp32 the precompiled .mpy files can be used that are also attached to every github release.
+<br> Then it is not neccesary to strip the source files of hints.
+<br> This is recommended because the esp8266 needs a custom firmware build anyway as it can't compile the project because of its small RAM.
+<br>The esp32 could build the project but that is very slow and therefore it is recommended to use .mpy files.
 
 ### 2.2. Dependencies
 
