@@ -118,7 +118,7 @@ class MQTTHandler(MQTTClient):
             self.close()
             # force close the socket so last will message will be published by broker
             # if still connected.
-        super().disconnect()
+        await super().disconnect()
 
     async def _connectCaller(self):
         if platform == "esp8266":
@@ -145,7 +145,7 @@ class MQTTHandler(MQTTClient):
 
     async def _wifi_changed(self, state):
         if config.DEBUG:
-            _log.info("WIFI state {!s}".format(state), local_only=True)
+            _log.info("WIFI state", state, local_only=True)
         for cb in self._wifi_subs:
             res = cb(self)
             if type(res) == type_gen:
