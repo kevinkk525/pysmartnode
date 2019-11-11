@@ -88,9 +88,10 @@ class WaterSensor(ComponentSensor):
                 # dry
                 if self._pub_coro is not None:
                     self._pub_coro.cancel()
-                self._pub_coro = _mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "OFF", qos=1,
-                                               retain=True, timeout=None, await_connection=True)
-                asyncio.create_task(self._pub_coro)
+                self._pub_coro = asyncio.create_task(
+                    _mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "OFF", qos=1,
+                                  retain=True, timeout=None, await_connection=True))
+
             self._lv = state
         else:
             state = True
@@ -98,9 +99,8 @@ class WaterSensor(ComponentSensor):
                 # wet
                 if self._pub_coro is not None:
                     self._pub_coro.cancel()
-                self._pub_coro = _mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "ON", qos=1,
-                                               retain=True, timeout=None, await_connection=True)
-                asyncio.create_task(self._pub_coro)
+                self._pub_coro = asyncio.create_task(_mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "ON", qos=1,
+                                               retain=True, timeout=None, await_connection=True))
             self._lv = state
         b = time.ticks_us()
         if WaterSensor.DEBUG:

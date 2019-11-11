@@ -76,11 +76,10 @@ class MyComponent(Component):
 
         self._frn = friendly_name  # will default to unique name in discovery if None
 
-        self._loop_coro = self._loop()
+        self._loop_coro=asyncio.create_task(self._loop())
         # the component might get removed in which case it should be able to locate and stop
         # any running loops it created (otherwise the component will create Exceptions and
         # won't be able to be fully removed from RAM)
-        asyncio.create_task(self._loop_coro)
         gc.collect()
 
     async def _init_network(self):

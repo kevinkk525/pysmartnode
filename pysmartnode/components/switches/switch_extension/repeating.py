@@ -62,8 +62,7 @@ class repeating(BaseMode):
         if self._coro is not None:
             print("Coro already active")
             self._coro.cancel()
-        self._coro = self._repeating(component_on, component_off)
-        asyncio.create_task(self._coro)
+        self._coro = asyncio.create_task(self._repeating(component_on, component_off))
         return True
 
     async def deactivate(self, extended_switch, component, component_on, component_off):

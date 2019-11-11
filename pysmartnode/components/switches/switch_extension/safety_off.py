@@ -37,8 +37,7 @@ class safety_off(BaseMode):
             return True
         if self._coro is None:
             if await component_on() is True:
-                self._coro = self._wait_off(component_off)
-                asyncio.create_task(self._coro)
+                self._coro = asyncio.create_task(self._wait_off(component_off))
                 return True
             else:
                 return False

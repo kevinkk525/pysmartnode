@@ -24,11 +24,10 @@ class RemoteConfig(Component):
     def __init__(self):
         super().__init__(COMPONENT_NAME, __version__, unit_index=0)
         self._topic = "{!s}/login/{!s}/#".format(_mqtt.mqtt_home, _mqtt.client_id)
-        self._watcher_coro = self._watcher()
         self._icomp = None
         self._rcomp = []
         self._done = False
-        asyncio.create_task(self._watcher_coro)
+        self._watcher_coro = asyncio.create_task(self._watcher())
 
     def done(self):
         return self._done

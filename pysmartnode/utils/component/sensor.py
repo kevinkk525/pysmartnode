@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-10-27 
 
-__updated__ = "2019-11-02"
-__version__ = "0.5"
+__updated__ = "2019-11-11"
+__version__ = "0.6"
 
 from pysmartnode.utils.component import Component
 from pysmartnode import config
@@ -53,8 +53,7 @@ class ComponentSensor(Component):
                                 self.setInterval, self, qos=1, check_retained_state=True)
         self._loop_coro = None
         if self._intrd > 0:  # if interval_reading==-1 no loop will be started
-            self._loop_coro = self._loop()
-            asyncio.create_task(self._loop_coro)
+            self._loop_coro = asyncio.create_task(self._loop())
             # self._loop_coro will get canceled when component is removed.
         gc.collect()
 
@@ -316,8 +315,7 @@ class ComponentSensor(Component):
                     else:
                         # otherwise start task to publish values which might get canceled if
                         # it can't finish until next publish is requested.
-                        pbc = self._publishValues()
-                        asyncio.create_task(pbc)
+                        pbc = asyncio.create_task(self._publishValues())
                 # sleep until the sensor should be read again. Using loop with 100ms makes
                 # changing the read interval during runtime possible with a reaction time of 100ms.
                 while True:

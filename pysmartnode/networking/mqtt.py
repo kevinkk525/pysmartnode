@@ -138,8 +138,7 @@ class MQTTHandler(MQTTClient):
     async def _wifiChanged(self, state):
         if self._wifi_coro is not None:
             self._wifi_coro.cancel()
-        self._wifi_coro = self._wifi_changed(state)
-        asyncio.create_task(self._wifi_coro)
+        self._wifi_coro = asyncio.create_task(self._wifi_changed(state))
 
     async def _wifi_changed(self, state):
         if config.DEBUG:
@@ -159,8 +158,7 @@ class MQTTHandler(MQTTClient):
         if self._connected_coro is not None:
             # processed subscriptions would have to be done again anyway
             self._connected_coro.cancel()
-        self._connected_coro = self._connected_handler(client)
-        asyncio.create_task(self._connected_coro)
+        self._connected_coro = asyncio.create_task(self._connected_handler(client))
 
     async def _connected_handler(self, client):
         try:
@@ -177,8 +175,7 @@ class MQTTHandler(MQTTClient):
                 # resubscribe topics because clean session is used
                 if self._sub_coro is not None:
                     self._sub_coro.cancel()
-                self._sub_coro = self._subscribeTopics()
-                asyncio.create_task(self._sub_coro)
+                self._sub_coro = asyncio.create_task(self._subscribeTopics())
             for cb in self._reconnected_subs:
                 res = cb(client)
                 if type(res) == type_gen:
@@ -515,8 +512,7 @@ class MQTTHandler(MQTTClient):
                 if not await_connection and not self._isconnected:
                     return False
                 if self._ops_coros[i] is coro is None:
-                    coro = self._operationTimeout(coroutine, *args, i=i)
-                    asyncio.create_task(coro)
+                    coro = asyncio.create_task(self._operationTimeout(coroutine, *args, i=i))
                     self._ops_coros[i] = coro
                 elif coro:
                     if self._ops_coros[i] != coro:
