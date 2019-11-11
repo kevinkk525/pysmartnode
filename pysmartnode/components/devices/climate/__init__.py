@@ -142,7 +142,7 @@ class Climate(Component):
         _mqtt.subscribeSync(self._away_topic, self.changeAwayMode, self)
 
         self._restore_done = False
-        asyncio.get_event_loop().create_task(self._loop(interval))
+        asyncio.create_task(self._loop(interval))
 
     async def _init_network(self):
         await _mqtt.awaitSubscriptionsDone()  # wait until subscriptions are done

@@ -82,7 +82,7 @@ class PHsensor(Component):
         self._ph1 = pH_calibration_value_1
         gc.collect()
         if self._interval > 0:  # if interval==-1 no loop will be started
-            asyncio.get_event_loop().create_task(self._loop())
+            asyncio.create_task(self._loop())
 
     async def _loop(self):
         interval = self._interval

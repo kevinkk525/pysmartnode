@@ -5,8 +5,8 @@
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2019-11-02"
-__version__ = "1.4"
+__updated__ = "2019-11-11"
+__version__ = "1.5"
 
 import gc
 
@@ -51,7 +51,7 @@ class STATS(Component):
     async def _init_network(self):
         await super()._init_network()
         await self._publish()
-        asyncio.get_event_loop().create_task(self._loop())
+        asyncio.create_task(self._loop())
         # start loop once network is completely set up because it doesn't have
         # any use otherwise because component only publishes stats.
 
@@ -105,14 +105,11 @@ class STATS(Component):
         d, h = divmod(h, 24)
         val["MQTT Downtime"] = '{:d}T{:02d}:{:02d}:{:02d}'.format(d, h, m, s)
         val["MQTT Reconnects"] = _mqtt.getReconnects()
-        val["MQTT Dropped messages"] = _mqtt.getDroppedMessages()
         val["MQTT Subscriptions"] = _mqtt.getLenSubscribtions()
         if config.DEBUG:
             # only needed for debugging and could be understood wrongly otherwise
             val["MQTT TimedOutOps"] = _mqtt.getTimedOutOperations()
             val["MQTT Repubs"] = _mqtt.REPUB_COUNT
-        val["Asyncio waitq"] = "{!s}/{!s}".format(len(asyncio.get_event_loop().waitq),
-                                                  config.LEN_ASYNC_QUEUE)
         await _mqtt.publish(_mqtt.getDeviceTopic("status"), val, qos=1, retain=False, timeout=5)
         del val
         gc.collect()

@@ -54,14 +54,14 @@ class ComponentSensor(Component):
         self._loop_coro = None
         if self._intrd > 0:  # if interval_reading==-1 no loop will be started
             self._loop_coro = self._loop()
-            asyncio.get_event_loop().create_task(self._loop_coro)
+            asyncio.create_task(self._loop_coro)
             # self._loop_coro will get canceled when component is removed.
         gc.collect()
 
     async def _remove(self):
         """Called by component base class when a sensor component should be removed"""
         if self._loop_coro is not None:
-            asyncio.cancel(self._loop_coro)
+            self._loop_coro.cancel()
         await super()._remove()
 
     def _addSensorType(self, sensor_type: str, precision: int, offset: float, value_template: str,
@@ -301,7 +301,7 @@ class ComponentSensor(Component):
                     self._event.set()
                 if pb:
                     if pbc is not None:
-                        asyncio.cancel(pbc)
+                        pbc.cancel()
                     vals = 0
                     # counting sensor_types which have a topic as those get published separately
                     for tp in self._values:
@@ -317,7 +317,7 @@ class ComponentSensor(Component):
                         # otherwise start task to publish values which might get canceled if
                         # it can't finish until next publish is requested.
                         pbc = self._publishValues()
-                        asyncio.get_event_loop().create_task(pbc)
+                        asyncio.create_task(pbc)
                 # sleep until the sensor should be read again. Using loop with 100ms makes
                 # changing the read interval during runtime possible with a reaction time of 100ms.
                 while True:
@@ -329,7 +329,7 @@ class ComponentSensor(Component):
                         break
         except asyncio.CancelledError:
             if pbc is not None:
-                asyncio.cancel(pbc)
+                pbc.cancel()
             raise
         except NotImplementedError:
             raise

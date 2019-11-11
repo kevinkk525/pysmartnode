@@ -36,7 +36,7 @@ __printRAM(_mem, "Imported .sys_vars")
 
 import uasyncio as asyncio
 
-loop = asyncio.get_event_loop(runq_len=LEN_ASYNC_RQUEUE, waitq_len=LEN_ASYNC_QUEUE)
+loop = asyncio.get_event_loop()
 
 gc.collect()
 __printRAM(_mem, "Imported uasyncio")

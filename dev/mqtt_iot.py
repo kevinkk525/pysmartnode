@@ -64,9 +64,9 @@ class MQTTHandler(Mqtt):
         if config.DEBUG:
             _log.info("WIFI state {!s}".format(state), local_only=True)
         if state is True:
-            asyncio.get_event_loop().create_task(self._publishDeviceStats())
+            asyncio.create_task(self._publishDeviceStats())
             if self.__receive_config is True:
-                asyncio.get_event_loop().create_task(self._receiveConfig())
+                asyncio.create_task(self._receiveConfig())
         super().concb(state)
 
     async def _receiveConfig(self):
@@ -134,7 +134,7 @@ class MQTTHandler(Mqtt):
             _log.warn("Topic {!s} does not exist".format(topic))
 
     def scheduleSubscribe(self, topic, callback_coro, qos=0):
-        asyncio.get_event_loop().create_task(self.subscribe(topic, callback_coro, qos))
+        asyncio.create_task(self.subscribe(topic, callback_coro, qos))
 
     async def subscribe(self, topic, callback_coro, qos=0):
         _log.debug("Subscribing to topic {}".format(topic), local_only=True)
@@ -208,7 +208,7 @@ class MQTTHandler(Mqtt):
         await super().publish(topic, msg, qos, retain)
 
     def schedulePublish(self, topic, msg, qos=0, retain=False):
-        asyncio.get_event_loop().create_task(self.publish(topic, msg, qos, retain))
+        asyncio.create_task(self.publish(topic, msg, qos, retain))
 
     @staticmethod
     def matchesSubscription(topic, subscription, ignore_command=False):

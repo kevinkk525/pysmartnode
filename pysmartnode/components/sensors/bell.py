@@ -54,7 +54,7 @@ class Bell(Component):
         self._last_activation = 0
         self._frn = friendly_name
         self._frn_l = friendly_name_last
-        asyncio.get_event_loop().create_task(self._loop())
+        asyncio.create_task(self._loop())
 
     async def _loop(self):
         if self._PIN_BELL_IRQ_DIRECTION == machine.Pin.IRQ_FALLING:
@@ -65,7 +65,7 @@ class Bell(Component):
         self._timer_lock = Lock()
         self._pin_bell.irq(trigger=self._PIN_BELL_IRQ_DIRECTION, handler=self.__irqBell)
         self._event_bell.clear()
-        asyncio.get_event_loop().create_task(self.__bell())
+        asyncio.create_task(self.__bell())
         self._timer_bell = machine.Timer(1)
         await _log.asyncLog("info", "Bell initialized")
         gc.collect()

@@ -7,10 +7,6 @@ __updated__ = "2019-11-02"
 from sys import platform
 from micropython import const
 
-# uasyncio config
-LEN_ASYNC_QUEUE = 20 if platform == "esp8266" else 32
-LEN_ASYNC_RQUEUE = 16 if platform == "esp8266" else 32
-
 # Required custom configuration
 WIFI_SSID = ""
 WIFI_PASSPHRASE = ""
@@ -33,8 +29,7 @@ MQTT_RECEIVE_CONFIG = False
 MQTT_TYPE = const(1)  # 1: direct, 0: IOT implementation (not working at the moment, use direct)
 MQTT_MAX_CONCURRENT_EXECUTIONS = -1
 # MAX_CONCURRENT_EXECUTIONS: Can be used to restrict the amount of concurrently executed mqtt
-# messages to prevent message spam to crash the device. Will by default limit the concurrent
-# executions to always leave 4 coroutines on the uasyncio waitq to prevent a queue overflow.
+# messages to prevent message spam to crash the device.
 # However there is no safety against crashing the device with very long messages.
 
 WIFI_LED = None  # set a pin number to have the wifi state displayed by a blinking led. Useful for devices like sonoff

@@ -49,7 +49,7 @@ class Component:
         global _init_queue_start
         if _init_queue_start is None:
             _init_queue_start = self
-            asyncio.get_event_loop().create_task(self.__initNetworkProcess())
+            asyncio.create_task(self.__initNetworkProcess())
         self.COMPONENT_NAME = component_name
         self.VERSION = version
         self._count = unit_index

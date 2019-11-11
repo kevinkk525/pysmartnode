@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-28 
 
-__updated__ = "2019-09-29"
-__version__ = "0.2"
+__updated__ = "2019-11-11"
+__version__ = "0.3"
 
 from pysmartnode.components.switches.switch_extension import Switch, ComponentSwitch, _mqtt, \
     COMPONENT_NAME, BaseMode
@@ -38,7 +38,7 @@ class safety_off(BaseMode):
         if self._coro is None:
             if await component_on() is True:
                 self._coro = self._wait_off(component_off)
-                asyncio.get_event_loop().create_task(self._coro)
+                asyncio.create_task(self._coro)
                 return True
             else:
                 return False
@@ -63,7 +63,7 @@ class safety_off(BaseMode):
     async def off(self, extended_switch, component, component_on, component_off):
         """Turn device off"""
         if self._coro is not None:
-            asyncio.cancel(self._coro)
+            self._coro.cancel()
         else:
             await component_off()
         return True

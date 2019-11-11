@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2018-2019 Released under the MIT license
 # Created on 2018-02-17
 
-__updated__ = "2019-11-09"
-__version__ = "5.7"
+__updated__ = "2019-11-11"
+__version__ = "5.8"
 
 import gc
 import ujson
@@ -56,7 +56,7 @@ class MQTTHandler(MQTTClient):
                          clean=False,
                          ssid=config.WIFI_SSID,
                          wifi_pw=config.WIFI_PASSPHRASE)
-        asyncio.get_event_loop().create_task(self._connectCaller())
+        asyncio.create_task(self._connectCaller())
         self.__first_connect = True
         self._connected_coro = None
         self._reconnected_subs = []
@@ -67,7 +67,7 @@ class MQTTHandler(MQTTClient):
         self.__last_disconnect = None  # ticks_ms() of last disconnect
         self.__downtime = 0  # mqtt downtime in seconds
         self.__reconnects = -1  # not counting the first connect
-        self.__dropped = 0  # dropped messages due to waitq being too full
+        self.__dropped = 0  # dropped messages due to MQTT_MAX_CONCURRENT_EXECUTIONS
         self.__timedout = 0  # operations that timed out. doesn't mean it's a problem.
         self.__active_cbs = 0  # currently active callbacks due to received messages
         gc.collect()
@@ -137,9 +137,9 @@ class MQTTHandler(MQTTClient):
 
     async def _wifiChanged(self, state):
         if self._wifi_coro is not None:
-            asyncio.cancel(self._wifi_coro)
+            self._wifi_coro.cancel()
         self._wifi_coro = self._wifi_changed(state)
-        asyncio.get_event_loop().create_task(self._wifi_coro)
+        asyncio.create_task(self._wifi_coro)
 
     async def _wifi_changed(self, state):
         if config.DEBUG:
@@ -158,9 +158,9 @@ class MQTTHandler(MQTTClient):
         self.__last_disconnect = None
         if self._connected_coro is not None:
             # processed subscriptions would have to be done again anyway
-            asyncio.cancel(self._connected_coro)
+            self._connected_coro.cancel()
         self._connected_coro = self._connected_handler(client)
-        asyncio.get_event_loop().create_task(self._connected_coro)
+        asyncio.create_task(self._connected_coro)
 
     async def _connected_handler(self, client):
         try:
@@ -176,9 +176,9 @@ class MQTTHandler(MQTTClient):
                 await _log.asyncLog("debug", "Reconnected")
                 # resubscribe topics because clean session is used
                 if self._sub_coro is not None:
-                    asyncio.cancel(self._sub_coro)
+                    self._sub_coro.cancel()
                 self._sub_coro = self._subscribeTopics()
-                asyncio.get_event_loop().create_task(self._sub_coro)
+                asyncio.create_task(self._sub_coro)
             for cb in self._reconnected_subs:
                 res = cb(client)
                 if type(res) == type_gen:
@@ -186,7 +186,7 @@ class MQTTHandler(MQTTClient):
             self._connected_coro = None
         except asyncio.CancelledError:
             if self._sub_coro is not None:
-                asyncio.cancel(self._sub_coro)
+                self._sub_coro.cancel()
 
     async def _subscribeTopics(self, start: int = 0):
         _log.debug("_subscribeTopics, start", start, local_only=True)
@@ -276,7 +276,7 @@ class MQTTHandler(MQTTClient):
         return False
 
     def scheduleUnsubscribe(self, topic=None, component=None):
-        asyncio.get_event_loop().create_task(self.unsubscribe(topic, component))
+        asyncio.create_task(self.unsubscribe(topic, component))
 
     async def unsubscribe(self, topic=None, component=None):
         """
@@ -358,7 +358,7 @@ class MQTTHandler(MQTTClient):
         self._subs.append(sub)
         if self._sub_coro is None:
             self._sub_coro = self._subscribeTopics(self._subs.index(sub))
-            asyncio.get_event_loop().create_task(self._sub_coro)
+            asyncio.create_task(self._sub_coro)
 
     async def awaitSubscriptionsDone(self, timeout=None, await_connection=True):
         start = time.ticks_ms()
@@ -403,24 +403,21 @@ class MQTTHandler(MQTTClient):
             pass  # maybe not a json string, no way of knowing
         if self._isDeviceSubscription(topic):
             topic = self._convertToDeviceTopic(topic)
-        loop = asyncio.get_event_loop()
         found = False
         for sub in self._subs:
             if self.matchesSubscription(topic, sub[0], ignore_command=len(sub) == 4):
-                if config.MQTT_MAX_CONCURRENT_EXECUTIONS == -1:
-                    dr = config.LEN_ASYNC_QUEUE - len(loop.waitq) <= 4
-                else:
+                if config.MQTT_MAX_CONCURRENT_EXECUTIONS != -1:
                     dr = self.__active_cbs >= config.MQTT_MAX_CONCURRENT_EXECUTIONS
+                else:
+                    dr = 0
                 if dr:
                     self.__dropped += 1
                     _log.error("dropping message of topic", topic, "component", sub[2],
-                               "too many active cbs/coros:",
-                               "{!s}/{!s}/{!s}".format(
-                                   self.__active_cbs, len(loop.waitq), config.LEN_ASYNC_QUEUE),
+                               "too many active cbss:", "{!s}".format(self.__active_cbs),
                                local_only=True)
                 else:
                     self.__active_cbs += 1
-                    loop.create_task(self._execute_callback(sub, topic, msg, retained))
+                    asyncio.create_task(self._execute_callback(sub, topic, msg, retained))
                     _log.debug("execute_callback of component", sub[2], ":", topic, msg,
                                local_only=True)
                 found = True
@@ -494,8 +491,7 @@ class MQTTHandler(MQTTClient):
 
     def schedulePublish(self, topic, msg, retain=False, qos=0, timeout=None,
                         await_connection=True):
-        asyncio.get_event_loop().create_task(
-            self.publish(topic, msg, retain, qos, timeout, await_connection))
+        asyncio.create_task(self.publish(topic, msg, retain, qos, timeout, await_connection))
 
     # Await broker connection. Subclassed to reduce canceling time from 1s to 50ms
     async def _connection(self):
@@ -520,7 +516,7 @@ class MQTTHandler(MQTTClient):
                     return False
                 if self._ops_coros[i] is coro is None:
                     coro = self._operationTimeout(coroutine, *args, i=i)
-                    asyncio.get_event_loop().create_task(coro)
+                    asyncio.create_task(coro)
                     self._ops_coros[i] = coro
                 elif coro:
                     if self._ops_coros[i] != coro:
@@ -533,7 +529,7 @@ class MQTTHandler(MQTTClient):
         finally:
             if coro and self._ops_coros[i] == coro:
                 async with self.lock:
-                    asyncio.cancel(coro)
+                    coro.cancel()
                 return False
             # else: returns value during process
         return False

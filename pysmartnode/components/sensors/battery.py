@@ -74,7 +74,7 @@ class Battery(ComponentSensor):
         self._addSensorType(SENSOR_BATTERY, 2, 0, _VAL_T_CHARGE, "%", friendly_name_abs)
         self._addSensorType("voltage", precision_voltage, 0, _VAL_T_VOLTAGE, "V", friendly_name,
                             None, _TYPE_VOLTAGE)
-        asyncio.get_event_loop().create_task(self._events())
+        asyncio.create_task(self._events())
         gc.collect()
 
     def getVoltageMax(self) -> float:

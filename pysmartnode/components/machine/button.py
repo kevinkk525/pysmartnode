@@ -131,7 +131,7 @@ class ToggleButton(Button):
                          double_pressed_component, double_pressed_method,
                          long_pressed_component, long_pressed_method,
                          suppress)
-        asyncio.get_event_loop().create_task(self._watcher())
+        asyncio.create_task(self._watcher())
 
     async def _watcher(self):
         while True:

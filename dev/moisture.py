@@ -81,7 +81,7 @@ class Moisture(Component):
         self._frn = friendly_name
         self._frn_cv = friendly_name_cv
         gc.collect()
-        asyncio.get_event_loop().create_task(self._loop())
+        asyncio.create_task(self._loop())
 
     async def _loop(self):
         while True:

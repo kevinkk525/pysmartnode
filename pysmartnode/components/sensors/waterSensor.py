@@ -31,8 +31,8 @@ Put a Resistor (~10kR) between the power pin (or permanent power) and the adc pi
 Connect the wires to the adc pin and gnd.
 """
 
-__updated__ = "2019-11-02"
-__version__ = "1.5"
+__updated__ = "2019-11-11"
+__version__ = "1.6"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -87,20 +87,20 @@ class WaterSensor(ComponentSensor):
             if self._lv != state:
                 # dry
                 if self._pub_coro is not None:
-                    asyncio.cancel(self._pub_coro)
+                    self._pub_coro.cancel()
                 self._pub_coro = _mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "OFF", qos=1,
                                                retain=True, timeout=None, await_connection=True)
-                asyncio.get_event_loop().create_task(self._pub_coro)
+                asyncio.create_task(self._pub_coro)
             self._lv = state
         else:
             state = True
             if self._lv != state:
                 # wet
                 if self._pub_coro is not None:
-                    asyncio.cancel(self._pub_coro)
+                    self._pub_coro.cancel()
                 self._pub_coro = _mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "ON", qos=1,
                                                retain=True, timeout=None, await_connection=True)
-                asyncio.get_event_loop().create_task(self._pub_coro)
+                asyncio.create_task(self._pub_coro)
             self._lv = state
         b = time.ticks_us()
         if WaterSensor.DEBUG:

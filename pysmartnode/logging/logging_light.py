@@ -26,7 +26,7 @@ class Logging:
             return
         if config.getMQTT() and not local_only:
             message = (b"{} " * len(message)).format(*message)
-            asyncio.get_event_loop().create_task(
+            asyncio.create_task(
                 config.getMQTT().publish(self.base_topic.format(level), message, qos=1,
                                          timeout=timeout, await_connection=True))
             # format message as bytes so there's no need to encode it later.

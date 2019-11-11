@@ -43,7 +43,7 @@ if config.RTC_SYNC_ACTIVE:
                 # sockets still open (Errno 98 EADDRINUSE). Got killed by WDT after a few minutes.
 
 
-    asyncio.get_event_loop().create_task(_sync())
+    asyncio.create_task(_sync())
     gc.collect()
 
 if hasattr(config, "FTP_ACTIVE") and config.FTP_ACTIVE is True:

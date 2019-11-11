@@ -45,7 +45,7 @@ def log(name, level, *message, local_only=False, return_only=False, timeout=None
     if return_only:
         return
     if not local_only:
-        asyncio.get_event_loop().create_task(asyncLog(name, level, *message, timeout=timeout,
+        asyncio.create_task(asyncLog(name, level, *message, timeout=timeout,
                                                       await_connection=True))
 
 

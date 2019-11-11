@@ -34,7 +34,7 @@ class WDT:
         self._use_rtc_memory = use_rtc_memory
         self._has_filesystem = False
         self.init()
-        asyncio.get_event_loop().create_task(self._resetCounter())
+        asyncio.create_task(self._resetCounter())
         """ Done in pysmartnode.main
         if use_rtc_memory and platform == "esp8266":
             rtc = machine.RTC()

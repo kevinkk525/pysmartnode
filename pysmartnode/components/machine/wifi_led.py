@@ -31,7 +31,7 @@ class WIFILED(Component):
         self.pin = Pin(pin, machine.Pin.OUT, value=0 if active_high else 1)
         self._active_high = active_high
         self._next = []
-        asyncio.get_event_loop().create_task(self._loop())
+        asyncio.create_task(self._loop())
 
     async def _loop(self):
         mqtt = config.getMQTT()
