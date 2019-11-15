@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-15 
 
-__updated__ = "2019-11-11"
+__updated__ = "2019-11-15"
 __version__ = "0.9"
 
 from pysmartnode.utils.component import Component
@@ -27,7 +27,7 @@ class RemoteConfig(Component):
         self._icomp = None
         self._rcomp = []
         self._done = False
-        self._watcher_coro = asyncio.create_task(self._watcher())
+        self._watcher_task = asyncio.create_task(self._watcher())
 
     def done(self):
         return self._done
@@ -95,5 +95,5 @@ class RemoteConfig(Component):
             self._saveComponent(name, msg)
             await config.registerComponent(name, msg)
         if len(self._rcomp) == self._icomp:  # received all components
-            self._watcher_coro.cancel()
+            self._watcher_task.cancel()
         return False

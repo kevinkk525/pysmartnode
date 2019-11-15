@@ -17,7 +17,7 @@ example config for MyComponent:
 }
 """
 
-__updated__ = "2019-11-11"
+__updated__ = "2019-11-15"
 __version__ = "1.9"
 
 import uasyncio as asyncio
@@ -76,7 +76,7 @@ class MyComponent(Component):
 
         self._frn = friendly_name  # will default to unique name in discovery if None
 
-        self._loop_coro=asyncio.create_task(self._loop())
+        self._loop_task = asyncio.create_task(self._loop())
         # the component might get removed in which case it should be able to locate and stop
         # any running loops it created (otherwise the component will create Exceptions and
         # won't be able to be fully removed from RAM)
@@ -106,7 +106,7 @@ class MyComponent(Component):
     async def _remove(self):
         """Will be called if the component gets removed"""
         # Cancel any loops/asyncio coroutines started by the component
-        self._loop_coro.cancel()
+        self._loop_task.cancel()
         await super()._remove()
 
     async def _discovery(self, register=True):

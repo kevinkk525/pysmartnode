@@ -31,7 +31,7 @@ Put a Resistor (~10kR) between the power pin (or permanent power) and the adc pi
 Connect the wires to the adc pin and gnd.
 """
 
-__updated__ = "2019-11-11"
+__updated__ = "2019-11-15"
 __version__ = "1.6"
 
 from pysmartnode import config
@@ -70,7 +70,7 @@ class WaterSensor(ComponentSensor):
         self._lv = None
         self._addSensorType(SENSOR_BINARY_MOISTURE, 0, 0, VALUE_TEMPLATE, "", friendly_name,
                             mqtt_topic, None, True)
-        self._pub_coro = None
+        self._pub_task = None
 
     async def _read(self):
         a = time.ticks_us()
@@ -86,9 +86,9 @@ class WaterSensor(ComponentSensor):
             state = False
             if self._lv != state:
                 # dry
-                if self._pub_coro is not None:
-                    self._pub_coro.cancel()
-                self._pub_coro = asyncio.create_task(
+                if self._pub_task is not None:
+                    self._pub_task.cancel()
+                self._pub_task = asyncio.create_task(
                     _mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "OFF", qos=1,
                                   retain=True, timeout=None, await_connection=True))
 
@@ -97,10 +97,11 @@ class WaterSensor(ComponentSensor):
             state = True
             if self._lv != state:
                 # wet
-                if self._pub_coro is not None:
-                    self._pub_coro.cancel()
-                self._pub_coro = asyncio.create_task(_mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "ON", qos=1,
-                                               retain=True, timeout=None, await_connection=True))
+                if self._pub_task is not None:
+                    self._pub_task.cancel()
+                self._pub_task = asyncio.create_task(
+                    _mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "ON", qos=1,
+                                  retain=True, timeout=None, await_connection=True))
             self._lv = state
         b = time.ticks_us()
         if WaterSensor.DEBUG:
