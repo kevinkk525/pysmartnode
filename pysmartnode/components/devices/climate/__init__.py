@@ -158,7 +158,6 @@ class Climate(Component):
         gc.collect()
 
     async def _loop(self, interval):
-        interval = interval * 1000
         t = time.ticks_ms()
         while not self._restore_done and time.ticks_diff(time.ticks_ms(), t) < 30000:
             await asyncio.sleep(1)
@@ -173,7 +172,7 @@ class Climate(Component):
         while True:
             try:
                 await asyncio.wait_for(self.event.wait(),
-                                       interval - time.ticks_diff(time.ticks_ms(), t))
+                                       interval - time.ticks_diff(time.ticks_ms(), t) / 1000)
             except asyncio.TimeoutError:
                 pass
             else:
