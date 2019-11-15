@@ -33,7 +33,7 @@ cooling_unit
 fan_unit
 """
 
-__updated__ = "2019-11-02"
+__updated__ = "2019-11-15"
 __version__ = "0.8"
 
 from pysmartnode import config
@@ -54,6 +54,7 @@ from pysmartnode.utils.component.switch import ComponentSwitch
 
 gc.collect()
 from pysmartnode.utils import sys_vars
+import uasyncio as asyncio
 import ujson
 from .definitions import *
 
@@ -122,7 +123,7 @@ class Climate(Component):
                       CURRENT_MODE:                  str(self._modes["off"]),
                       CURRENT_ACTION:                ACTION_OFF}
         self.event = Event()
-        self.lock = config.Lock()
+        self.lock = asyncio.Lock()
         # every extneral change (like mode) that could break an ongoing trigger needs
         # to be protected by self.lock.
         self.log = _log

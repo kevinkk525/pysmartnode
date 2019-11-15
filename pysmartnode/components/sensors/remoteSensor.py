@@ -5,8 +5,8 @@
 """
 example config:
 {
-    package: .sensors.remoteSensors.base
-    component: BaseRemote
+    package: .sensors.remoteSensors
+    component: RemoteSensor
     constructor_args: {
         sensor_type: "temperature" # sensor_type of remote sensor
         mqtt_topic: sometopic      # topic of the remote sensor, if None, then the command topic can be used to set a topic to listen to
@@ -25,7 +25,7 @@ this sensor and the _init_network is called, the topic value should have been re
 
 # TODO: implement support for multiple sensor_types that share one topic in one component
 
-__updated__ = "2019-11-04"
+__updated__ = "2019-11-11"
 __version__ = "0.2"
 
 import gc

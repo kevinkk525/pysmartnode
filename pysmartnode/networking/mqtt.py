@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2018-2019 Released under the MIT license
 # Created on 2018-02-17
 
-__updated__ = "2019-11-11"
+__updated__ = "2019-11-15"
 __version__ = "5.8"
 
 import gc
@@ -17,9 +17,9 @@ from pysmartnode import logging
 from pysmartnode.utils import sys_vars
 
 if config.MQTT_TYPE:
-    from micropython_mqtt_as.mqtt_as import MQTTClient, Lock
+    from micropython_mqtt_as.mqtt_as import MQTTClient
 else:
-    from dev.mqtt_iot import MQTTClient, Lock  # Currently not working/developed
+    from dev.mqtt_iot import MQTTClient  # Currently not working/developed
 import uasyncio as asyncio
 import os
 
@@ -354,8 +354,7 @@ class MQTTHandler(MQTTClient):
             sub = (topic, cb, component)
         self._subs.append(sub)
         if self._sub_coro is None:
-            self._sub_coro = self._subscribeTopics(self._subs.index(sub))
-            asyncio.create_task(self._sub_coro)
+            self._sub_coro = asyncio.create_task(self._subscribeTopics(self._subs.index(sub)))
 
     async def awaitSubscriptionsDone(self, timeout=None, await_connection=True):
         start = time.ticks_ms()
@@ -504,18 +503,18 @@ class MQTTHandler(MQTTClient):
             self._ops_coros[i] = None
 
     async def _preprocessor(self, coroutine, *args, timeout=None, await_connection=True):
-        coro = None
+        task = None
         start = time.ticks_ms()
         i = 0 if len(args) == 4 else 1  # 0: publish, 1:(un)sub
         try:
             while timeout is None or time.ticks_diff(time.ticks_ms(), start) < timeout * 1000:
                 if not await_connection and not self._isconnected:
                     return False
-                if self._ops_coros[i] is coro is None:
-                    coro = asyncio.create_task(self._operationTimeout(coroutine, *args, i=i))
-                    self._ops_coros[i] = coro
-                elif coro:
-                    if self._ops_coros[i] != coro:
+                if self._ops_coros[i] is task is None:
+                    task = asyncio.create_task(self._operationTimeout(coroutine, *args, i=i))
+                    self._ops_coros[i] = task
+                elif task:
+                    if self._ops_coros[i] is not task:
                         return True  # published
                 await asyncio.sleep_ms(20)
             _log.debug("timeout on", "(un)sub" if i else "publish", args, local_only=True)
@@ -523,9 +522,9 @@ class MQTTHandler(MQTTClient):
         except asyncio.CancelledError:
             raise  # the caller should be cancelled too
         finally:
-            if coro and self._ops_coros[i] == coro:
+            if task and self._ops_coros[i] is task:
                 async with self.lock:
-                    coro.cancel()
+                    task.cancel()
                 return False
             # else: returns value during process
         return False

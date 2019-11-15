@@ -27,7 +27,7 @@ example config:
 # The sensor can be replaced while the device is running.
 """
 
-__updated__ = "2019-11-02"
+__updated__ = "2019-11-15"
 __version__ = "3.0"
 
 from pysmartnode import config
@@ -63,7 +63,7 @@ class DS18(ComponentSensor):
     """
     _pins = {}  # pin number/name:onewire()
     _last_conv = {}  # onewire:time
-    _lock = config.Lock()
+    _lock = asyncio.Lock()
 
     def __init__(self, pin, rom: str = None, auto_detect=False, interval_publish: float = None,
                  interval_reading: float = None, precision_temp: int = 2, offset_temp: float = 0,

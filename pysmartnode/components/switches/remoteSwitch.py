@@ -18,13 +18,14 @@ example config:
 # TODO: implement possibility to set sensor topics through mqtt, similar to RemoteSensor implementation
 # TODO: make a real ComponentSwitch class so type checks won't fail
 
-__updated__ = "2019-11-02"
+__updated__ = "2019-11-15"
 __version__ = "0.2"
 
 COMPONENT_NAME = "RemoteSwitch"
 
 from pysmartnode.utils.component import Component
 from pysmartnode import config
+import uasyncio as asyncio
 import time
 from micropython import const
 
@@ -46,7 +47,7 @@ class RemoteSwitch(Component):
         self._state = False
         self._topic = command_topic
         self._state_topic = state_topic
-        self.lock = config.Lock()
+        self.lock = asyncio.Lock()
         # in case switch activates a device that will need a while to finish
         self._state_time = 0
         self._timeout = timeout

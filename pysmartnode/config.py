@@ -51,7 +51,7 @@ _log = logging.getLogger("config")
 gc.collect()
 __printRAM(_mem, "Imported logging")
 
-from pysmartnode.networking.mqtt import MQTTHandler, Lock  # Lock possibly needed by other modules
+from pysmartnode.networking.mqtt import MQTTHandler
 
 gc.collect()
 __printRAM(_mem, "Imported MQTTHandler")

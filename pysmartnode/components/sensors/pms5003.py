@@ -35,6 +35,7 @@ from pysmartnode import config
 from pysmartnode import logging
 import gc
 import machine
+import uasyncio as asyncio
 from pysmartnode.utils.component.sensor import ComponentSensor, VALUE_TEMPLATE_JSON
 
 DISCOVERY_PM = '"unit_of_meas":"{!s}",' \
@@ -105,7 +106,7 @@ class PMS5003(ComponentSensor):
 
         ##############################
         # create sensor object
-        self.pms = sensorModule.PMS5003(self, uart, config.Lock(), set_pin, reset_pin,
+        self.pms = sensorModule.PMS5003(self, uart, asyncio.Lock(), set_pin, reset_pin,
                                         interval_reading, active_mode=active_mode,
                                         eco_mode=eco_mode)
         self._active_mode = active_mode

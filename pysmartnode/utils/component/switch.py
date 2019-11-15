@@ -2,14 +2,15 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-11-02"
-__version__ = "1.1"
+__updated__ = "2019-11-15"
+__version__ = "1.2"
 
 from pysmartnode.utils.component import Component
 from .definitions import DISCOVERY_SWITCH
 from pysmartnode import config
 import gc
 from micropython import const
+import uasyncio as asyncio
 
 _mqtt = config.getMQTT()
 _TIMEOUT = const(10)  # wait for a single reconnect but should be short enough if not connected
@@ -46,7 +47,7 @@ class ComponentSwitch(Component):
         self._topic = command_topic or _mqtt.getDeviceTopic(
             "{!s}{!s}/set".format(component_name, self._count))
         _mqtt.subscribeSync(self._topic, self.on_message, self, check_retained_state=restore_state)
-        self.lock = config.Lock()
+        self.lock = asyncio.Lock()
         # in case switch activates a device that will need a while to finish
         self._wfl = wait_for_lock
         self._name = instance_name
@@ -108,6 +109,8 @@ class ComponentSwitch(Component):
 
     async def toggle(self):
         """Toggle device state. Can be used by other component to control this component"""
+        while self.lock.locked() and self._wfl:  # wait for lock
+            await asyncio.sleep_ms(20)
         if self._state is True:
             return await self.off()
         else:

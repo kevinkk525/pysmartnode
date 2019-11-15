@@ -33,6 +33,7 @@ from pysmartnode.components.machine.pin import Pin
 from pysmartnode.components.machine.adc import ADC, pyADC
 from pysmartnode import config
 import uasyncio as asyncio
+from uasyncio import Lock
 import gc
 from pysmartnode.utils.component import Component, DISCOVERY_BINARY_SENSOR
 
@@ -41,7 +42,6 @@ _COMPONENT_TYPE = "sensor"
 _VAL_T_HUMIDITY = "{{ value|float }}"
 
 _mqtt = config.getMQTT()
-Lock = config.Lock
 gc.collect()
 
 

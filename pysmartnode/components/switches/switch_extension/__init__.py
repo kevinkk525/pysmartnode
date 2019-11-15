@@ -29,14 +29,14 @@ As Homeassistant only supports sensors and switches to be discovered, every mode
 to enable the mode.
 """
 
-__updated__ = "2019-11-02"
+__updated__ = "2019-11-15"
 __version__ = "0.7"
 
 from pysmartnode import config
 from pysmartnode import logging
 import gc
 from pysmartnode.utils.component.switch import Component, ComponentSwitch, DISCOVERY_SWITCH
-from pysmartnode.config import Lock
+from uasyncio import Lock
 
 ####################
 COMPONENT_NAME = "SwitchExtension"
