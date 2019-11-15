@@ -19,13 +19,12 @@ example config:
 }
 """
 
-__updated__ = "2019-11-02"
+__updated__ = "2019-11-15"
 __version__ = "1.4"
 
 import gc
 from pysmartnode import config
 from pysmartnode import logging
-from pysmartnode.utils.event import Event
 from pysmartnode.utils.locksync import Lock
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.utils.component import Component, DISCOVERY_TIMELAPSE, VALUE_TEMPLATE
@@ -61,7 +60,7 @@ class Bell(Component):
             self._pin_bell = Pin(self._pin_bell, machine.Pin.IN, machine.Pin.PULL_UP)
         else:
             self._pin_bell = Pin(self._pin_bell, machine.Pin.IN)
-        self._event_bell = Event()
+        self._event_bell = asyncio.Event()
         self._timer_lock = Lock()
         self._pin_bell.irq(trigger=self._PIN_BELL_IRQ_DIRECTION, handler=self.__irqBell)
         self._event_bell.clear()
@@ -72,7 +71,7 @@ class Bell(Component):
 
     async def __bell(self):
         while True:
-            await self._event_bell
+            await self._event_bell.wait()
             diff = time.ticks_diff(time.ticks_ms(), self._last_activation)
             if diff > 10000:
                 _log.error("Bell rang {!s}s ago, not activated ringing".format(diff / 1000))

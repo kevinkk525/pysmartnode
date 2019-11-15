@@ -34,12 +34,11 @@ fan_unit
 """
 
 __updated__ = "2019-11-15"
-__version__ = "0.8"
+__version__ = "0.9"
 
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
-from pysmartnode.utils.event import Event
 import gc
 import time
 from pysmartnode.utils.component import Component
@@ -54,7 +53,6 @@ from pysmartnode.utils.component.switch import ComponentSwitch
 
 gc.collect()
 from pysmartnode.utils import sys_vars
-import uasyncio as asyncio
 import ujson
 from .definitions import *
 
@@ -122,7 +120,7 @@ class Climate(Component):
                       STORAGE_TEMPERATURE_LOW:       temp_low,  # temperature low, storage value
                       CURRENT_MODE:                  str(self._modes["off"]),
                       CURRENT_ACTION:                ACTION_OFF}
-        self.event = Event()
+        self.event = asyncio.Event()
         self.lock = asyncio.Lock()
         # every extneral change (like mode) that could break an ongoing trigger needs
         # to be protected by self.lock.
@@ -173,9 +171,12 @@ class Climate(Component):
         await asyncio.sleep(1)
         t = 0
         while True:
-            while time.ticks_diff(time.ticks_ms(), t) < interval and not self.event.is_set():
-                await asyncio.sleep_ms(100)
-            if self.event.is_set():
+            try:
+                await asyncio.wait_for(self.event.wait(),
+                                       interval - time.ticks_diff(time.ticks_ms(), t))
+            except asyncio.TimeoutError:
+                pass
+            else:
                 self.event.clear()
             async with self.lock:
                 cur_temp = await self.temp_sensor.getValue(SENSOR_TEMPERATURE)

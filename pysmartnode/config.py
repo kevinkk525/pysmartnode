@@ -6,7 +6,7 @@
 # Configuration management file
 ##
 
-__updated__ = "2018-11-04"
+__updated__ = "2018-11-15"
 
 from .config_base import *
 from sys import platform

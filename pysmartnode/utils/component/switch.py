@@ -3,7 +3,7 @@
 # Created on 2019-09-10 
 
 __updated__ = "2019-11-15"
-__version__ = "1.2"
+__version__ = "1.3"
 
 from pysmartnode.utils.component import Component
 from .definitions import DISCOVERY_SWITCH
@@ -61,13 +61,12 @@ class ComponentSwitch(Component):
         :return: Event
         """
         if self._event is None:
-            from pysmartnode.utils.event import Event
-            self._event = Event()
+            self._event = asyncio.Event()
         return self._event
 
     def _setState(self, state):
         if state != self._state and self._event is not None:
-            self._event.set(state)
+            self._event.set()
         self._state = state
 
     async def on_message(self, topic, msg, retain):

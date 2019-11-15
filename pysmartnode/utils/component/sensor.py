@@ -129,8 +129,7 @@ class ComponentSensor(Component):
         :return: Event
         """
         if self._event is None:
-            from pysmartnode.utils.event import Event
-            self._event = Event()
+            self._event = asyncio.Event()
         return self._event
 
     async def _publishValues(self, timeout: float = 5):

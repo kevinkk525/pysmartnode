@@ -40,14 +40,13 @@ Example configuration:
 }
 """
 
-__updated__ = "2019-11-02"
+__updated__ = "2019-11-15"
 __version__ = "0.5"
 
 from pysmartnode import logging
 from pysmartnode.utils.abutton import Pushbutton
 from pysmartnode.utils.component import Component
 from pysmartnode.components.machine.pin import Pin
-from pysmartnode.utils.event import Event
 import machine
 import uasyncio as asyncio
 
@@ -123,7 +122,7 @@ class ToggleButton(Button):
         :param suppress: Suppress calling release function after double click and long press. Will delay release function by 300ms if double click is used.
         """
         self._component = released_component
-        self._event = Event()
+        self._event = asyncio.Event()
         # Synchronous method _event.set() to prevent queue overflows from pressing button too often
         super().__init__(pin, pull,
                          None, "off",
@@ -135,6 +134,6 @@ class ToggleButton(Button):
 
     async def _watcher(self):
         while True:
-            await self._event
+            await self._event.wait()
             self._event.clear()
             await self._component.toggle()

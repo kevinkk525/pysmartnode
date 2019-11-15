@@ -26,8 +26,8 @@ example config:
 WARNING: This component has not been tested with a battery and only works in theory!
 """
 
-__updated__ = "2019-11-02"
-__version__ = "0.7"
+__updated__ = "2019-11-15"
+__version__ = "0.8"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -107,12 +107,12 @@ class Battery(ComponentSensor):
                 self._event_low.clear()
             if self._event_high is not None:
                 self._event_high.clear()
-            await ev
+            await ev.wait()
             voltage = await self.getValue("voltage")
             ev.clear()
             if voltage > self._voltage_max:
                 if self._event_high is not None:
-                    self._event_high.set(data=voltage)
+                    self._event_high.set()
                     # no log as consumer has to take care of logging or doing something
                 else:
                     await _log.asyncLog("warn", "Battery voltage of", voltage,
@@ -120,7 +120,7 @@ class Battery(ComponentSensor):
                                         self._voltage_max, timeout=5)
             elif voltage < self._voltage_min:
                 if self._event_low is not None:
-                    self._event_low.set(data=voltage)
+                    self._event_low.set()
                     # no log as consumer has to take care of logging or doing something
                 else:
                     await _log.asyncLog("warn", "Battery voltage of", voltage,
