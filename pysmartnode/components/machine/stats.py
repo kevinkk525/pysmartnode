@@ -5,8 +5,8 @@
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2019-11-11"
-__version__ = "1.5"
+__updated__ = "2020-01-01"
+__version__ = "1.6"
 
 import gc
 
@@ -75,7 +75,8 @@ class STATS(Component):
                                                                               t[3], t[4], t[5])
             s = int(time.time() - time.mktime(t))
         else:
-            s = time.ticks_ms() / 1000  # approximate uptime depending on accuracy of ticks_ms()
+            s = int(time.ticks_ms() / 1000 + 0.5)
+            # approximate uptime depending on accuracy of ticks_ms()
         m, s = divmod(s, 60)
         h, m = divmod(m, 60)
         d, h = divmod(h, 24)
