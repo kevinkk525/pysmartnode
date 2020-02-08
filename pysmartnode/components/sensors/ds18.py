@@ -27,8 +27,8 @@ example config:
 # The sensor can be replaced while the device is running.
 """
 
-__updated__ = "2019-11-15"
-__version__ = "3.0"
+__updated__ = "2020-02-08"
+__version__ = "3.1"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -100,8 +100,8 @@ class DS18(ComponentSensor):
             self._offs = offset_temp
             self._discover = discover
             self._expose = expose_intervals
-            global _unit_index
-            _unit_index += 1
+        global _unit_index
+        _unit_index += 1
         super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
                          interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
         if rom or not auto_detect:  # sensor with rom or generic sensor
