@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2018-2019 Released under the MIT license
 # Created on 2018-02-17
 
-__updated__ = "2019-11-07"
-__version__ = "5.6"
+__updated__ = "2019-11-09"
+__version__ = "5.7"
 
 import gc
 import ujson
@@ -109,9 +109,7 @@ class MQTTHandler(MQTTClient):
 
     async def disconnect(self):
         """
-        Changed disconnect to async method so the last will can be published
-        before disconnecting because it indicates if the device is available.
-        Therefore it is neccessary to send this message before disconnecting.
+        Publish last will before disconnecting because it indicates if the device is available.
         """
         if not await self.publish(self._lw_topic, self._lw_msg, self._lw_retain, self._lw_qos,
                                   timeout=5, await_connection=False):
@@ -307,8 +305,9 @@ class MQTTHandler(MQTTClient):
                     if sub[0] not in t:
                         t.append(sub[0])
         if not r:
-            _log.error("Can't unsubscribe, topic not found:", topic, "component", component,
-                       local_only=True)
+            if topic:  # only log if a topic was requested, could be a component removal
+                _log.error("Can't unsubscribe, topic not found:", topic, "component", component,
+                           local_only=True)
             return False
         s = True
         for sub in t:
@@ -324,7 +323,10 @@ class MQTTHandler(MQTTClient):
             return s
         # remove pending unsubscribe requests
         for sub in r:
-            self._subs.remove(sub)
+            try:
+                self._subs.remove(sub)
+            except ValueError:
+                pass  # already removed by different unsubscribe attempt
         self.__unsub_tmp = []
         return s
 
