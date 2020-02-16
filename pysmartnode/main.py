@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2017-2019 Released under the MIT license
 # Created on 2017-08-10
 
-__updated__ = "2019-11-03"
+__updated__ = "2019-11-11"
 
 import gc
 
@@ -46,7 +46,7 @@ loop = asyncio.get_event_loop()
 print("free ram {!r}".format(gc.mem_free()))
 gc.collect()
 
-if config.USE_SOFTWARE_WATCHDOG:
+if hasattr(config, "USE_SOFTWARE_WATCHDOG") and config.USE_SOFTWARE_WATCHDOG:
     from pysmartnode.components.machine.watchdog import WDT
 
     wdt = WDT(timeout=config.MQTT_KEEPALIVE * 2)

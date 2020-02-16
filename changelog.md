@@ -1,6 +1,10 @@
 # Changelog
 
 ---------------------------------------------------
+### Version 6.0.1
+* [MQTT] Fix unsubscribe race condition
+
+---------------------------------------------------
 ### Version 6.0.0
 * [easyGPIO] topics now use "easyGPIO" to not make them not collide with module "switches.GPIO"
 * [remoteSensors] use remote sensors as if they were locally connected
