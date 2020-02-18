@@ -7,3 +7,7 @@
 [submodule "pysmartnode/libraries"]
 	path = pysmartnode/libraries
 	url = https://github.com/kevinkk525/micropython-device-libraries
+[submodule "tools/esp32/docker_build/dockercontainer-mpy-esp32-cc"]
+	path = tools/esp32/docker_build/dockercontainer-mpy-esp32-cc
+	url = https://github.com/tsitle/dockercontainer-mpy-esp32-cc.git
+
