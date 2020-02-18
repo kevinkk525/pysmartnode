@@ -8,7 +8,7 @@ example config:
     package: .machine.easyGPIO
     component: GPIO
     constructor_args: {
-        # mqtt_topic: null   #optional, topic needs to have /GPIO/# at the end; to change a value publish to /GPIO/<pin>/set
+        # mqtt_topic: null   #optional, topic needs to have /easyGPIO/# at the end; to change a value publish to /easyGPIO/<pin>/set
         # discover_pins: [1,2,3] # optional, discover all pins of the list. Otherwise no pins are discovered.
     }
 }
