@@ -15,7 +15,7 @@ if platform == "linux" and DEVICE_NAME is None:
     raise TypeError("DEVICE_NAME has to be set on unix port")
 
 # General
-VERSION = const(601)
+VERSION = const(602)
 print("PySmartNode version {!s} started".format(VERSION))
 
 import gc
