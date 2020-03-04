@@ -2,17 +2,17 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-11-02"
-__version__ = "1.1"
+__updated__ = "2020-03-04"
+__version__ = "1.2"
 
 from pysmartnode.utils.component import Component
 from .definitions import DISCOVERY_SWITCH
 from pysmartnode import config
 import gc
 from micropython import const
+import uasyncio as asyncio
 
 _mqtt = config.getMQTT()
-_TIMEOUT = const(10)  # wait for a single reconnect but should be short enough if not connected
 
 
 class ComponentSwitch(Component):
@@ -52,6 +52,7 @@ class ComponentSwitch(Component):
         self._name = instance_name
         self._event = None
         self._frn = friendly_name
+        self._pub_task = None
         gc.collect()
 
     def getStateChangeEvent(self):
@@ -84,6 +85,10 @@ class ComponentSwitch(Component):
             raise TypeError("Payload {!s} not supported".format(msg))
         return False  # will not publish the requested state to mqtt as already done by on()/off()
 
+    async def __publish(self, msg):
+        await _mqtt.publish(self._topic[:-4], msg, qos=1, retain=True)
+        self._pub_task = None
+
     async def on(self):
         """Turn switch on. Can be used by other components to control this component"""
         if self.lock.locked() is True and self._wfl is False:
@@ -92,7 +97,10 @@ class ComponentSwitch(Component):
             res = await self._on()  # if _on() returns True the value should be published
             if res is True:
                 self._setState(True)
-                await _mqtt.publish(self._topic[:-4], "ON", qos=1, retain=True, timeout=_TIMEOUT)
+                if self._pub_task:
+                    asyncio.cancel(self._pub_task)
+                    self._pub_task = None
+                self._pub_task = asyncio.get_event_loop().create_task(self.__publish("ON"))            
             return res
 
     async def off(self):
@@ -103,7 +111,10 @@ class ComponentSwitch(Component):
             res = await self._off()  # if _off() returns True the value should be published
             if res is True:
                 self._setState(False)
-                await _mqtt.publish(self._topic[:-4], "OFF", qos=1, retain=True, timeout=_TIMEOUT)
+                if self._pub_task:
+                    asyncio.cancel(self._pub_task)
+                    self._pub_task = None
+                self._pub_task = asyncio.get_event_loop().create_task(self.__publish("OFF"))
             return res
 
     async def toggle(self):
