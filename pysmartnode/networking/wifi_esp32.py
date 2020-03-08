@@ -7,7 +7,7 @@ from pysmartnode.utils.sys_vars import getDeviceID
 import network
 from pysmartnode import logging
 
-__updated__ = "2019-10-26"
+__updated__ = "2020-03-08"
 
 try:
     s = network.WLAN(network.STA_IF)
@@ -28,7 +28,15 @@ if config.RTC_SYNC_ACTIVE:
                 ntptime.settime()
                 gc.collect()
                 tm = time.localtime()
-                tm = tm[0:3] + (0,) + (tm[3] + config.RTC_TIMEZONE_OFFSET,) + tm[4:6] + (0,)
+                hour = tm[3] + config.RTC_TIMEZONE_OFFSET
+                day = tm[2]
+                if hour > 24:
+                    hour -= 24
+                    day += 1
+                elif hour < 0:
+                    hour += 24
+                    day -= 1
+                tm = tm[0:2] + (day,) + (0,) + (hour,) + tm[4:6] + (0,)
                 machine.RTC().datetime(tm)
                 print("Set time to", time.localtime())
                 s = 1

@@ -1,6 +1,0 @@
-setup.py
-micropython_uasyncio.core.egg-info/PKG-INFO
-micropython_uasyncio.core.egg-info/SOURCES.txt
-micropython_uasyncio.core.egg-info/dependency_links.txt
-micropython_uasyncio.core.egg-info/top_level.txt
-uasyncio/core.py
