@@ -420,7 +420,8 @@ class MQTTHandler(MQTTClient):
                                local_only=True)
                 found = True
         if found is False:
-            _log.warn("Subscribed topic", topic, "not found, should solve itself", local_only=True)
+            _log.warn("Subscribed topic", topic,
+                      "not found, should solve itself. not yet unsubscribed", local_only=True)
 
     async def _execute_callback(self, sub, topic, msg, retained):
         if len(sub) == 4 and "/+" not in sub[0]:  # sub can't end with /#/set but /+/set

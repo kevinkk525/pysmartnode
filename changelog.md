@@ -1,8 +1,19 @@
 # Changelog
 
 ---------------------------------------------------
+### Version 6.1.0
+* [UASYNCIO] Support the new uasyncio version
+* [TIME] fix timezone offset if it changes the current day number
+TODO: implement adc.read_u16()
+
+---------------------------------------------------
+### Version 6.0.2
+* [Switch] Base Switch Component is now independent of wifi state so a broken wifi connection doesn't result in a delay of 10s for a consecutive switch activation
+
+---------------------------------------------------
 ### Version 6.0.1
 * [MQTT] Fix unsubscribe race condition
+* smaller bugfixes
 
 ---------------------------------------------------
 ### Version 6.0.0

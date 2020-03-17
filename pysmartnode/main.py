@@ -9,9 +9,9 @@ import gc
 gc.collect()
 print(gc.mem_free())
 
+import uasyncio as asyncio
 from pysmartnode import config
 from pysmartnode import logging
-import uasyncio as asyncio
 import sys
 import os
 

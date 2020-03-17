@@ -9,9 +9,7 @@ example config:
     component: Switch
     constructor_args: {
         component: "pump"                 # name of the component that will be controlled. (It has to have "on" and "off" implemented)
-        modes_enabled: ["static","safety","repeating"]  # list of modes to make available. Available modes: "static","safety","repeating"
-        # on_time: 300                        # optional, when given switch will deactivate after on_time (e.g. as security measure)
-        # off_time: 300                       # optional, off-time in repeating mode
+        modes_enabled: ["safety_off","repeating"]  # list of modes to make available. Available modes: "safety_off","repeating"
         # mqtt_topic_on_time: null     #optional, defaults to <mqtt_home>/<device_id>/Switch<count>/on_time/set
         # mqtt_topic_off_time: null     #optional, defaults to <mqtt_home>/<device_id>/Switch<count>/off_time/set
         # mqtt_topic_mode: null     #optional, defaults to <mqtt_home>/<device_id>/Switch<count>/mode/set ; accepts string of modes_enabled
@@ -28,6 +26,8 @@ in modes_enabled.
 As Homeassistant only supports sensors and switches to be discovered, every mode will have a switch
 to enable the mode.
 """
+
+# TODO: change mode initialization to make default constructor args possible
 
 __updated__ = "2019-11-15"
 __version__ = "0.7"
