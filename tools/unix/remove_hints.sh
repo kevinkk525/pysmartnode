@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 pip3 install strip-hints
-cd /mnt/r/pysmartnode
+cd ~/.micropython/lib/pysmartnode
 function foo {
                    echo $1
                    local res=$(/home/kevin/.local/bin/strip-hints --only-assigns-and-defs --only-test-for-changes $1)
