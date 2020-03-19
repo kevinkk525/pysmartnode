@@ -243,7 +243,7 @@ class ComponentSensor(Component):
         return self._values[sensor_type][5] or self._topic or _mqtt.getDeviceTopic(
             self._default_name())
 
-    async def _setValue(self, sensor_type, value, timeout=10):
+    async def _setValue(self, sensor_type, value, timeout=10, log_error=True):
         """
         Set the newly read value for the given sensor_type
         :param sensor_type:
@@ -272,10 +272,10 @@ class ComponentSensor(Component):
 
         else:
             log = self._log or logging.getLogger(self.COMPONENT_NAME)
-            await log.asyncLog("warn", "Got no value for", sensor_type, timeout=timeout)
+            if log_error:
+                await log.asyncLog("warn", "Got no value for", sensor_type, timeout=timeout)
         s[-1] = value
-        if value:
-            s[-2] = time.ticks_ms()
+        s[-2] = time.ticks_ms()
 
     async def _loop(self):
         await asyncio.sleep(1)
