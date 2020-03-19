@@ -51,7 +51,7 @@ class pyADC:
             return self.read() / 1000  # loboris fork returns mV
         else:
             try:
-                return self.read_u16()  # every platform should now provide this method
+                return self.read_u16() / 65535 * 3.3  # every platform should now provide this method
             except NotImplementedError:
                 raise NotImplementedError(
                     "Platform {!s} not implemented, please report".format(platform))
