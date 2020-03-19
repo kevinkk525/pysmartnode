@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-10-27 
 
-__updated__ = "2019-11-15"
-__version__ = "0.6"
+__updated__ = "2020-03-19"
+__version__ = "0.7"
 
 from pysmartnode.utils.component import Component
 from pysmartnode import config
@@ -303,7 +303,7 @@ class ComponentSensor(Component):
                     vals = 0
                     # counting sensor_types which have a topic as those get published separately
                     for tp in self._values:
-                        if tp[5] is not None:
+                        if self._values[tp][5] is not None:
                             vals += 1
                     vals = vals or 1  # if no type has a topic, one is still used to publish
                     sl = self._intrd * 1000 - time.ticks_diff(time.ticks_ms(), t)

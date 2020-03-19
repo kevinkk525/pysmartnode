@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-10-30"
+__updated__ = "2020-03-19"
 __version__ = "0.3"
 
 # The discovery base should be a json string to keep the RAM requirement low and only need
@@ -39,6 +39,7 @@ DISCOVERY_SWITCH = '"cmd_t":"~/set",'  # '"stat_on":"ON","stat_off":"OFF",' are 
 
 VALUE_TEMPLATE_JSON = "{{{{ value_json.{!s} }}}}"
 VALUE_TEMPLATE_FLOAT = "{{ value|float }}"
+VALUE_TEMPLATE_INT = "{{ value|int }}"
 VALUE_TEMPLATE = "{{ value }}"
 
 # By homeassistant supported sensor definitions to be used as device classes in discovery
