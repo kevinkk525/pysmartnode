@@ -27,8 +27,8 @@ example config:
 # The sensor can be replaced while the device is running.
 """
 
-__updated__ = "2020-02-08"
-__version__ = "3.1"
+__updated__ = "2020-03-26"
+__version__ = "3.2"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -162,7 +162,13 @@ class DS18(ComponentSensor):
                 if self._last_conv[self.sensor] is None or \
                         time.ticks_diff(time.ticks_ms(), self._last_conv[self.sensor]) > 5000:
                     # if sensors did convert time more than 5 seconds ago, convert temp again
-                    self.sensor.convert_temp()
+                    try:
+                        self.sensor.convert_temp()
+                    except onewire.OneWireError:
+                        await self._setValue(SENSOR_TEMPERATURE, None)
+                        await _log.asyncLog("error", "Sensor rom", self.rom,
+                                            ", onewire not connected?,", timeout=10)
+                        return
                     await asyncio.sleep_ms(750)
                 value = None
                 err = None
@@ -174,10 +180,12 @@ class DS18(ComponentSensor):
                         err = e
                         continue
                 if value is None:
+                    await self._setValue(SENSOR_TEMPERATURE, None)
                     await _log.asyncLog("error", "Sensor rom", self.rom, "got no value,", err,
                                         timeout=10)
                     return
                 if value == 85.0:
+                    await self._setValue(SENSOR_TEMPERATURE, None)
                     await _log.asyncLog("error", "Sensor rom", self.rom,
                                         "got value 85.00 [not working correctly]", timeout=10)
                     return
