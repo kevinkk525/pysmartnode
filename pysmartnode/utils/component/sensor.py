@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019 Released under the MIT license
 # Created on 2019-10-27 
 
-__updated__ = "2020-03-19"
-__version__ = "0.7"
+__updated__ = "2020-03-29"
+__version__ = "0.8"
 
 from pysmartnode.utils.component import Component
 from pysmartnode import config
@@ -12,6 +12,8 @@ from .definitions import *
 import uasyncio as asyncio
 import gc
 import time
+import sys
+import io
 
 _mqtt = config.getMQTT()
 
@@ -19,7 +21,7 @@ _mqtt = config.getMQTT()
 class ComponentSensor(Component):
     def __init__(self, component_name, version, unit_index: int, discover, interval_publish=None,
                  interval_reading=None, mqtt_topic=None, log=None,
-                 expose_intervals=False, intervals_topic=None):
+                 expose_intervals=False, intervals_topic=None, **kwargs):
         """
         :param component_name: Name of the component, used for default topics and logging
         :param version: version of the component module, used for logging purposes
@@ -281,7 +283,7 @@ class ComponentSensor(Component):
         await asyncio.sleep(1)
         d = float("inf") if self._intpb == -1 else (self._intpb / self._intrd)
         i = d + 1  # so first reading gets published
-        pbc = None
+        pub_task = None
         try:
             while True:
                 # d recalculated in loop so _intpb and _intrd can be changed during runtime
@@ -298,8 +300,8 @@ class ComponentSensor(Component):
                 if self._event:
                     self._event.set()
                 if pb:
-                    if pbc is not None:
-                        pbc.cancel()
+                    if pub_task is not None:
+                        pub_task.cancel()
                     vals = 0
                     # counting sensor_types which have a topic as those get published separately
                     for tp in self._values:
@@ -314,7 +316,7 @@ class ComponentSensor(Component):
                     else:
                         # otherwise start task to publish values which might get canceled if
                         # it can't finish until next publish is requested.
-                        pbc = asyncio.create_task(self._publishValues())
+                        pub_task = asyncio.create_task(self._publishValues())
                 # sleep until the sensor should be read again. Using loop with 100ms makes
                 # changing the read interval during runtime possible with a reaction time of 100ms.
                 while True:
@@ -325,16 +327,17 @@ class ComponentSensor(Component):
                     if sl == 0:  # sleeping done
                         break
         except asyncio.CancelledError:
-            if pbc is not None:
-                pbc.cancel()
             raise
         except NotImplementedError:
             raise
         except Exception as e:
-            if config.DEBUG:
-                import sys
-                sys.print_exception(e)
-            await self._log.asyncLog("critical", "Exception in component loop:", e)
+            s = io.StringIO()
+            sys.print_exception(e, s)
+            await self._log.asyncLog("critical",
+                                     "Exception in component loop: {!s}".format(s.getvalue()))
+        finally:
+            if pub_task is not None:
+                pub_task.cancel()
 
     async def _read(self):
         """
