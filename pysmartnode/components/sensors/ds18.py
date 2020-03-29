@@ -27,8 +27,8 @@ example config:
 # The sensor can be replaced while the device is running.
 """
 
-__updated__ = "2020-03-26"
-__version__ = "3.2"
+__updated__ = "2020-03-29"
+__version__ = "3.3"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -68,7 +68,7 @@ class DS18(ComponentSensor):
     def __init__(self, pin, rom: str = None, auto_detect=False, interval_publish: float = None,
                  interval_reading: float = None, precision_temp: int = 2, offset_temp: float = 0,
                  mqtt_topic=None, friendly_name=None, discover=True, expose_intervals=False,
-                 intervals_topic=None):
+                 intervals_topic=None, **kwargs):
         """
         Class for a single ds18 unit to provide an interface to a single unit.
         :param pin: pin number/name/object
@@ -103,7 +103,8 @@ class DS18(ComponentSensor):
         global _unit_index
         _unit_index += 1
         super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic,
+                         **kwargs)
         if rom or not auto_detect:  # sensor with rom or generic sensor
             self._addSensorType(SENSOR_TEMPERATURE, precision_temp, offset_temp,
                                 VALUE_TEMPLATE_FLOAT, "°C", friendly_name)

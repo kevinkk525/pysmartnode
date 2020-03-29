@@ -25,8 +25,8 @@ example config:
 }
 """
 
-__updated__ = "2019-11-02"
-__version__ = "3.1"
+__updated__ = "2020-03-29"
+__version__ = "3.2"
 
 import gc
 import uasyncio as asyncio
@@ -56,12 +56,12 @@ class HTU21D(ComponentSensor):
                  temp_offset: float = 0, humid_offset: float = 0,
                  mqtt_topic: str = None, interval_publish: float = None,
                  interval_reading: float = None,
-                 friendly_name_temp=None, friendly_name_humid=None, discover=True):
+                 friendly_name_temp=None, friendly_name_humid=None, discover=True, **kwargs):
         # This makes it possible to use multiple instances of MySensor and have unique identifier
         global _unit_index
         _unit_index += 1
         super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic)
+                         interval_reading, mqtt_topic, **kwargs)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch

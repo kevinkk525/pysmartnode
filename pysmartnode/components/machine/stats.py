@@ -5,8 +5,8 @@
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2020-01-01"
-__version__ = "1.6"
+__updated__ = "2020-03-29"
+__version__ = "1.7"
 
 import gc
 
@@ -43,8 +43,8 @@ STATE_TYPE = '"json_attributes_topic":"~",' \
 
 
 class STATS(Component):
-    def __init__(self):
-        super().__init__(COMPONENT_NAME, __version__, unit_index=0)
+    def __init__(self, **kwargs):
+        super().__init__(COMPONENT_NAME, __version__, unit_index=0, **kwargs)
         self._interval = config.INTERVAL_SENSOR_PUBLISH
         self._last_boot = None
 

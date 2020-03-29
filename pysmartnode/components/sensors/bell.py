@@ -19,8 +19,8 @@ example config:
 }
 """
 
-__updated__ = "2019-11-15"
-__version__ = "1.4"
+__updated__ = "2020-03-29"
+__version__ = "1.5"
 
 import gc
 from pysmartnode import config
@@ -43,8 +43,8 @@ gc.collect()
 class Bell(Component):
     def __init__(self, pin, debounce_time, on_time=None, irq_direction=None, mqtt_topic=None,
                  friendly_name=None,
-                 friendly_name_last=None, discover=True):
-        super().__init__(COMPONENT_NAME, __version__, unit_index=0, discover=discover)
+                 friendly_name_last=None, discover=True, **kwargs):
+        super().__init__(COMPONENT_NAME, __version__, unit_index=0, discover=discover, **kwargs)
         self._topic = mqtt_topic
         self._PIN_BELL_IRQ_DIRECTION = irq_direction or machine.Pin.IRQ_FALLING
         self._debounce_time = debounce_time

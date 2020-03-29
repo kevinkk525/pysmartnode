@@ -19,8 +19,8 @@ example config:
 }
 """
 
-__updated__ = "2019-11-02"
-__version__ = "3.2"
+__updated__ = "2020-03-29"
+__version__ = "3.3"
 
 import gc
 from machine import Pin, PWM
@@ -46,7 +46,7 @@ _unit_index = -1
 
 class Buzzer(ComponentButton):
     def __init__(self, pin, pwm_values, on_time=500, iters=1, freq=1000, mqtt_topic=None,
-                 friendly_name=None, discover=True):
+                 friendly_name=None, discover=True, **kwargs):
         self.pin = PyPin(pin, Pin.OUT)
         self.on_time = on_time
         self.values = pwm_values
@@ -56,7 +56,8 @@ class Buzzer(ComponentButton):
         # This makes it possible to use multiple instances of Buzzer
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, discover=discover)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, discover=discover,
+                         **kwargs)
         self._frn = friendly_name
         gc.collect()
 

@@ -17,8 +17,8 @@ example config for remoteConfig module or as json in components.py:
 
 # A button is basically a switch with a single-shot action that deactivates itself afterwards.
 
-__updated__ = "2019-11-02"
-__version__ = "0.7"
+__updated__ = "2020-03-29"
+__version__ = "0.8"
 
 from pysmartnode import config
 from pysmartnode.utils.component.button import ComponentButton
@@ -35,7 +35,7 @@ _unit_index = -1
 
 
 class Button(ComponentButton):
-    def __init__(self, mqtt_topic=None, friendly_name=None, discover=True):
+    def __init__(self, mqtt_topic=None, friendly_name=None, discover=True, **kwargs):
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch
@@ -56,7 +56,7 @@ class Button(ComponentButton):
         # mqtt_topic can be adapted otherwise a default mqtt_topic will be generated if None
         super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, instance_name=None,
                          wait_for_lock=False, discover=discover, friendly_name=friendly_name,
-                         initial_state=initial_state)
+                         initial_state=initial_state, **kwargs)
 
         # If the device needs extra code, launch a new coroutine.
 

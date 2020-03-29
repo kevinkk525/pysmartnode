@@ -29,8 +29,8 @@ to enable the mode.
 
 # TODO: change mode initialization to make default constructor args possible
 
-__updated__ = "2019-11-15"
-__version__ = "0.7"
+__updated__ = "2020-03-29"
+__version__ = "0.8"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -87,10 +87,10 @@ Mode = BaseMode()
 
 class Switch(Component):
     def __init__(self, component: ComponentSwitch, modes_enabled: list,
-                 mqtt_topic_mode=None, friendly_name_mode=None, discover=True):
+                 mqtt_topic_mode=None, friendly_name_mode=None, discover=True, **kwargs):
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, **kwargs)
         if type(component) == str:
             self._component = config.getComponent(component)
             if self._component is None:

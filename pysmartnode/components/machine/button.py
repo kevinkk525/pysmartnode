@@ -40,8 +40,8 @@ Example configuration:
 }
 """
 
-__updated__ = "2019-11-15"
-__version__ = "0.5"
+__updated__ = "2020-03-29"
+__version__ = "0.6"
 
 from pysmartnode import logging
 from pysmartnode.utils.abutton import Pushbutton
@@ -64,7 +64,7 @@ class Button(Pushbutton, Component):
                  released_component=None, released_method="off",
                  double_pressed_component=None, double_pressed_method="on",
                  long_pressed_component=None, long_pressed_method="on",
-                 suppress=False):
+                 suppress=False, **kwargs):
         """
         :param pin: pin number or name
         :param pull: None for no pullup or pull_down, otherwise value of pull configuration
@@ -93,7 +93,7 @@ class Button(Pushbutton, Component):
         Pushbutton.__init__(self, pin, suppress=suppress)
         global _unit_index
         _unit_index += 1
-        Component.__init__(self, COMPONENT_NAME, __version__, _unit_index)
+        Component.__init__(self, COMPONENT_NAME, __version__, _unit_index, **kwargs)
         if pressed_component is not None:
             self.press_func(getattr(pressed_component, pressed_method))
         if released_component is not None:
@@ -108,7 +108,7 @@ class ToggleButton(Button):
     def __init__(self, pin, pull=None, released_component=None,
                  double_pressed_component=None, double_pressed_method="on",
                  long_pressed_component=None, long_pressed_method="on",
-                 suppress=False):
+                 suppress=False, **kwargs):
         """
         Basic functionality for push is to toggle a device. Double press and long press are
         just extended functionality.
@@ -129,7 +129,7 @@ class ToggleButton(Button):
                          self._event, "set",
                          double_pressed_component, double_pressed_method,
                          long_pressed_component, long_pressed_method,
-                         suppress)
+                         suppress, **kwargs)
         asyncio.create_task(self._watcher())
 
     async def _watcher(self):

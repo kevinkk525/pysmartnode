@@ -38,7 +38,7 @@ Be sure to connect it to 5V but use a voltage divider to connect the Echo pin to
 """
 
 __updated__ = "2020-03-29"
-__version__ = "0.9"
+__version__ = "0.91"
 
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.utils.component.sensor import ComponentSensor, SENSOR_TEMPERATURE, \
@@ -69,7 +69,7 @@ class HCSR04(ComponentSensor):
                  iterations: int = 30,
                  interval_publish=None, interval_reading=None, mqtt_topic=None,
                  value_template=None, friendly_name=None,
-                 discover=True, expose_intervals=False, intervals_topic=None):
+                 discover=True, expose_intervals=False, intervals_topic=None, **kwargs):
         """
         HC-SR04 ultrasonic sensor.
         Be sure to connect it to 5V but use a voltage divider to connect the Echo pin to an ESP.
@@ -95,7 +95,8 @@ class HCSR04(ComponentSensor):
         global _unit_index
         _unit_index += 1
         super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic,
+                         **kwargs)
         self._tr = Pin(pin_trigger, mode=machine.Pin.OUT)
         self._tr.value(0)
         self._ec = Pin(pin_echo, mode=machine.Pin.IN)

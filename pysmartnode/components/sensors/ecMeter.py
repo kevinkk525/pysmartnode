@@ -56,7 +56,7 @@ way better results. Changing Rg has a big effect on higher EC values.
 """
 
 __updated__ = "2020-03-29"
-__version__ = "1.7"
+__version__ = "1.8"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -95,13 +95,14 @@ class EC(ComponentSensor):
                  temp_sensor: ComponentSensor, read_timeout=400, iterations=1, precision_ec=3,
                  interval_publish=None, interval_reading=None, mqtt_topic=None,
                  friendly_name_ec=None, friendly_name_ppm=None, discover=True,
-                 expose_intervals=False, intervals_topic=None):
+                 expose_intervals=False, intervals_topic=None, **kwargs):
         # This makes it possible to use multiple instances of MySensor
         global _unit_index
         _unit_index += 1
         self.checkSensorType(temp_sensor, SENSOR_TEMPERATURE)
         super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic,
+                         **kwargs)
         self._temp = temp_sensor
         self._addSensorType("ec", precision_ec, 0, VALUE_TEMPLATE_JSON.format("ec|float"), "mS",
                             friendly_name_ec or "EC", mqtt_topic, DISCOVERY_EC)

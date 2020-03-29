@@ -18,8 +18,8 @@ example config:
 }
 """
 
-__updated__ = "2019-11-02"
-__version__ = "3.2"
+__updated__ = "2020-03-29"
+__version__ = "3.3"
 
 import gc
 
@@ -45,7 +45,7 @@ _unit_index = -1
 
 class LEDNotification(ComponentButton):
     def __init__(self, pin, on_time=50, off_time=50, iters=20, mqtt_topic=None,
-                 friendly_name=None, discover=True):
+                 friendly_name=None, discover=True, **kwargs):
         self.pin = Pin(pin, machine.Pin.OUT, value=0)
         self.on_time = on_time
         self.off_time = off_time
@@ -53,7 +53,8 @@ class LEDNotification(ComponentButton):
         # This makes it possible to use multiple instances of LED
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, discover=discover)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, discover=discover,
+                         **kwargs)
         self._frn = friendly_name
         gc.collect()
 

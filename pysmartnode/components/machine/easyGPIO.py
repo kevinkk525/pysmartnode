@@ -16,8 +16,8 @@ Makes esp8266 listen to requested gpio changes or return pin.value() if message 
 This component is just a generic interface to device pins, it does not offer ComponentSwitch features.
 """
 
-__updated__ = "2019-11-07"
-__version__ = "1.8"
+__updated__ = "2020-03-29"
+__version__ = "1.9"
 
 import gc
 import machine
@@ -35,8 +35,8 @@ gc.collect()
 
 
 class GPIO(Component):
-    def __init__(self, mqtt_topic=None, discover_pins=None):
-        super().__init__(COMPONENT_NAME, __version__, unit_index=0)
+    def __init__(self, mqtt_topic=None, discover_pins=None, **kwargs):
+        super().__init__(COMPONENT_NAME, __version__, unit_index=0, **kwargs)
         self._topic = mqtt_topic or _mqtt.getDeviceTopic("easyGPIO/+/set")
         _mqtt.subscribeSync(self._topic, self.on_message, self, check_retained_state=True)
         self._d = discover_pins or []

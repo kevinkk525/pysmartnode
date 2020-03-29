@@ -31,8 +31,8 @@ Put a Resistor (~10kR) between the power pin (or permanent power) and the adc pi
 Connect the wires to the adc pin and gnd.
 """
 
-__updated__ = "2019-11-15"
-__version__ = "1.6"
+__updated__ = "2020-03-29"
+__version__ = "1.7"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -58,12 +58,13 @@ class WaterSensor(ComponentSensor):
 
     def __init__(self, adc, power_pin=None, cutoff_voltage=None, interval_publish=None,
                  interval_reading=1, mqtt_topic=None, friendly_name=None, discover=True,
-                 expose_intervals=False, intervals_topic=None):
+                 expose_intervals=False, intervals_topic=None, **kwargs):
         interval_publish = interval_publish or -1
         global _unit_index
         _unit_index += 1
         super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic,
+                         **kwargs)
         self._adc = ADC(adc)
         self._ppin = Pin(power_pin, machine.Pin.OUT) if power_pin is not None else None
         self._cv = cutoff_voltage or self._adc.maxVoltage()

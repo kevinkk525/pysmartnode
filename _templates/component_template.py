@@ -17,8 +17,8 @@ example config for MyComponent:
 }
 """
 
-__updated__ = "2019-11-15"
-__version__ = "1.9"
+__updated__ = "2020-03-29"
+__version__ = "1.91"
 
 import uasyncio as asyncio
 from pysmartnode import config
@@ -50,13 +50,13 @@ _unit_index = -1
 class MyComponent(Component):
     def __init__(self, my_value,  # extend or shrink according to your sensor
                  mqtt_topic=None, mqtt_topic2=None,
-                 friendly_name=None, discover=True):
+                 friendly_name=None, discover=True, **kwargs):
         # This makes it possible to use multiple instances of MyComponent
         # It is needed for every default value for mqtt.
         # Initialize before super()__init__(...) to not pass the wrong value.
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover=discover)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover=discover, **kwargs)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch

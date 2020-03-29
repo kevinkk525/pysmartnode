@@ -35,8 +35,8 @@ fan_unit
 
 # TODO: make it possible to only use one target_temp instead of high/low and away_high/low
 
-__updated__ = "2019-11-15"
-__version__ = "0.9"
+__updated__ = "2020-03-29"
+__version__ = "0.91"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -74,13 +74,13 @@ class Climate(Component):
                  modes: list, interval: float = 300, temp_step=0.1, min_temp: float = 16,
                  max_temp: float = 26, temp_low: float = 20, temp_high: float = 21,
                  away_temp_low: float = 16, away_temp_high: float = 17,
-                 friendly_name=None, discover=True):
+                 friendly_name=None, discover=True, **kwargs):
         self.checkSensorType(temperature_sensor, SENSOR_TEMPERATURE)
         self.checkSwitchType(heating_unit)
         # This makes it possible to use multiple instances of MyComponent
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, **kwargs)
 
         self._temp_step = temp_step
         self._min_temp = min_temp

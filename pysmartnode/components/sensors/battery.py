@@ -26,8 +26,8 @@ example config:
 WARNING: This component has not been tested with a battery and only works in theory!
 """
 
-__updated__ = "2019-11-15"
-__version__ = "0.8"
+__updated__ = "2020-03-29"
+__version__ = "0.9"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -57,11 +57,12 @@ class Battery(ComponentSensor):
                  cutoff_pin=None, precision_voltage: int = 2, interval_reading: float = 1,
                  interval_publish: float = None, mqtt_topic: str = None, friendly_name: str = None,
                  friendly_name_abs: str = None, discover: bool = True,
-                 expose_intervals: bool = False, intervals_topic: str = None):
+                 expose_intervals: bool = False, intervals_topic: str = None, **kwargs):
         global _unit_index
         _unit_index += 1
         super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic,
+                         **kwargs)
         self._adc = ADC(adc)  # unified ADC interface
         self._voltage_max = voltage_max
         self._voltage_min = voltage_min

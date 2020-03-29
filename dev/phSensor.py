@@ -61,11 +61,11 @@ class PHsensor(Component):
     def __init__(self, adc, adc_multi, voltage_calibration_0, pH_calibration_value_0,
                  voltage_calibration_1, pH_calibration_value_1,
                  precision=2, interval=None, mqtt_topic=None,
-                 friendly_name=None, discover=True):
+                 friendly_name=None, discover=True, **kwargs):
         # This makes it possible to use multiple instances of MySensor
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, **kwargs)
         self._interval = interval or config.INTERVAL_SENSOR_PUBLISH
         self._topic = mqtt_topic
         self._frn = friendly_name

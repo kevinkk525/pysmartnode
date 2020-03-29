@@ -28,8 +28,8 @@ example config:
 Sensor can only be used with esp32 as esp8266 has only 1 uart at 115200 (9600 needed) 
 """
 
-__updated__ = "2019-11-02"
-__version__ = "1.8"
+__updated__ = "2020-03-29"
+__version__ = "1.9"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -67,7 +67,7 @@ class PMS5003(ComponentSensor):
     def __init__(self, uart_number, uart_tx, uart_rx, set_pin=None, reset_pin=None,
                  interval_reading=0.1, active_mode=True, eco_mode=True,
                  interval_publish=None, mqtt_topic=None, friendly_name: list = None,
-                 discover=True, expose_intervals=False, intervals_topic=None):
+                 discover=True, expose_intervals=False, intervals_topic=None, **kwargs):
         """
         :param uart_number: esp32 has multiple uarts
         :param uart_tx: tx pin number
@@ -85,7 +85,8 @@ class PMS5003(ComponentSensor):
         :param intervals_topic:
         """
         super().__init__(COMPONENT_NAME, __version__, 0, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
+                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic,
+                         **kwargs)
         if type(friendly_name) is not None:
             if type(friendly_name) == list:
                 if len(friendly_name) != 12:

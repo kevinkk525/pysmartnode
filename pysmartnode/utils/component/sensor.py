@@ -38,7 +38,7 @@ class ComponentSensor(Component):
         :param intervals_topic: if expose_intervals then use this topic to change intervals.
         Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set
         """
-        super().__init__(component_name, version, unit_index, discover)
+        super().__init__(component_name, version, unit_index, discover, **kwargs)
         self._values = {}
         self._log = log or logging.getLogger(component_name)
         # _intpb can be >0, -1 for not publishing or 0/None for INTERVAL_SENSOR_PUBLISH

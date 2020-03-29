@@ -18,8 +18,8 @@ example config:
 # TODO: implement possibility to set sensor topics through mqtt, similar to RemoteSensor implementation
 # TODO: make a real ComponentSwitch class so type checks won't fail
 
-__updated__ = "2019-11-15"
-__version__ = "0.2"
+__updated__ = "2020-03-29"
+__version__ = "0.3"
 
 COMPONENT_NAME = "RemoteSwitch"
 
@@ -40,10 +40,10 @@ class RemoteSwitch(Component):
     Use it according to the template.
     """
 
-    def __init__(self, command_topic, state_topic, timeout=_TIMEOUT):
+    def __init__(self, command_topic, state_topic, timeout=_TIMEOUT, **kwargs):
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover=False)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover=False, **kwargs)
         self._state = False
         self._topic = command_topic
         self._state_topic = state_topic

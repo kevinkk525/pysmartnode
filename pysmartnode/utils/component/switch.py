@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2020-03-04"
-__version__ = "1.4"
+__updated__ = "2020-03-29"
+__version__ = "1.5"
 
 from pysmartnode.utils.component import Component
 from .definitions import DISCOVERY_SWITCH
@@ -22,7 +22,7 @@ class ComponentSwitch(Component):
 
     def __init__(self, component_name, version, unit_index: int, command_topic=None,
                  instance_name=None, wait_for_lock=True, discover=True, restore_state=True,
-                 friendly_name=None, initial_state=None):
+                 friendly_name=None, initial_state=None, **kwargs):
         """
         :param component_name: name of the component that is subclassing this switch (used for discovery and topics)
         :param version: version of the component module. will be logged over mqtt
@@ -36,7 +36,7 @@ class ComponentSwitch(Component):
         :param friendly_name: friendly name for homeassistant gui
         :param initial_state: intitial state of the switch. By default unknown so first state change request will set initial state.
         """
-        super().__init__(component_name, version, unit_index, discover=discover)
+        super().__init__(component_name, version, unit_index, discover=discover, **kwargs)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch

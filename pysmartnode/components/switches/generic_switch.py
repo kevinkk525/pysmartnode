@@ -17,8 +17,8 @@ This generic switch does absolutely nothing except publishing its state and rece
 Can be used to represent (for example) the long-press state of a physical button.
 """
 
-__updated__ = "2020-03-04"
-__version__ = "1.0"
+__updated__ = "2020-03-29"
+__version__ = "1.1"
 
 from pysmartnode import config
 from pysmartnode.utils.component.switch import ComponentSwitch
@@ -30,13 +30,13 @@ _unit_index = -1
 
 
 class GenSwitch(ComponentSwitch):
-    def __init__(self, mqtt_topic=None, friendly_name=None, discover=True):
+    def __init__(self, mqtt_topic=None, friendly_name=None, discover=True, **kwargs):
         global _unit_index
         _unit_index += 1
         initial_state = False
         super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, instance_name=None,
                          wait_for_lock=True, discover=discover, friendly_name=friendly_name,
-                         initial_state=initial_state)
+                         initial_state=initial_state, **kwargs)
 
     @staticmethod
     async def _on():

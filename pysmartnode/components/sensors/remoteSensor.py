@@ -25,8 +25,8 @@ this sensor and the _init_network is called, the topic value should have been re
 
 # TODO: implement support for multiple sensor_types that share one topic in one component
 
-__updated__ = "2019-11-11"
-__version__ = "0.2"
+__updated__ = "2020-03-29"
+__version__ = "0.3"
 
 import gc
 import time
@@ -44,7 +44,7 @@ _unit_index = -1
 
 class RemoteSensor(ComponentSensor):
     def __init__(self, sensor_type, mqtt_topic=None, command_topic=None,
-                 value_template=None, stale_time=900):
+                 value_template=None, stale_time=900, **kwargs):
         # This makes it possible to use multiple instances of BaseRemote
         global _unit_index
         _unit_index += 1
@@ -65,7 +65,7 @@ class RemoteSensor(ComponentSensor):
                 raise TypeError("value_template type {!s} not supported".format(v))
         self._log = logging.getLogger("{}_{}{}".format(COMPONENT_NAME, sensor_type, _unit_index))
         super().__init__(COMPONENT_NAME, __version__, _unit_index, False, -1, -1, None, self._log,
-                         False, None)
+                         False, None, **kwargs)
         self._addSensorType(sensor_type, 2, 0, value_template, "")
         # no unit_of_measurement as only used for mqtt discovery
         self._stale_time = stale_time

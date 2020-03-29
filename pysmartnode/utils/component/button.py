@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-11-02"
-__version__ = "0.8"
+__updated__ = "2020-03-29"
+__version__ = "0.9"
 
 from .switch import ComponentSwitch
 from pysmartnode import config
@@ -22,7 +22,7 @@ class ComponentButton(ComponentSwitch):
 
     def __init__(self, component_name, version, unit_index: int, command_topic=None,
                  instance_name=None, wait_for_lock=False, discover=True, friendly_name=None,
-                 initial_state=False):
+                 initial_state=False, **kwargs):
         """
         :param component_name: name of the component that is subclassing this switch (used for discovery and topics)
         :param version: version of the component module. will be logged over mqtt
@@ -38,7 +38,7 @@ class ComponentButton(ComponentSwitch):
         """
         super().__init__(component_name, version, unit_index, command_topic, instance_name,
                          wait_for_lock, discover, restore_state=False, friendly_name=friendly_name,
-                         initial_state=initial_state)
+                         initial_state=initial_state, **kwargs)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch

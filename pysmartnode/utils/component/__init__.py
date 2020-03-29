@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-04-26 
 
-__updated__ = "2019-11-02"
-__version__ = "1.4"
+__updated__ = "2020-03-29"
+__version__ = "1.5"
 
 from pysmartnode import config
 import uasyncio as asyncio
@@ -32,7 +32,7 @@ class Component:
     Use this class as a base for components. Subclass to extend. See the template for examples.
     """
 
-    def __init__(self, component_name, version, unit_index: int, discover=True):
+    def __init__(self, component_name, version, unit_index: int, discover=True, **kwargs):
         self._next_component = None  # needed to keep a list of registered components
         global _components
         if _components is None:
