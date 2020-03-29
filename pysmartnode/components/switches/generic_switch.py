@@ -14,7 +14,7 @@ example config:
     }
 }
 This generic switch does absolutely nothing except publishing its state and receiving state changes.
-Can be used to represent a button state.
+Can be used to represent (for example) the long-press state of a physical button.
 """
 
 __updated__ = "2020-03-04"

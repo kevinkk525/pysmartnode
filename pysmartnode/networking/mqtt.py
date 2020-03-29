@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-02-17
 
 __updated__ = "2019-11-15"
@@ -143,7 +143,7 @@ class MQTTHandler(MQTTClient):
     async def _wifi_changed(self, state):
         if config.DEBUG:
             _log.info("WIFI state", state, local_only=True)
-        # TODO: change to asyncio.gather() as soon as cancelling gather works.
+        # TODO: change to asyncio.gather() [not on esp8266] as soon as cancelling gather works.
         for cb in self._wifi_subs:
             res = cb(self)
             if type(res) == type_gen:
@@ -207,6 +207,7 @@ class MQTTHandler(MQTTClient):
                     # it might time out before subscribe has even finished.
                     while time.ticks_diff(time.ticks_ms(), ts) < 4000 and self._sub_retained:
                         # wait 4 seconds for answer
+                        # TODO: split this into a different task so it doesn't delay subscribing.
                         await asyncio.sleep_ms(100)
                     if self._sub_retained is True:  # no state message received
                         self._subs[i] = sub[:3]

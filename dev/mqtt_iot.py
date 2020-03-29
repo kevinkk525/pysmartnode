@@ -33,7 +33,8 @@ gc.collect()
 
 type_gen = type((lambda: (yield))())  # Generator type
 
-app_handler = apphandler.AppHandler(asyncio.get_event_loop(), sys_vars.getDeviceID(), config.MQTT_HOST,
+app_handler = apphandler.AppHandler(asyncio.get_event_loop(), sys_vars.getDeviceID(),
+                                    config.MQTT_HOST,
                                     8888, timeout=3000, verbose=True,
                                     led=Pin(2, Pin.OUT, value=1))
 
@@ -73,29 +74,36 @@ class MQTTHandler(Mqtt):
         self.__receive_config = None
         while True:
             gc.collect()
-            _log.debug("RAM before receiveConfig import: {!s}".format(gc.mem_free()), local_only=True)
+            _log.debug("RAM before receiveConfig import: {!s}".format(gc.mem_free()),
+                       local_only=True)
             import pysmartnode.networking.mqtt_receive_config
             gc.collect()
-            _log.debug("RAM after receiveConfig import: {!s}".format(gc.mem_free()), local_only=True)
-            result = await pysmartnode.networking.mqtt_receive_config.requestConfig(config, self, _log)
+            _log.debug("RAM after receiveConfig import: {!s}".format(gc.mem_free()),
+                       local_only=True)
+            result = await pysmartnode.networking.mqtt_receive_config.requestConfig(config, self,
+                                                                                    _log)
             if result is False:
                 _log.info("Using local components.json/py", local_only=True)
                 gc.collect()
-                _log.debug("RAM before receiveConfig deletion: {!s}".format(gc.mem_free()), local_only=True)
+                _log.debug("RAM before receiveConfig deletion: {!s}".format(gc.mem_free()),
+                           local_only=True)
                 del pysmartnode.networking.mqtt_receive_config
                 del sys.modules["pysmartnode.networking.mqtt_receive_config"]
                 gc.collect()
-                _log.debug("RAM after receiveConfig deletion: {!s}".format(gc.mem_free()), local_only=True)
+                _log.debug("RAM after receiveConfig deletion: {!s}".format(gc.mem_free()),
+                           local_only=True)
                 local_works = await config._loadComponentsFile()
                 if local_works is True:
                     return True
             else:
                 gc.collect()
-                _log.debug("RAM before receiveConfig deletion: {!s}".format(gc.mem_free()), local_only=True)
+                _log.debug("RAM before receiveConfig deletion: {!s}".format(gc.mem_free()),
+                           local_only=True)
                 del pysmartnode.networking.mqtt_receive_config
                 del sys.modules["pysmartnode.networking.mqtt_receive_config"]
                 gc.collect()
-                _log.debug("RAM after receiveConfig deletion: {!s}".format(gc.mem_free()), local_only=True)
+                _log.debug("RAM after receiveConfig deletion: {!s}".format(gc.mem_free()),
+                           local_only=True)
                 result = ujson.loads(result)
                 loop = asyncio.get_event_loop()
                 if platform == "esp8266":
@@ -109,7 +117,8 @@ class MQTTHandler(Mqtt):
                     # on esp32 components are registered directly but async to let logs run between registrations
                     loop.create_task(config._registerComponentsAsync(result))
                 return True
-            await asyncio.sleep(60)  # if connection not stable or broker unreachable, try again in 60s
+            await asyncio.sleep(
+                60)  # if connection not stable or broker unreachable, try again in 60s
 
     def _convertToDeviceTopic(self, topic):
         if topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.client_id)):
@@ -139,7 +148,9 @@ class MQTTHandler(Mqtt):
     async def subscribe(self, topic, callback_coro, qos=0):
         _log.debug("Subscribing to topic {}".format(topic), local_only=True)
         if type(callback_coro) is None:
-            await _log.asyncLog("error", "Can't subscribe with callback of type None to topic {!s}".format(topic))
+            await _log.asyncLog("error",
+                                "Can't subscribe with callback of type None to topic {!s}".format(
+                                    topic))
             return False
         # if self._isDeviceSubscription(topic):
         #    topic = self._convertToDeviceTopic(topic)
@@ -154,11 +165,11 @@ class MQTTHandler(Mqtt):
             if hasattr(config, "RTC_SYNC_ACTIVE") and config.RTC_SYNC_ACTIVE:
                 t = time.localtime()
                 await self.publish(self.getDeviceTopic("last_boot"),
-                                   "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3],
-                                                                                  t[4],
+                                   "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2],
+                                                                                  t[3], t[4],
                                                                                   t[5]), 1, True)
-                _log.info(str(os.uname()))
-                _log.info("Client version: {!s}".format(config.VERSION))
+            _log.info(str(os.uname()))
+            _log.info("Client version: {!s}".format(config.VERSION))
         else:
             await _log.asyncLog("debug", "Reconnected")
         await self.publish(self.getDeviceTopic("status"), "ONLINE", 1, True)

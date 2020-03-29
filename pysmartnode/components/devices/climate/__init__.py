@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-10-10
 
 """
@@ -32,6 +32,8 @@ Not Implemented:
 cooling_unit
 fan_unit
 """
+
+# TODO: make it possible to only use one target_temp instead of high/low and away_high/low
 
 __updated__ = "2019-11-15"
 __version__ = "0.9"
