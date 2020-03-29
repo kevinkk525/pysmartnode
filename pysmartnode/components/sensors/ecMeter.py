@@ -9,14 +9,17 @@ example config:
     component: EC
     constructor_args: {
         r1: 200                # Resistor1, Ohms
-        ra: 30                 # Microcontroller Pin Resistance
+        ra: 30                 # Microcontroller Power Pin Resistance
+        rg: 30                  # Microcontroller Ground Pin Resistance
         adc: 2                  # ADC pin number, where the EC cable is connected
         power_pin: 4            # Power pin, where the EC cable is connected
         ground_pin: 23          # Ground pin, don't connect EC cable to GND
-        ppm_conversion: 0.64    # depends on supplier/country conversion values, see notes
+        ppm_conversion: 0.5     # depends on supplier/country conversion values, see notes
         temp_coef: 0.019        # this changes depending on what chemical are measured, see notes
         k: 2.88                 # Cell Constant, 2.88 for US plug, 1.76 for EU plug, can be calculated/calibrated
         temp_sensor: sens_name  # temperature sensor component, has to provide async temperature()
+        # read_timeout: 400     # optional, time (in us) that an ADC read can take before the value will be ignored.
+        # iterations: 1         # optional, how often the sensor should be read. average will be used as value
         # precision_ec: 3         # precision of the ec value published
         # interval_reading: 600         # optional, defaults to 600
         # interval_public: 600         # optional, defaults to 600
@@ -45,14 +48,15 @@ Connect the ec cable to the adc pin and ground pin.
 ** Inspiration from:
 https://hackaday.io/project/7008-fly-wars-a-hackers-solution-to-world-hunger/log/24646-three-dollar-ec-ppm-meter-arduino
 https://www.hackster.io/mircemk/arduino-electrical-conductivity-ec-ppm-tds-meter-c48201
-After many hours of testing and trying optimize reading speeds, it turned out that the readins
-were actually as "accurate" as the original sketch on the Arduino Uno.
-Results were: Accurate around 300ppm, at 700ppm only 550ppm were read..
-However, the bigger the used resistor, the worse the readings got. 100-200R was actually best.
+
+Readings can be a bit weird. You need to measure your ADC and find calibration values for offset and
+adc v_max used in .machine.ADC class.
+Also Rg can be changed to further calibrate readings. My GND was theoretically 30R but 50R gave me
+way better results. Changing Rg has a big effect on higher EC values.
 """
 
-__updated__ = "2020-03-19"
-__version__ = "1.4"
+__updated__ = "2020-03-29"
+__version__ = "1.7"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -87,11 +91,11 @@ _unit_index = -1
 class EC(ComponentSensor):
     DEBUG = True
 
-    def __init__(self, r1, ra, adc, power_pin, ground_pin, ppm_conversion, temp_coef, k,
-                 temp_sensor: ComponentSensor, precision_ec=3, interval_publish=None,
-                 interval_reading=None,
-                 mqtt_topic=None, friendly_name_ec=None, friendly_name_ppm=None,
-                 discover=True, expose_intervals=False, intervals_topic=None):
+    def __init__(self, r1, ra, rg, adc, power_pin, ground_pin, ppm_conversion, temp_coef, k,
+                 temp_sensor: ComponentSensor, read_timeout=400, iterations=1, precision_ec=3,
+                 interval_publish=None, interval_reading=None, mqtt_topic=None,
+                 friendly_name_ec=None, friendly_name_ppm=None, discover=True,
+                 expose_intervals=False, intervals_topic=None):
         # This makes it possible to use multiple instances of MySensor
         global _unit_index
         _unit_index += 1
@@ -109,9 +113,12 @@ class EC(ComponentSensor):
         self._gpin = Pin(ground_pin, machine.Pin.IN)  # changing to OUTPUT GND when needed
         self._r1 = r1
         self._ra = ra
+        self._rg = rg
         self._ppm_conversion = ppm_conversion
         self._temp_coef = temp_coef
         self._k = k
+        self._to = read_timeout
+        self._iters = iterations
         gc.collect()
 
     @micropython.native
@@ -122,6 +129,7 @@ class EC(ComponentSensor):
         vol = _adc_read()
         b = ticks()
         # vol = _adc_read() # micropython on esp is way too slow to need this, it was for arduino.
+        # _ppin_value(0) # if not using ppin as INPUT while not reading
         _gpin_init(_in)
         _ppin_init(_in)
         return vol, ticks_diff(b, a)
@@ -129,33 +137,52 @@ class EC(ComponentSensor):
     async def _read(self):
         temp = await self._temp.getValue(SENSOR_TEMPERATURE)
         if temp is None:
-            await asyncio.sleep(3)
+            await asyncio.sleep(30)
             temp = await self._temp.getValue(SENSOR_TEMPERATURE)
             if temp is None:
                 _log.warn("Couldn't get temperature, aborting EC measurement")
                 return
         vols = []
         diffs = []
-        for i in range(5):
+        adcs = []
+        for _ in range(self._iters):
             self._gpin.init(machine.Pin.OUT, value=0)
             self._ppin.init(machine.Pin.OUT, value=0)
-            await asyncio.sleep_ms(20)
-            vol, diff = self._read_sync(self._gpin.init, self._ppin.init, self._ppin.value,
+            adc, diff = self._read_sync(self._gpin.init, self._ppin.init, self._ppin.value,
                                         self._adc.read, machine.Pin.IN, time.ticks_us,
                                         time.ticks_diff)
-            vol = self._adc.convertToVoltage(vol)
+            vol = self._adc.convertToVoltage(adc)
             vols.append(vol)
+            adcs.append(adc)
             diffs.append(diff)
-            await asyncio.sleep(1)
-        vol = min(vols)
-        diff = min(diffs)
+            if self._iters > 1:
+                await asyncio.sleep(20)
+        r = []
+        for i, diff in enumerate(diffs):
+            if diff > self._to:
+                r.append(i)
+            elif vols[i] >= self._adc.maxVoltage():
+                r.append(i)
+        if len(r) == len(diffs):
+            vol = vols[0]
+            adc = adcs[0]
+            diff = diffs[0]
+        else:
+            for i in range(len(r), -1, -1):
+                diffs.pop(i)
+                adcs.pop(i)
+                vols.pop(i)
+            vol = sum(vols) / len(vols)
+            adc = sum(adcs) / len(adcs)
+            diff = sum(diffs) / len(diffs)
         if self.DEBUG:
             print("------------")
             print("Time", diff, "us")
             print("Temp", temp)
-            print("V", vol)
+            print("V", vol, "ADC", adc)
             print("Vols", vols)
-            print("Diff", diffs)
+            print("adcs", adcs)
+            print("diffs", diffs)
         if vol >= self._adc.maxVoltage():
             await self._setValue("ec", None, log_error=False)
             await self._setValue("ppm", None, log_error=False)
@@ -163,16 +190,24 @@ class EC(ComponentSensor):
         else:
             if vol <= 0.5:
                 _log.warn("Voltage <=0.5, change resistor")
-            rc = (vol * (self._r1 + self._ra)) / (self._adc.maxVoltage() - vol)
-            rc = rc - self._ra
+                await self._setValue("ec", None, log_error=False)
+                await self._setValue("ppm", None, log_error=False)
+                return
+            rc = (vol * (self._r1 + self._ra)) / (3.3 - vol)
+            rc = rc - self._rg
             ec = 1000 / (rc * self._k)
             ec25 = ec / (1 + self._temp_coef * (temp - 25.0))
             ppm = int(ec25 * self._ppm_conversion * 1000)
-            await self._setValue("ec", ec25)
-            await self._setValue("ppm", ppm)
-            if self.DEBUG:
-                ec25 = round(ec25, 3)
-                print("Rc", rc)
-                print("EC", ec)
-                print("EC25", ec25, "MilliSimens")
-                print("PPM", ppm)
+            if diff > self._to:
+                await self._setValue("ec", None, log_error=False)
+                await self._setValue("ppm", None, log_error=False)
+                _log.warn("Reading timeout, discarding value {!s}V, {!s}ppm".format(vol, ppm))
+            else:
+                await self._setValue("ec", ec25)
+                await self._setValue("ppm", ppm)
+                if self.DEBUG:
+                    ec25 = round(ec25, 3)
+                    print("Rc", rc)
+                    print("EC", ec)
+                    print("EC25", ec25, "MilliSimens")
+                    print("PPM", ppm)
