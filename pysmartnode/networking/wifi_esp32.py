@@ -7,7 +7,7 @@ from pysmartnode.utils.sys_vars import getDeviceID
 import network
 from pysmartnode import logging
 
-__updated__ = "2020-03-08"
+__updated__ = "2020-03-29"
 
 try:
     s = network.WLAN(network.STA_IF)
@@ -55,8 +55,14 @@ if config.RTC_SYNC_ACTIVE:
     gc.collect()
 
 if hasattr(config, "FTP_ACTIVE") and config.FTP_ACTIVE is True:
-    if hasattr(config, "WEBREPL_ACTIVE") and config.WEBREPL_ACTIVE is True:
-        config._log.critical("ftpserver background can't be used with webrepl")
+    if config.WEBREPL_ACTIVE is True:
+        try:
+            import _thread
+        except:
+            config._log.critical("ftpserver background can't be used with webrepl")
+        else:
+            print("FTP-Server active")
+            import pysmartnode.libraries.ftpserver.ftp_thread
     else:
         print("FTP-Server active")
         import pysmartnode.libraries.ftpserver.ftp_thread
