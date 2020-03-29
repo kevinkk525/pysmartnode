@@ -168,10 +168,10 @@ class EC(ComponentSensor):
             adc = adcs[0]
             diff = diffs[0]
         else:
-            for i in range(len(r), -1, -1):
-                diffs.pop(i)
-                adcs.pop(i)
-                vols.pop(i)
+            for i in range(len(r) - 1, -1, -1):
+                diffs.pop(r[i])
+                adcs.pop(r[i])
+                vols.pop(r[i])
             vol = sum(vols) / len(vols)
             adc = sum(adcs) / len(adcs)
             diff = sum(diffs) / len(diffs)
