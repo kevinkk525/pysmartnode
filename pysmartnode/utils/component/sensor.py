@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-10-27 
 
-__updated__ = "2020-03-29"
-__version__ = "0.8"
+__updated__ = "2020-03-31"
+__version__ = "0.81"
 
 from pysmartnode.utils.component import Component
 from pysmartnode import config
@@ -273,11 +273,12 @@ class ComponentSensor(Component):
                 value = None
 
         else:
-            log = self._log or logging.getLogger(self.COMPONENT_NAME)
             if log_error:
+                log = self._log or logging.getLogger(self.COMPONENT_NAME)
                 await log.asyncLog("warn", "Got no value for", sensor_type, timeout=timeout)
         s[-1] = value
-        s[-2] = time.ticks_ms()
+        if value:
+            s[-2] = time.ticks_ms()  # time of last successful sensor reading
 
     async def _loop(self):
         await asyncio.sleep(1)
