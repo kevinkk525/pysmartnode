@@ -21,6 +21,7 @@ example config:
         # offset: 0             # offset for distance value to compensate bad sensor reading offsets
         # sleeping_time: 200     # optional, sleeping time between reading iterations
         # iterations: 20        # optional, reading iterations per sensor reading
+        # percentage_failed_readings_abort: 0.66 # optional, if a higher percentage of readings was bad, the current reading will be aborted
         # interval_publish: 600   #optional, defaults to 600. Set to interval_reading to publish with every reading
         # interval_reading: 120   # optional, defaults to 120. -1 means do not automatically read sensor and publish values
         # mqtt_topic: null      # optional, distance gets published to this topic
@@ -37,8 +38,8 @@ HC-SR04 ultrasonic sensor.
 Be sure to connect it to 5V but use a voltage divider to connect the Echo pin to an ESP.
 """
 
-__updated__ = "2020-03-29"
-__version__ = "0.91"
+__updated__ = "2020-03-31"
+__version__ = "0.92"
 
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.utils.component.sensor import ComponentSensor, SENSOR_TEMPERATURE, \
@@ -66,7 +67,7 @@ _unit_index = -1
 class HCSR04(ComponentSensor):
     def __init__(self, pin_trigger, pin_echo, timeout=30000, temp_sensor: ComponentSensor = None,
                  precision: int = 2, offset: float = 0, sleeping_time: int = 20,
-                 iterations: int = 30,
+                 iterations: int = 30, percentage_failed_readings_abort: float = 0.66,
                  interval_publish=None, interval_reading=None, mqtt_topic=None,
                  value_template=None, friendly_name=None,
                  discover=True, expose_intervals=False, intervals_topic=None, **kwargs):
@@ -81,6 +82,7 @@ class HCSR04(ComponentSensor):
         :param offset: float, distance value offset, shouldn't be needed
         :param sleeping_time: int, sleeping time between reading iterations
         :param iterations: int, reading iterations per sensor reading
+        :param percentage_failed_readings_abort: float, if a higher percentage of readings was bad, the reading will be aborted
         :param interval_publish: seconds, set to interval_reading to publish every reading. -1 for not publishing.
         :param interval_reading: seconds, set to -1 for not reading/publishing periodically. >0 possible for reading, 0 not allowed for reading..
         :param mqtt_topic: distance mqtt topic
@@ -103,6 +105,7 @@ class HCSR04(ComponentSensor):
         self._to = timeout
         self._sleep = sleeping_time
         self._iters = iterations
+        self._pfr = percentage_failed_readings_abort
         if temp_sensor is not None:
             self.checkSensorType(temp_sensor, SENSOR_TEMPERATURE)
         self._temp: ComponentSensor = temp_sensor
@@ -155,7 +158,7 @@ class HCSR04(ComponentSensor):
                 warning = e
                 warnings += 1
             await asyncio.sleep_ms(self._sleep)
-        if warnings > self._iters * 2 / 3:  # 2/3 sensor readings are bad
+        if warnings > self._iters * self._pfr:  # self._pbr sensor readings are bad
             if config.DEBUG:
                 print("HCSR04 len readings", len(val), "/", self._iters, "sleep", self._sleep)
                 print("HCSR04 readings", val)
