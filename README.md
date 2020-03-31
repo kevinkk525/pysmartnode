@@ -81,13 +81,12 @@ Alternatively a prebuilt firmware for the esp8266 can be used that should be att
 
 Required external modules are:
 
-* uasyncio (>=V2.0) (if not already part of the firmware)
+* extmod/uasyncio (Part of the firmware since April 2020, the old uasyncio version from micropyhton-lib is not supported anymore!)
 * micropython-mqtt-as, my own fork that has some needed features: ([mqtt_as](https://github.com/kevinkk525/micropython-mqtt))
 
 All required modules are in this repository and don't need to be aquired manually. 
-Just put the directories `micropython_mqtt_as` and `uasyncio` from `external_modules` into your `modules` directory before building the firmware or run the correct script in section `Tools`.
+Just put the directory `micropython_mqtt_as` from `external_modules` into your `modules` directory before building the firmware or run the correct script in section `Tools`.
 The *micropython_mqtt_as* directory is a submodule to my repository so this will be updated automatically.
-Uasyncio is copied from the official repository and I will update the file as soon as a new version is published.
 
 ## 3. Components
 The included components can be found in the directory "pysmartnode/components".
