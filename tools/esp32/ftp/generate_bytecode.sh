@@ -18,7 +18,7 @@ function foo {
                    #else
                    #    echo $1 $res
                    fi
-                   ~/micropython/mpy-cross/mpy-cross $1;
+                   ~/micropython/mpy-cross/mpy-cross -march=xtensawin $1;
                    rm $1
                 }
 export -f foo
