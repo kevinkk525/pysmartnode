@@ -9,18 +9,18 @@ example config:
     component: ADC
     constructor_args: {
         pin: 0              # ADC pin number or ADC object (even Amux pin object)
-        # calibration_v_max: 3.3   # optional, v_max for calibration of bad ADC sensors
+        # calibration_v_max: 3.3   # optional, v_max for calibration of bad ADC sensors. defaults to 3.3V
         # calibration_offset: 0   # optional, voltage offset for calibration of bad ADC sensors
         # atten: null          # optional, attn value to use. Voltages aren't adapted to this config, set the calibration kwargs for it to work
-        # max_voltage: 3.3      # optional, defaults to 3.3V, can be given to set max voltage of atten value
+        # max_voltage: null      # optional, defaults to calibration_v_max+calibration_offset
     }
 }
 Does not publish anything, just unifies reading of esp8266 ADC, esp32, Amux, Arudino, etc
 You can pass any ADC object or pin number to ADC() and it will return a corretly subclassed pyADC object
 """
 
-__version__ = "1.5"
-__updated__ = "2020-03-26"
+__version__ = "1.6"
+__updated__ = "2020-04-03"
 
 import machine
 from sys import platform
@@ -31,11 +31,11 @@ class pyADC:
     Just a base class to identify all instances of an ADC object sharing the same API
     """
 
-    def __init__(self, *args, calibration_v_max=3.3, calibration_offset=0, max_voltage=3.3,
+    def __init__(self, *args, calibration_v_max=3.3, calibration_offset=0, max_voltage=None,
                  **kwargs):
         self._cvm = calibration_v_max
         self._co = calibration_offset
-        self._mv = max_voltage
+        self._mv = max_voltage or calibration_v_max + calibration_offset
 
     def readRaw(self) -> int:
         # just loboris fork compatibility although support officialy dropped.
@@ -80,12 +80,12 @@ class pyADC:
 
     __repr__ = __str__
 
-    @staticmethod
-    def maxVoltage() -> float:
-        return 3.3  # esp standard voltage
+    def maxVoltage(self) -> float:
+        return self._mv
 
-    # The following methods are overwritten by machineADC, the machine.ADC class, by the proper hardware methods
-    # In other subclasses they have to be implemented
+    # When using the machineADC class, the following methods are overwritten by machine.ADC,
+    # the machine methods of the hardware ADC.
+    # In other subclasses they have to be implemented.
 
     def read(self) -> int:
         raise NotImplementedError("Implement your subclass correctly!")
