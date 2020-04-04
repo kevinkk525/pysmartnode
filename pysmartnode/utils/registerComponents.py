@@ -69,7 +69,8 @@ def registerComponent(componentname, component, _log):
                 s = io.StringIO()
                 sys.print_exception(e, s)
                 _log.critical(
-                    "Error importing package {!s}, error: {!s}".format(component["package"], s))
+                    "Error importing package {!s}, error: {!s}".format(component["package"],
+                                                                       s.getvalue()))
                 module = None
             gc.collect()
             err = False
@@ -93,7 +94,7 @@ def registerComponent(componentname, component, _log):
                         sys.print_exception(e, s)
                         _log.error(
                             "Error during creation of object {!r}, {!r}, version {!s}: {!s}".format(
-                                component["component"], componentname, version, s))
+                                component["component"], componentname, version, s.getvalue()))
                         obj = None
                         err = True
                     if obj is not None:

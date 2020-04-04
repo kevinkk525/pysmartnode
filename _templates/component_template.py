@@ -23,7 +23,7 @@ __version__ = "1.91"
 import uasyncio as asyncio
 from pysmartnode import config
 from pysmartnode import logging
-from pysmartnode.utils.component import Component, DISCOVERY_SWITCH
+from pysmartnode.utils.component import ComponentBase, DISCOVERY_SWITCH
 import gc
 
 ####################
@@ -47,7 +47,7 @@ _unit_index = -1
 # component like a sensor or a switch.
 
 
-class MyComponent(Component):
+class MyComponent(ComponentBase):
     def __init__(self, my_value,  # extend or shrink according to your sensor
                  mqtt_topic=None, mqtt_topic2=None,
                  friendly_name=None, discover=True, **kwargs):

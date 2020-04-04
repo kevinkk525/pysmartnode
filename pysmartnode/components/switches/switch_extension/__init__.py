@@ -35,7 +35,7 @@ __version__ = "0.8"
 from pysmartnode import config
 from pysmartnode import logging
 import gc
-from pysmartnode.utils.component.switch import Component, ComponentSwitch, DISCOVERY_SWITCH
+from pysmartnode.utils.component.switch import ComponentBase, ComponentSwitch, DISCOVERY_SWITCH
 from uasyncio import Lock
 
 ####################
@@ -85,12 +85,12 @@ class BaseMode:
 Mode = BaseMode()
 
 
-class Switch(Component):
+class Switch(ComponentBase):
     def __init__(self, component: ComponentSwitch, modes_enabled: list,
-                 mqtt_topic_mode=None, friendly_name_mode=None, discover=True, **kwargs):
+                 mqtt_topic_mode=None, friendly_name_mode=None, **kwargs):
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, **kwargs)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
         if type(component) == str:
             self._component = config.getComponent(component)
             if self._component is None:

@@ -21,12 +21,13 @@ Since other components might depend on this component's topic, setting it throug
 cause problems since the topic won't be stored on startup. You need to wait for network to be
 finished so the retained state can be restored. Typically if a component is initialized after
 this sensor and the _init_network is called, the topic value should have been received.
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
 # TODO: implement support for multiple sensor_types that share one topic in one component
 
-__updated__ = "2020-03-29"
-__version__ = "0.3"
+__updated__ = "2020-04-01"
+__version__ = "0.4"
 
 import gc
 import time
@@ -64,8 +65,9 @@ class RemoteSensor(ComponentSensor):
             else:
                 raise TypeError("value_template type {!s} not supported".format(v))
         self._log = logging.getLogger("{}_{}{}".format(COMPONENT_NAME, sensor_type, _unit_index))
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, False, -1, -1, None, self._log,
-                         False, None, **kwargs)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover=False,
+                         interval_publish=-1, interval_reading=-1, logger=self._log,
+                         expose_intervals=False, **kwargs)
         self._addSensorType(sensor_type, 2, 0, value_template, "")
         # no unit_of_measurement as only used for mqtt discovery
         self._stale_time = stale_time
@@ -123,7 +125,7 @@ class RemoteSensor(ComponentSensor):
         await self._setValue(list(self.sensor_types)[0], msg)
         # not changing timeout because there should be no error
 
-    async def _publishValues(self, timeout=5):
+    async def publishValues(self, timeout=5):
         pass  # there is no publish for a remote sensor, even if "accidentally" requested
 
     def _default_name(self):

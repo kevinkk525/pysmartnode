@@ -11,24 +11,20 @@ example config:
         pin: 5                    # pin number or label (on NodeMCU)
         # rom: 28FF016664160383"  # optional, ROM of the specific DS18 unit, can be string or bytearray (in json bytearray not possible). If not given then the first found ds18 unit will be used, no matter the ROM. Makes it possible to have a generic ds18 unit.
         # auto_detect: false      # optional, if true and ROM is None then all connected ds18 units will automatically generate a sensor object with the given options. If a sensor is removed, so will its object. Removed sensors will be removed from Homeassistant too!
-        # interval_publish: 600   # optional, defaults to 600. Set to interval_reading to publish with every reading
-        # interval_reading: 120   # optional, defaults to 120. -1 means do not automatically read sensor and publish
         # precision_temp: 2       # precision of the temperature value published
         # offset_temp: 0          # offset for temperature to compensate bad sensor reading offsets
-        # mqtt_topic: sometopic   # optional, defaults to home/<device-id>/DS18
         # friendly_name: null     # optional, friendly name shown in homeassistant gui with mqtt discovery
-        # discover: true          # optional, if false no discovery message for homeassistant will be sent
-        # expose_intervals:       # optional, expose intervals to mqtt so they can be changed remotely
-        # intervals_topic:        # optional, if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
-# This module is to be used if only 1 ds18 sensor is connected and the ROM doesn't matter.
-# It therefore provides a generic ds18 component for an exchangeable ds18 unit.
-# The sensor can be replaced while the device is running.
+Every connected DS18 unit can be configured individually with this module.
+However, this module can also be used if only 1 ds18 sensor is connected and the ROM doesn't matter.
+Then it provides a generic ds18 component for an exchangeable ds18 unit. The sensor can be replaced while the device is running.
+The module can also be used to automatically detect all connected DS18 units.
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2020-03-29"
-__version__ = "3.3"
+__updated__ = "2020-04-03"
+__version__ = "3.4"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -56,59 +52,38 @@ gc.collect()
 
 
 class DS18(ComponentSensor):
-    """
-    Helping class to use a singluar DS18 unit.
-    This is not a full component object in terms of mqtt and discovery. This is handled by the controller.
-    It can be used as a temperature component object.
-    """
     _pins = {}  # pin number/name:onewire()
     _last_conv = {}  # onewire:time
     _lock = asyncio.Lock()
 
-    def __init__(self, pin, rom: str = None, auto_detect=False, interval_publish: float = None,
-                 interval_reading: float = None, precision_temp: int = 2, offset_temp: float = 0,
-                 mqtt_topic=None, friendly_name=None, discover=True, expose_intervals=False,
-                 intervals_topic=None, **kwargs):
+    def __init__(self, pin, rom: str = None, auto_detect=False, precision_temp: int = 2,
+                 offset_temp: float = 0, friendly_name=None, **kwargs):
         """
         Class for a single ds18 unit to provide an interface to a single unit.
+        Alternatively it can be used to automatically detect all connected units
+        and create objects for those units.
         :param pin: pin number/name/object
         :param rom: optional, ROM of the specific DS18 unit, can be string or bytearray
         (in json bytearray not possible). If not given then the first found ds18 unit will be used,
         no matter the ROM. Makes it possible to have a generic ds18 unit.
         :param auto_detect: optional, if true and ROM is None then all connected ds18 units will automatically generate a sensor object with the given options.
-        :param interval_publish: seconds, set to interval_reading to publish every reading. -1 for not publishing.
-        :param interval_reading: seconds, set to -1 for not reading/publishing periodically. >0 possible for reading, 0 not allowed for reading..
         :param precision_temp: the precision to for returning/publishing values
         :param offset_temp: temperature offset to adjust bad sensor readings
-        :param mqtt_topic: optional mqtt topic of sensor
-        :param friendly_name: friendly name in homeassistant
-        :param discover: if DS18 object should send discovery message for homeassistnat
-        :param expose_intervals: Expose intervals to mqtt so they can be changed remotely
-        :param intervals_topic: if expose_intervals then use this topic to change intervals.
-        Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set
-        Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
+        :param friendly_name: friendly name in homeassistant. Has no effect if rom is None and auto_detect True
         """
         if rom is None and auto_detect:
             # only a dummy sensor for detecting connected sensors
-            self._interval_reading = interval_reading
-            self._interval_publishing = interval_publish
-            interval_reading = 60  # scan every 60 seconds for new units
-            interval_publish = -1
+            interval_reading = kwargs["interval_reading"] if "interval_reading" in kwargs else None
+            interval_publish = kwargs["interval_publish"] if "interval_publish" in kwargs else None
             self._instances = {}  # rom:object
             self._auto_detect = True
-            self._prec = precision_temp
-            self._offs = offset_temp
-            self._discover = discover
-            self._expose = expose_intervals
+            self._kwargs = kwargs  # store kwargs for initialization of detected sensors
+            kwargs["interval_reading"] = 60  # scan every 60 seconds for new units
+            kwargs["interval_publish"] = -1
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic,
-                         **kwargs)
-        if rom or not auto_detect:  # sensor with rom or generic sensor
-            self._addSensorType(SENSOR_TEMPERATURE, precision_temp, offset_temp,
-                                VALUE_TEMPLATE_FLOAT, "°C", friendly_name)
-            self._auto_detect = False
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
+        self.rom: str = rom
         self._generic = True if rom is None and not auto_detect else False
         if type(pin) == ds18x20.DS18X20:
             self.sensor: ds18x20.DS18X20 = pin
@@ -116,7 +91,15 @@ class DS18(ComponentSensor):
             self._pins[pin] = ds18x20.DS18X20(onewire.OneWire(Pin(pin)))
             self.sensor: ds18x20.DS18X20 = self._pins[pin]
             self._last_conv[self.sensor] = None
-        self.rom: str = rom
+        if rom or not auto_detect:  # sensor with rom or generic sensor
+            self._addSensorType(SENSOR_TEMPERATURE, precision_temp, offset_temp,
+                                VALUE_TEMPLATE_FLOAT, "°C", friendly_name)
+            self._auto_detect = False
+        elif self._auto_detect:
+            self._kwargs["interval_reading"] = interval_reading
+            self._kwargs["interval_publish"] = interval_publish
+            self._kwargs["precision_temp"] = precision_temp
+            self._kwargs["offset_temp"] = offset_temp
         gc.collect()
 
     def _default_name(self):
@@ -142,11 +125,7 @@ class DS18(ComponentSensor):
                 for rom in roms:
                     rom = self.rom2str(rom)
                     if rom not in self._instances:
-                        self._instances[rom] = DS18(self.sensor, rom, False,
-                                                    self._interval_publishing,
-                                                    self._interval_reading, self._prec,
-                                                    self._offs, None, None, self._discover,
-                                                    self._expose)
+                        self._instances[rom] = DS18(self.sensor, rom, False, **self._kwargs)
                 for rom in self._instances:
                     if rom not in roms:  # sensor not connected anymore
                         await self.removeComponent(roms[rom])

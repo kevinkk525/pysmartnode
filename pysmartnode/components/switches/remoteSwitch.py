@@ -13,6 +13,7 @@ example config:
         # timeout: 10                 # optional, defaults to 10s, timeout for receiving an answer
     }
 }
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
 # TODO: implement possibility to set sensor topics through mqtt, similar to RemoteSensor implementation
@@ -23,7 +24,7 @@ __version__ = "0.3"
 
 COMPONENT_NAME = "RemoteSwitch"
 
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 from pysmartnode import config
 import uasyncio as asyncio
 import time
@@ -34,7 +35,7 @@ _TIMEOUT = const(10)  # wait for a single reconnect but should be short enough i
 _unit_index = -1
 
 
-class RemoteSwitch(Component):
+class RemoteSwitch(ComponentBase):
     """
     Generic Switch class.
     Use it according to the template.

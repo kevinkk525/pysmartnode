@@ -12,17 +12,12 @@ example config:
         precision_temp: 2           # precision of the temperature value published
         precision_humid: 1          # precision of the humid value published
         temp_offset: 0              # offset for temperature to compensate bad sensor reading offsets
-        humid_offset: 0             # ...             
-        # interval_publish: 600      # optional, defaults to 600. Set to interval_reading to publish with every reading
-        # interval_reading: 120      # optional, defaults to 120. -1 means do not automatically read sensor and publish values
-        # mqtt_topic: sometopic     # optional, defaults to home/<controller-id>/HTU0
+        humid_offset: 0             # ...
         # friendly_name_temp: null  # optional, friendly name shown in homeassistant gui with mqtt discovery
         # friendly_name_humid: null # optional, friendly name shown in homeassistant gui with mqtt discovery
-        # discover: true             # optional, if false no discovery message for homeassistant will be sent.
-        # expose_intervals: false    # optional, expose intervals to mqtt so they can be changed remotely
-        # intervals_topic: null      # optional, if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
 __updated__ = "2020-03-29"
@@ -31,6 +26,7 @@ __version__ = "3.2"
 import gc
 import uasyncio as asyncio
 from pysmartnode import config
+from pysmartnode import logging
 from pysmartnode.utils.component.sensor import ComponentSensor, SENSOR_TEMPERATURE, SENSOR_HUMIDITY
 
 ####################
@@ -43,6 +39,7 @@ _VAL_T_HUMIDITY = "{{ value_json.humidity }}"
 ####################
 
 _mqtt = config.getMQTT()
+_log = logging.getLogger(COMPONENT_NAME)
 gc.collect()
 
 _unit_index = -1
@@ -54,14 +51,11 @@ _ISSUE_HU_ADDRESS = 0xE5
 class HTU21D(ComponentSensor):
     def __init__(self, i2c, precision_temp: int = 2, precision_humid: int = 2,
                  temp_offset: float = 0, humid_offset: float = 0,
-                 mqtt_topic: str = None, interval_publish: float = None,
-                 interval_reading: float = None,
-                 friendly_name_temp=None, friendly_name_humid=None, discover=True, **kwargs):
+                 friendly_name_temp=None, friendly_name_humid=None, **kwargs):
         # This makes it possible to use multiple instances of MySensor and have unique identifier
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, **kwargs)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch

@@ -2,10 +2,10 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-15 
 
-__updated__ = "2020-03-29"
+__updated__ = "2020-04-03"
 __version__ = "0.91"
 
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
@@ -20,9 +20,9 @@ _log = logging.getLogger(COMPONENT_NAME)
 WAIT = 1.5 if platform == "esp8266" else 0.5
 
 
-class RemoteConfig(Component):
+class RemoteConfig(ComponentBase):
     def __init__(self, **kwargs):
-        super().__init__(COMPONENT_NAME, __version__, unit_index=0, **kwargs)
+        super().__init__(COMPONENT_NAME, __version__, unit_index=0, logger=_log, **kwargs)
         self._topic = "{!s}/login/{!s}/#".format(_mqtt.mqtt_home, _mqtt.client_id)
         self._icomp = None
         self._rcomp = []

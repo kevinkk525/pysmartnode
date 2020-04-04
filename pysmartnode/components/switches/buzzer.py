@@ -13,14 +13,13 @@ example config:
         # on_time: 500                #optional, defaults to 500ms, time buzzer stays at one pwm duty
         # iters: 1                   #optional, iterations done, defaults to 1
         # freq: 1000                 #optional, defaults to 1000
-        # mqtt_topic: null     #optional, defaults to <mqtt_home>/<device_id>/Buzzer<count>/set
-        # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
     }
 }
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2020-03-29"
-__version__ = "3.3"
+__updated__ = "2020-04-03"
+__version__ = "3.31"
 
 import gc
 from machine import Pin, PWM
@@ -45,8 +44,7 @@ _unit_index = -1
 
 
 class Buzzer(ComponentButton):
-    def __init__(self, pin, pwm_values, on_time=500, iters=1, freq=1000, mqtt_topic=None,
-                 friendly_name=None, discover=True, **kwargs):
+    def __init__(self, pin, pwm_values, on_time=500, iters=1, freq=1000, **kwargs):
         self.pin = PyPin(pin, Pin.OUT)
         self.on_time = on_time
         self.values = pwm_values
@@ -56,9 +54,7 @@ class Buzzer(ComponentButton):
         # This makes it possible to use multiple instances of Buzzer
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, discover=discover,
-                         **kwargs)
-        self._frn = friendly_name
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, **kwargs)
         gc.collect()
 
     async def _on(self):

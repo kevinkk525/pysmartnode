@@ -14,16 +14,13 @@ example config:
         multiplier_adc: 2.5 # calculate the needed multiplier to get from the voltage read by adc to the real voltage
         cutoff_pin: null    # optional, pin number or object of a pin that will cut off the power if pin.value(1) 
         precision_voltage: 2 # optional, the precision of the voltage published by mqtt
-        # interval_publish: 600   #optional, defaults to 600. Set to interval_reading to publish with every reading
-        # mqtt_topic: null  # optional, defaults to <home>/<device-id>/battery
         # interval_reading: 1 # optional, the interval in which the voltage will be checked, defaults to 1s
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
         # friendly_name_abs: null # optional, friendly name for absolute voltage
-        # expose_intervals: Expose intervals to mqtt so they can be changed remotely
-        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
 WARNING: This component has not been tested with a battery and only works in theory!
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
 __updated__ = "2020-03-29"
@@ -55,14 +52,13 @@ _unit_index = -1
 class Battery(ComponentSensor):
     def __init__(self, adc, voltage_max: float, voltage_min: float, multiplier_adc: float,
                  cutoff_pin=None, precision_voltage: int = 2, interval_reading: float = 1,
-                 interval_publish: float = None, mqtt_topic: str = None, friendly_name: str = None,
-                 friendly_name_abs: str = None, discover: bool = True,
-                 expose_intervals: bool = False, intervals_topic: str = None, **kwargs):
+                 interval_publish: float = None, friendly_name: str = None,
+                 friendly_name_abs: str = None, **kwargs):
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic,
-                         **kwargs)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index,
+                         interval_publish=interval_publish, interval_reading=interval_reading,
+                         logger=_log, **kwargs)
         self._adc = ADC(adc)  # unified ADC interface
         self._voltage_max = voltage_max
         self._voltage_min = voltage_min

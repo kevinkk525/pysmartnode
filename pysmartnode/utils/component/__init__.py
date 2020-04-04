@@ -2,14 +2,15 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-04-26 
 
-__updated__ = "2020-03-29"
-__version__ = "1.5"
+__updated__ = "2020-04-01"
+__version__ = "1.6"
 
 from pysmartnode import config
 import uasyncio as asyncio
 from pysmartnode.utils import sys_vars
 from .definitions import *
 import gc
+from pysmartnode import logging
 
 # This module is used to create components.
 # This could be sensors, switches, binary_sensors etc.
@@ -27,12 +28,20 @@ _init_queue_start = None
 _components = None  # pointer list of all registered components, used for mqtt etc
 
 
-class Component:
+class ComponentBase:
     """
     Use this class as a base for components. Subclass to extend. See the template for examples.
     """
 
-    def __init__(self, component_name, version, unit_index: int, discover=True, **kwargs):
+    def __init__(self, component_name, version, unit_index: int, discover=True, logger=None):
+        """
+        Base component class
+        :param component_name: name of the component that is subclassing this switch (used for discovery and topics)
+        :param version: version of the component module. will be logged over mqtt
+        :param unit_index: counter of the registerd unit of this sensor_type (used for default topics)
+        :param discover: if the component should send a discovery message, used in Home-Assistant.
+        :param logger: optional logger instance. If not provided, one will be created with the component name
+        """
         self._next_component = None  # needed to keep a list of registered components
         global _components
         if _components is None:
@@ -45,7 +54,7 @@ class Component:
                     break
                 c = c._next_component
         # Workaround to prevent every component object from creating a new asyncio task for
-        # network oriented initialization as this would lead to an asyncio queue overflow.
+        # network oriented initialization as this would cause a big RAM demand.
         global _init_queue_start
         if _init_queue_start is None:
             _init_queue_start = self
@@ -54,12 +63,13 @@ class Component:
         self.VERSION = version
         self._count = unit_index
         self.__discover = discover
+        self._log = logger or logging.getLogger("{!s}{!s}".format(component_name, self._count))
 
     @staticmethod
     async def removeComponent(component):
         if type(component) == str:
             component = config.getComponent(component)
-        if isinstance(component, Component) is False:
+        if not isinstance(component, ComponentBase):
             config._log.error(
                 "Can't remove a component that is not an instance of pysmartnode.utils.component.Component")
             return False
@@ -79,7 +89,11 @@ class Component:
             c = c._next_component
 
     async def _remove(self):
-        """Cleanup method. Stop all loops and unsubscribe all topics."""
+        """
+        Cleanup method.
+        Stop all loops and unsubscribe all topics.
+        Also removes the component from Home-Assistant if discovery is enabled.
+        """
         await _mqtt.unsubscribe(None, self)
         await config._log.asyncLog("info", "Removed component", config.getComponentName(self),
                                    "module", self.COMPONENT_NAME, "version", self.VERSION,
@@ -119,16 +133,16 @@ class Component:
     @staticmethod
     async def _publishDiscovery(component_type, component_topic, unique_name, discovery_type,
                                 friendly_name=None):
-        topic = Component._getDiscoveryTopic(component_type, unique_name)
-        msg = Component._composeDiscoveryMsg(component_topic, unique_name, discovery_type,
-                                             friendly_name)
+        topic = ComponentBase._getDiscoveryTopic(component_type, unique_name)
+        msg = ComponentBase._composeDiscoveryMsg(component_topic, unique_name, discovery_type,
+                                                 friendly_name)
         await _mqtt.publish(topic, msg, qos=1, retain=True)
         del msg, topic
         gc.collect()
 
     @staticmethod
     async def _deleteDiscovery(component_type, unique_name):
-        topic = Component._getDiscoveryTopic(component_type, unique_name)
+        topic = ComponentBase._getDiscoveryTopic(component_type, unique_name)
         await _mqtt.publish(topic, "", qos=1, retain=True)
 
     @staticmethod
@@ -155,14 +169,15 @@ class Component:
         return DISCOVERY_BASE.format(component_topic,  # "~" component state topic
                                      friendly_name,  # name
                                      sys_vars.getDeviceID(), name,  # unique_id
-                                     "" if no_avail else Component._composeAvailability(),
+                                     "" if no_avail else ComponentBase._composeAvailability(),
                                      component_type_discovery,  # component type specific values
                                      sys_vars.getDeviceDiscovery())  # device
 
     @staticmethod
-    def _composeSensorType(device_class, unit_of_measurement, value_template):
+    def _composeSensorType(device_class, unit_of_measurement, value_template, expire_after=0):
         """Just to make it easier for component developers."""
-        return DISCOVERY_SENSOR.format(device_class, unit_of_measurement, value_template)
+        return DISCOVERY_SENSOR.format(device_class, unit_of_measurement, value_template,
+                                       int(expire_after))
 
     @staticmethod
     def _getDiscoveryTopic(component_type, name):

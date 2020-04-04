@@ -7,6 +7,7 @@ Datasheet: https://www.mpja.com/download/hc-sr04_ultrasonic_module_user_guidejoh
 
 Warning: My sensor only read distances reliable with flat surfaces within 80cm. 
 Above that the results were fluctuating heavily.
+A stable power source seems to be helpful.
 
 example config:
 {
@@ -22,20 +23,13 @@ example config:
         # sleeping_time: 200     # optional, sleeping time between reading iterations
         # iterations: 20        # optional, reading iterations per sensor reading
         # percentage_failed_readings_abort: 0.66 # optional, if a higher percentage of readings was bad, the current reading will be aborted
-        # interval_publish: 600   #optional, defaults to 600. Set to interval_reading to publish with every reading
-        # interval_reading: 120   # optional, defaults to 120. -1 means do not automatically read sensor and publish values
-        # mqtt_topic: null      # optional, distance gets published to this topic
-        # mqtt_topic_interval: null     # optional, topic need to have /set at the end. Interval can be changed here
         # value_template: "{{ 60.0 - float(value) }}" # optional, can be used to measure the reverse distance (e.g. water level)
         # friendly_name: "Distance" # optional, friendly name for homeassistant gui by mqtt discovery
-        # discover: true            # optional, if false no discovery message for homeassistant will be sent.
-        # expose_intervals: true    # Expose intervals to mqtt so they can be changed remotely
-        # intervals_topic: sometopic # if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
-# interval change can't be discovered as homeassistant doesn't offer a type
 HC-SR04 ultrasonic sensor.
 Be sure to connect it to 5V but use a voltage divider to connect the Echo pin to an ESP.
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
 __updated__ = "2020-03-31"
@@ -68,9 +62,7 @@ class HCSR04(ComponentSensor):
     def __init__(self, pin_trigger, pin_echo, timeout=30000, temp_sensor: ComponentSensor = None,
                  precision: int = 2, offset: float = 0, sleeping_time: int = 20,
                  iterations: int = 30, percentage_failed_readings_abort: float = 0.66,
-                 interval_publish=None, interval_reading=None, mqtt_topic=None,
-                 value_template=None, friendly_name=None,
-                 discover=True, expose_intervals=False, intervals_topic=None, **kwargs):
+                 value_template=None, friendly_name=None, **kwargs):
         """
         HC-SR04 ultrasonic sensor.
         Be sure to connect it to 5V but use a voltage divider to connect the Echo pin to an ESP.
@@ -83,22 +75,12 @@ class HCSR04(ComponentSensor):
         :param sleeping_time: int, sleeping time between reading iterations
         :param iterations: int, reading iterations per sensor reading
         :param percentage_failed_readings_abort: float, if a higher percentage of readings was bad, the reading will be aborted
-        :param interval_publish: seconds, set to interval_reading to publish every reading. -1 for not publishing.
-        :param interval_reading: seconds, set to -1 for not reading/publishing periodically. >0 possible for reading, 0 not allowed for reading..
-        :param mqtt_topic: distance mqtt topic
         :param value_template: optional template can be used to measure the reverse distance (e.g. water level)
         :param friendly_name: friendly name for homeassistant gui by mqtt discovery, defaults to "Distance"
-        :param discover: boolean, if the device should publish its discovery
-        :param expose_intervals: Expose intervals to mqtt so they can be changed remotely
-        :param intervals_topic: if expose_intervals then use this topic to change intervals.
-        Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set
-        Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
         """
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic,
-                         **kwargs)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
         self._tr = Pin(pin_trigger, mode=machine.Pin.OUT)
         self._tr.value(0)
         self._ec = Pin(pin_echo, mode=machine.Pin.IN)

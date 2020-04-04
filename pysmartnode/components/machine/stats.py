@@ -5,17 +5,16 @@
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2020-03-29"
-__version__ = "1.7"
+__updated__ = "2020-04-03"
+__version__ = "1.71"
 
 import gc
 
 from pysmartnode import config
 import uasyncio as asyncio
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 import time
 from sys import platform
-from pysmartnode import logging
 from pysmartnode.utils import sys_vars
 
 try:
@@ -42,7 +41,7 @@ STATE_TYPE = '"json_attributes_topic":"~",' \
              '"ic":"mdi:information-outline",'
 
 
-class STATS(Component):
+class STATS(ComponentBase):
     def __init__(self, **kwargs):
         super().__init__(COMPONENT_NAME, __version__, unit_index=0, **kwargs)
         self._interval = config.INTERVAL_SENSOR_PUBLISH
@@ -81,7 +80,7 @@ class STATS(Component):
         h, m = divmod(m, 60)
         d, h = divmod(h, 24)
         val["Uptime"] = '{:d}T{:02d}:{:02d}:{:02d}'.format(d, h, m, s)
-        logging.getLogger("RAM").info(gc.mem_free(), local_only=True)
+        self._log.info(gc.mem_free(), local_only=True)
         val["RAM free (bytes)"] = gc.mem_free()
         if sta is not None:
             try:

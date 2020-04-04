@@ -12,10 +12,7 @@ example config:
         file: "filename"        # filename where the captured sequences are stored. Has to be uploaded manually!
         name_on: "on_a"         # name of the sequence for turning the device on
         name_off: "off_a"      # name of the sequence for turning the device off
-        # reps: 10               # optional, amount of times a frame is being sent
-        # mqtt_topic: null    # optional, defaults to <mqtt_home>/<device_id>/Switch<_unit_index>/set
-        # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
-        # discover: true      # optional, if false no discovery message for homeassistant will be sent.
+        # reps: 5               # optional, amount of times a frame is being sent
     }
 }
 Control 433Mhz devices (e.g. power sockets) with a cheap 433Mhz transmitter.
@@ -23,10 +20,13 @@ Uses the excellent library from Peter Hinch: https://github.com/peterhinch/micro
 For this to work you need to have sequences captured and stores on the device.
 How to do that is described in his repository.
 Note: This component only works on the devices supported by Peter Hinch's library!
-(esp32, pyboards but not esp8266)
+(esp32, pyboards but not esp8266).
+Be careful with "reps", the amount of repitions as this currently uses a lot of RAM.
+
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2020-03-31"
+__updated__ = "2020-04-03"
 __version__ = "0.2"
 
 from pysmartnode import config
@@ -49,14 +49,11 @@ _lock = asyncio.Lock()
 
 
 class Switch433Mhz(ComponentSwitch):
-    def __init__(self, pin, file: str, name_on: str, name_off: str, reps: int = 10,
-                 mqtt_topic=None, friendly_name=None, discover=True, **kwargs):
+    def __init__(self, pin, file: str, name_on: str, name_off: str, reps: int = 5, **kwargs):
         global _unit_index
         _unit_index += 1
-        initial_state = False
         global _tx
         if file not in _remotes and _tx is None:
-            print("Creating TX for pin", pin, file, name_on)
             pin = Pin(pin, machine.Pin.OUT)
             _tx = TX(pin, file, reps)
             _remotes[file] = _tx._data
@@ -70,9 +67,8 @@ class Switch433Mhz(ComponentSwitch):
         if name_off not in _remotes[file]:
             raise AttributeError("name_off {!r} not in file {!s}".format(name_off, file))
 
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, instance_name=None,
-                         wait_for_lock=True, discover=discover, friendly_name=friendly_name,
-                         initial_state=initial_state, **kwargs)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, wait_for_lock=True,
+                         initial_state=False, **kwargs)
 
         self._reps = reps
         self._file = file
@@ -82,15 +78,13 @@ class Switch433Mhz(ComponentSwitch):
         self._name_off = name_off
 
         # one lock for all switches, overrides lock created by the base class
-        self.lock = _lock
+        self._lock = _lock
 
     #####################
     # Change these methods according to your device.
     #####################
     async def _on(self):
         """Turn device on."""
-        import time
-        print("on", time.ticks_ms())
         _tx._data = _remotes[self._file]
         reps = _tx._reps
         _tx._reps = self._reps
@@ -103,8 +97,6 @@ class Switch433Mhz(ComponentSwitch):
 
     async def _off(self):
         """Turn device off. """
-        import time
-        print("off", time.ticks_ms())
         _tx._data = _remotes[self._file]
         reps = _tx._reps
         _tx._reps = self._reps

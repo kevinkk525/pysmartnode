@@ -6,7 +6,7 @@
 # Configuration management file
 ##
 
-__updated__ = "2018-11-15"
+__updated__ = "2020-04-02"
 
 from .config_base import *
 from sys import platform
@@ -35,8 +35,6 @@ gc.collect()
 __printRAM(_mem, "Imported .sys_vars")
 
 import uasyncio as asyncio
-
-loop = asyncio.get_event_loop()
 
 gc.collect()
 __printRAM(_mem, "Imported uasyncio")
@@ -114,7 +112,7 @@ def getMQTT():
     return _mqtt
 
 
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 
 __printRAM(_mem, "Imported Component base class")
 

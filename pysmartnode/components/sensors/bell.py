@@ -11,12 +11,13 @@ example config:
         pin: D5
         debounce_time: 20      #ms
         on_time: 500 #ms       #optional, time the mqtt message stays at on
-        direction: 2           #optional, falling 2 (pull-up used in code), rising 1, 
+        direction: 2           #optional, falling 2 (pull-up used in code), rising 1,
         #mqtt_topic: sometopic #optional, defaults to home/bell
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
         # friendly_name_last: null # optional, friendly name for last_bell
     }
 }
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
 __updated__ = "2020-03-29"
@@ -27,7 +28,7 @@ from pysmartnode import config
 from pysmartnode import logging
 from pysmartnode.utils.locksync import Lock
 from pysmartnode.components.machine.pin import Pin
-from pysmartnode.utils.component import Component, DISCOVERY_TIMELAPSE, VALUE_TEMPLATE
+from pysmartnode.utils.component import ComponentBase, DISCOVERY_TIMELAPSE, VALUE_TEMPLATE
 import machine
 import time
 import uasyncio as asyncio
@@ -40,11 +41,10 @@ _mqtt = config.getMQTT()
 gc.collect()
 
 
-class Bell(Component):
+class Bell(ComponentBase):
     def __init__(self, pin, debounce_time, on_time=None, irq_direction=None, mqtt_topic=None,
-                 friendly_name=None,
-                 friendly_name_last=None, discover=True, **kwargs):
-        super().__init__(COMPONENT_NAME, __version__, unit_index=0, discover=discover, **kwargs)
+                 friendly_name=None, friendly_name_last=None, **kwargs):
+        super().__init__(COMPONENT_NAME, __version__, unit_index=0, logger=_log, **kwargs)
         self._topic = mqtt_topic
         self._PIN_BELL_IRQ_DIRECTION = irq_direction or machine.Pin.IRQ_FALLING
         self._debounce_time = debounce_time

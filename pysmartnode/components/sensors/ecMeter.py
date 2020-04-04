@@ -21,13 +21,11 @@ example config:
         # read_timeout: 400     # optional, time (in us) that an ADC read can take before the value will be ignored.
         # iterations: 1         # optional, how often the sensor should be read. average will be used as value
         # precision_ec: 3         # precision of the ec value published
-        # interval_reading: 600         # optional, defaults to 600
-        # interval_public: 600         # optional, defaults to 600
-        # mqtt_topic: sometopic   # optional, defaults to home/<controller-id>/ecmeter
         # friendly_name_ec: null # optional, friendly name shown in homeassistant gui with mqtt discovery
         # friendly_name_ppm: null # optional, friendly name shown in homeassistant gui with mqtt discovery
     }
 }
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
 """
@@ -49,14 +47,13 @@ Connect the ec cable to the adc pin and ground pin.
 https://hackaday.io/project/7008-fly-wars-a-hackers-solution-to-world-hunger/log/24646-three-dollar-ec-ppm-meter-arduino
 https://www.hackster.io/mircemk/arduino-electrical-conductivity-ec-ppm-tds-meter-c48201
 
-Readings can be a bit weird. You need to measure your ADC and find calibration values for offset and
-adc v_max used in .machine.ADC class.
-Also Rg can be changed to further calibrate readings. My GND was theoretically 30R but 50R gave me
-way better results. Changing Rg has a big effect on higher EC values.
+Readings can be a bit weird. You need to measure your ADC and find calibration values for offset 
+and ADC v_max used in .machine.ADC class.
+Also the cell constant "k" should be calibrated for the plug you use.
 """
 
-__updated__ = "2020-03-29"
-__version__ = "1.8"
+__updated__ = "2020-04-03"
+__version__ = "1.9"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -93,21 +90,17 @@ class EC(ComponentSensor):
 
     def __init__(self, r1, ra, rg, adc, power_pin, ground_pin, ppm_conversion, temp_coef, k,
                  temp_sensor: ComponentSensor, read_timeout=400, iterations=1, precision_ec=3,
-                 interval_publish=None, interval_reading=None, mqtt_topic=None,
-                 friendly_name_ec=None, friendly_name_ppm=None, discover=True,
-                 expose_intervals=False, intervals_topic=None, **kwargs):
+                 friendly_name_ec=None, friendly_name_ppm=None, **kwargs):
         # This makes it possible to use multiple instances of MySensor
         global _unit_index
         _unit_index += 1
         self.checkSensorType(temp_sensor, SENSOR_TEMPERATURE)
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic,
-                         **kwargs)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
         self._temp = temp_sensor
         self._addSensorType("ec", precision_ec, 0, VALUE_TEMPLATE_JSON.format("ec|float"), "mS",
-                            friendly_name_ec or "EC", mqtt_topic, DISCOVERY_EC)
+                            friendly_name_ec or "EC", self._topic, DISCOVERY_EC)
         self._addSensorType("ppm", 0, 0, VALUE_TEMPLATE_JSON.format("ppm|int"), "ppm",
-                            friendly_name_ppm or "PPM", mqtt_topic, DISCOVERY_PPM)
+                            friendly_name_ppm or "PPM", self._topic, DISCOVERY_PPM)
 
         self._adc = ADC(adc)
         self._ppin = Pin(power_pin, machine.Pin.IN)  # changing to OUTPUT GND when needed

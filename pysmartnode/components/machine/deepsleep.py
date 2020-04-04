@@ -15,8 +15,8 @@ example config:
 }
 """
 
-__version__ = "0.1"
-__updated__ = "2018-07-16"
+__version__ = "0.2"
+__updated__ = "2020-04-03"
 
 import machine
 import uasyncio as asyncio
@@ -27,7 +27,7 @@ async def deepsleep(sleeping_time, wait_before_sleep=None, event=None):
     if wait_before_sleep is not None:
         await asyncio.sleep(wait_before_sleep)
     if event is not None:
-        await event
+        await event.wait()
     if platform == "esp32_LoBo":
         machine.deepsleep(int(sleeping_time * 1000))
     else:

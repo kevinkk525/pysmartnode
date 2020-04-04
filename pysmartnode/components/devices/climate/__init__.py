@@ -19,7 +19,6 @@ example config:
         # temp_high: 21                 # optional, initial temperature high if no value saved by mqtt
         # away_temp_low: 16             # optional, initial away temperature low if no value saved by mqtt
         # away_temp_high: 17            # optional, initial away temperature high if no value saved by mqtt
-        # disover: true                 # optional, send mqtt discovery
         # interval: 300            #optional, defaults to 300s, interval sensor checks situation. Should be >60s
         # friendly_name: null    # optional, friendly name shown in homeassistant gui with mqtt discovery
     }
@@ -35,15 +34,15 @@ fan_unit
 
 # TODO: make it possible to only use one target_temp instead of high/low and away_high/low
 
-__updated__ = "2020-03-29"
-__version__ = "0.91"
+__updated__ = "2020-04-03"
+__version__ = "0.92"
 
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
 import gc
 import time
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 
 # imports of ComponentSensor and ComponentSwitch to keep heap fragmentation low
 # as those will be needed in any case
@@ -69,18 +68,18 @@ gc.collect()
 _unit_index = -1
 
 
-class Climate(Component):
+class Climate(ComponentBase):
     def __init__(self, temperature_sensor: ComponentSensor, heating_unit: ComponentSwitch,
                  modes: list, interval: float = 300, temp_step=0.1, min_temp: float = 16,
                  max_temp: float = 26, temp_low: float = 20, temp_high: float = 21,
                  away_temp_low: float = 16, away_temp_high: float = 17,
-                 friendly_name=None, discover=True, **kwargs):
+                 friendly_name=None, **kwargs):
         self.checkSensorType(temperature_sensor, SENSOR_TEMPERATURE)
         self.checkSwitchType(heating_unit)
         # This makes it possible to use multiple instances of MyComponent
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, **kwargs)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
 
         self._temp_step = temp_step
         self._min_temp = min_temp
@@ -298,7 +297,7 @@ class Climate(Component):
         else:
             sens = ""
         gc.collect()
-        topic = Component._getDiscoveryTopic(_COMPONENT_TYPE, name)
+        topic = ComponentBase._getDiscoveryTopic(_COMPONENT_TYPE, name)
         await _mqtt.publish(topic, sens, qos=1, retain=True)
 
 

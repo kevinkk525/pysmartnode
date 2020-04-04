@@ -14,7 +14,7 @@ __version__ = "1.5"
 import gc
 import machine
 from pysmartnode.components.machine.pin import Pin
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 import network
 import uasyncio as asyncio
 import time
@@ -25,7 +25,10 @@ gc.collect()
 COMPONENT_NAME = "WifiLED"
 
 
-class WIFILED(Component):
+# TODO: add option for heartbeat or always-on mode
+
+
+class WIFILED(ComponentBase):
     def __init__(self, pin, active_high=True, **kwargs):
         super().__init__(COMPONENT_NAME, __version__, discover=False, unit_index=0, **kwargs)
         self.pin = Pin(pin, machine.Pin.OUT, value=0 if active_high else 1)
