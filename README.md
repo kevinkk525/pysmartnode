@@ -102,14 +102,14 @@ Every loaded component will be published as *log.info* to "<home>/log/info/<devi
 Components can be and do anything. There is a basic API and [base class](./pysmartnode/utils/component/__init__.py) which helps with homeassistant mqtt discovery and the basic API.
 <br>Sensors all have a similar API to have a standardized usage through the [sensor base class](./pysmartnode/utils/component/sensor.py).
 The sensor base class makes developing sensors very easy as it takes care of mqtt discovery, reading and publishing intervals and the standardized API.
-All sensors now have a common API:
+All sensors have a common API:
 - getValue(sensor_type)->sensor_type last read value
 - getTopic(sensor_type)->mqtt topic of sensor_type
 - getTemplate(sensor_type)->homeassistant value template of sensor_type
 - getTimestamp(sensor_type)->timestamp of last successful sensor reading
 - getReadingsEvent()->Event being set on next sensor reading
 
-<br>Sensor_types in definitions but can be custom, those are only the ones supported by Homeassistant.
+<br>Sensor_types are in [definitions](./pysmartnode/utils/component/definitions) but can be custom, those are only the ones supported by Homeassistant.
 
 <br>Common features:
 - Reading interval and publish interval separated and not impacting each other
@@ -133,6 +133,8 @@ It should help understanding how the configuration can be read and mqtt subscrip
 Besides the general components, components can mostly be divided in sensors and switches, which have a slightly different API.
 There are templates for both types of components, [sensors](./_templates/sensor_template.py) and [switches](./_templates/switch_template.py).
 There is also a [Pushbutton template](./_templates/button_template.py) which is just a simpler version of the switch.
+
+A more detailed documentation of the basic components can be found in [COMPONENTS.md](./COMPONENTS.md)
 
 ## 4.Configuration
 
@@ -216,7 +218,7 @@ See the template for the components.py file in the template directory [here](./_
 The basic configuration options of a component are when using SmartServer or COMPONENTS dictionary in components.py:
 * package:                  The python package location, the "." means that it is in *pysmartnode.components*
 * component:                The component is the class name or function/coroutine name. A component started by a function is called a "service"
-* constructor_args:         These are the arguments for the constructor of the component class or function/coroutine. It can be a dictionary or a list but a dictionary is preferred as it makes the configuration more readable.
+* constructor_args:         These are the arguments for the constructor of the component class or function/coroutine. It has to be a dictionary.
 
 
 ## 5. Tools
