@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2020-03-19"
-__version__ = "0.3"
+__updated__ = "2020-04-03"
+__version__ = "0.4"
 
 # The discovery base should be a json string to keep the RAM requirement low and only need
 # to use format to enter the dynamic values so that the string is only loaded into RAM once
@@ -28,7 +28,8 @@ DISCOVERY_AVAILABILITY = '"avty_t":"{!s}/{!s}/{!s}",'
 
 DISCOVERY_SENSOR = '"dev_cla":"{!s}",' \
                    '"unit_of_meas":"{!s}",' \
-                   '"val_tpl":"{!s}",'
+                   '"val_tpl":"{!s}",' \
+                   '"expire_after":"{!s}",'
 
 DISCOVERY_TIMELAPSE = '"dev_cla":"timestamp",' \
                       '"ic":"mdi:timelapse",'
