@@ -2,27 +2,28 @@
 # Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-02-17
 
-__updated__ = "2019-11-15"
-__version__ = "5.8"
+__updated__ = "2020-03-31"
+__version__ = "6.0"
 
 import gc
 import ujson
 import time
-
-gc.collect()
-
+import micropython
+import uasyncio as asyncio
+import os
 from pysmartnode import config
 from sys import platform
 from pysmartnode import logging
 from pysmartnode.utils import sys_vars
 
 if config.MQTT_TYPE:
-    from micropython_mqtt_as.mqtt_as import MQTTClient
+    if platform != "esp8266":
+        from micropython_mqtt_as.mqtt_as_timeout_concurrent import MQTTClient
+    else:
+        # version for esp8266 with only concurrent publish and (un)subscribe
+        from .mqtt_timeout import MQTTClient
 else:
-    from dev.mqtt_iot import MQTTClient  # Currently not working/developed
-import uasyncio as asyncio
-import os
-
+    from dev.mqtt_iot import MQTTClient  # Currently not working/under development
 gc.collect()
 
 _log = logging.getLogger("MQTT")
@@ -62,7 +63,6 @@ class MQTTHandler(MQTTClient):
         self._reconnected_subs = []
         self._wifi_task = None
         self._wifi_subs = []
-        self._ops_tasks = [None, None]  # publish and (un)sub operations, can be concurrently
         self.__unsub_tmp = []
         self.__last_disconnect = None  # ticks_ms() of last disconnect
         self.__downtime = 0  # mqtt downtime in seconds
@@ -188,6 +188,7 @@ class MQTTHandler(MQTTClient):
                 self._sub_task.cancel()
 
     async def _subscribeTopics(self, start: int = 0):
+        # TODO: make concurrent for esp32
         _log.debug("_subscribeTopics, start", start, local_only=True)
         try:
             for i, sub in enumerate(self._subs):
@@ -202,7 +203,7 @@ class MQTTHandler(MQTTClient):
                     # if coro gets canceled in the process, the state topic will be checked
                     # the next time _subscribeTopic runs after the reconnect
                     _log.debug("_subscribing", t[:-4], local_only=True)
-                    await self._preprocessor(super().subscribe, t[:-4], 1)  # subscribe state topic
+                    await super().subscribe(t[:-4], 1, await_connection=False)  # state topic
                     ts = time.ticks_ms()  # start timer after successful subscribe otherwise
                     # it might time out before subscribe has even finished.
                     while time.ticks_diff(time.ticks_ms(), ts) < 4000 and self._sub_retained:
@@ -214,10 +215,9 @@ class MQTTHandler(MQTTClient):
                         self._sub_retained = False
                         _log.debug("Unsubscribing state topic", t[:-4], "in _subsscribeTopics",
                                    local_only=True)
-                        await self._preprocessor(super().unsubscribe, t[:-4],
-                                                 await_connection=False)
+                        await super().unsubscribe(t[:-4], await_connection=False)
                 _log.debug("_subscribing", t, local_only=True)
-                await self._preprocessor(super().subscribe, t, 1)
+                await super().subscribe(t, 1, await_connection=False)
                 # no timeouts because _subscribeTopics will get canceled when connection is lost
         finally:
             # remove pending unsubscribe requests
@@ -235,6 +235,7 @@ class MQTTHandler(MQTTClient):
     def _isDeviceSubscription(self, topic):
         return topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.client_id))
 
+    @micropython.native
     @staticmethod
     def matchesSubscription(topic, subscription, ignore_command=False):
         if topic == subscription:
@@ -312,9 +313,8 @@ class MQTTHandler(MQTTClient):
         s = True
         for sub in t:
             _log.debug("Unsubscribing from broker:", sub, local_only=True)
-            if not await self._preprocessor(super().unsubscribe, self.getRealTopic(sub),
-                                            await_connection=False):
-                _log.error("Error unsubscribing from broker:", sub, local_only=True)
+            if not await super().unsubscribe(self.getRealTopic(sub), await_connection=False):
+                _log.error("Error unsubscribing, lost conenction:", sub, local_only=True)
                 s = False
         del t
         # unsubscribe from broker but locally have to wait for subscribe to be finished
@@ -434,7 +434,7 @@ class MQTTHandler(MQTTClient):
             else:
                 t = sub[0][:-4]
             _log.debug("Unsubscribing state topic", t, "in _exec_cb", local_only=True)
-            await self._preprocessor(super().unsubscribe, t, await_connection=False)
+            await super().unsubscribe(t, await_connection=False)
             del t
             gc.collect()
             # unsubscribing before executing to prevent callback to publish to state topic
@@ -472,8 +472,8 @@ class MQTTHandler(MQTTClient):
         :param await_connection: wait for wifi to be available.
         Depending on application this might not be desired as it could block further processing but
         due to restraint resources and complexity you don't want to launch a new coroutine for
-        each publish.
-        :return:
+        each publish, so if connection becomes unavailable, this returns False immediately.
+        :return: True on success, False on timeout or connection loss
         """
         if (not await_connection and not self.isconnected()) or timeout == 0:
             return False
@@ -484,51 +484,16 @@ class MQTTHandler(MQTTClient):
         if self.isDeviceTopic(topic):
             topic = self.getRealTopic(topic)
         msg = msg.encode() if type(msg) == str else msg
-        gc.collect()
         # note that msg has to be bytes otherwise mqtt library produces errors when sending
-        return await self._preprocessor(super().publish, topic, msg, retain, qos,
-                                        timeout=timeout, await_connection=await_connection)
+        gc.collect()
+        try:
+            return await super().publish(topic, msg, retain, qos, timeout=timeout,
+                                         await_connection=await_connection)
+        except asyncio.TimeoutError:
+            self.__timedout += 1
+            return False
 
     def schedulePublish(self, topic, msg, retain=False, qos=0, timeout=None,
-                        await_connection=True):
-        asyncio.create_task(self.publish(topic, msg, retain, qos, timeout, await_connection))
-
-    # Await broker connection. Subclassed to reduce canceling time from 1s to 50ms
-    async def _connection(self):
-        while not self._isconnected:
-            await asyncio.sleep_ms(50)
-
-    async def _operationTimeout(self, coro, *args, i):
-        try:
-            await coro(*args)
-        except asyncio.CancelledError:
-            raise  # in case the calling function need to handle Cancellation too
-        finally:
-            self._ops_tasks[i] = None
-
-    async def _preprocessor(self, coroutine, *args, timeout=None, await_connection=True):
-        task = None
-        start = time.ticks_ms()
-        i = 0 if len(args) == 4 else 1  # 0: publish, 1:(un)sub
-        try:
-            while timeout is None or time.ticks_diff(time.ticks_ms(), start) < timeout * 1000:
-                if not await_connection and not self._isconnected:
-                    return False
-                if self._ops_tasks[i] is task is None:
-                    task = asyncio.create_task(self._operationTimeout(coroutine, *args, i=i))
-                    self._ops_tasks[i] = task
-                elif task:
-                    if self._ops_tasks[i] is not task:
-                        return True  # published
-                await asyncio.sleep_ms(20)
-            _log.debug("timeout on", "(un)sub" if i else "publish", args, local_only=True)
-            self.__timedout += 1
-        except asyncio.CancelledError:
-            raise  # the caller should be cancelled too
-        finally:
-            if task and self._ops_tasks[i] is task:
-                async with self.lock:
-                    task.cancel()
-                return False
-            # else: returns value during process
-        return False
+                        await_connection=True) -> asyncio.Task:
+        return asyncio.create_task(
+            self.publish(topic, msg, retain, qos, timeout, await_connection))
