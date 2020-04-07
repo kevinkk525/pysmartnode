@@ -68,7 +68,8 @@ class Switch433Mhz(ComponentSwitch):
             raise AttributeError("name_off {!r} not in file {!s}".format(name_off, file))
 
         super().__init__(COMPONENT_NAME, __version__, _unit_index, wait_for_lock=True,
-                         initial_state=False, **kwargs)
+                         initial_state=None, **kwargs)
+        # Unknown initial state. Should be sorted by retained state topic
 
         self._reps = reps
         self._file = file
