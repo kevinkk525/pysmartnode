@@ -70,10 +70,10 @@ class ComponentSwitch(ComponentBase):
         """
         if msg in _mqtt.payload_on:
             if not self._state:  # False or None (unknown)
-                await self.on()
+                await self.on()  # no return because state will be published by on()/off()
         elif msg in _mqtt.payload_off:
             if self._state is not False:  # True or None (unknown)
-                await self.off()
+                await self.off()  # no return because state will be published by on()/off()
         else:
             raise TypeError("Payload {!s} not supported".format(msg))
         return False  # will not publish the requested state to mqtt as already done by on()/off()

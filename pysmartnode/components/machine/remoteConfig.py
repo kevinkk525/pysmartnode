@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-15 
 
-__updated__ = "2020-04-03"
-__version__ = "0.91"
+__updated__ = "2020-04-07"
+__version__ = "0.92"
 
 from pysmartnode.utils.component import ComponentBase
 from pysmartnode import config
@@ -11,13 +11,15 @@ from pysmartnode import logging
 import uasyncio as asyncio
 from sys import platform
 import gc
+import os
 
 COMPONENT_NAME = "remoteConfig"
 
 _mqtt = config.getMQTT()
 _log = logging.getLogger(COMPONENT_NAME)
 
-WAIT = 1.5 if platform == "esp8266" else 0.5
+# SPIRAM is very slow when importing modules
+WAIT = 1.5 if platform == "esp8266" else (0.5 if "(spiram)" not in os.uname().machine else 3)
 
 
 class RemoteConfig(ComponentBase):

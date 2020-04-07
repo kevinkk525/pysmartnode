@@ -100,8 +100,8 @@ class ComponentSensor(ComponentBase):
                                      unique_name, None, None]
         # value[-1] is last sensor reading, value[-2] is timestamp of last reading that is not None
         self._log.info("Sensor", self._default_name(), "will publish readings for", sensor_type,
-                       "to topic",
-                       topic or self._topic or _mqtt.getDeviceTopic(self._default_name()),
+                       "to topic", _mqtt.getRealTopic(
+                topic or self._topic or _mqtt.getDeviceTopic(self._default_name())),
                        local_only=True)
 
     def setReadingInterval(self, *args):
