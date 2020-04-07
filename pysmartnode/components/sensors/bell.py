@@ -20,8 +20,8 @@ example config:
 NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2020-03-29"
-__version__ = "1.5"
+__updated__ = "2020-04-07"
+__version__ = "1.6"
 
 import gc
 from pysmartnode import config
@@ -33,6 +33,38 @@ import machine
 import time
 import uasyncio as asyncio
 
+
+class EventISR:
+    # Event class from Peter Hinch used in uasyncio V2
+    def __init__(self, delay_ms=0):
+        self.delay_ms = delay_ms
+        self.clear()
+
+    def clear(self):
+        self._flag = False
+        self._data = None
+
+    async def wait(self):  # CPython comptaibility
+        while not self._flag:
+            await asyncio.sleep_ms(self.delay_ms)
+
+    def __await__(self):
+        while not self._flag:
+            await asyncio.sleep_ms(self.delay_ms)
+
+    __iter__ = __await__
+
+    def is_set(self):
+        return self._flag
+
+    def set(self, data=None):
+        self._flag = True
+        self._data = data
+
+    def value(self):
+        return self._data
+
+
 COMPONENT_NAME = "Bell"
 
 _log = logging.getLogger(COMPONENT_NAME)
@@ -40,6 +72,8 @@ _mqtt = config.getMQTT()
 
 gc.collect()
 
+
+# TODO: make Bell inherit from ComponentSensor (like it is supposed to be in the category "sensors"
 
 class Bell(ComponentBase):
     def __init__(self, pin, debounce_time, on_time=None, irq_direction=None, mqtt_topic=None,
@@ -53,23 +87,20 @@ class Bell(ComponentBase):
         self._last_activation = 0
         self._frn = friendly_name
         self._frn_l = friendly_name_last
-        asyncio.create_task(self._loop())
-
-    async def _loop(self):
+        self._event_bell = EventISR(delay_ms=20)
+        self._event_bell.clear()
+        self._timer_lock = Lock()
         if self._PIN_BELL_IRQ_DIRECTION == machine.Pin.IRQ_FALLING:
             self._pin_bell = Pin(self._pin_bell, machine.Pin.IN, machine.Pin.PULL_UP)
         else:
             self._pin_bell = Pin(self._pin_bell, machine.Pin.IN)
-        self._event_bell = asyncio.Event()
-        self._timer_lock = Lock()
         self._pin_bell.irq(trigger=self._PIN_BELL_IRQ_DIRECTION, handler=self.__irqBell)
-        self._event_bell.clear()
-        asyncio.create_task(self.__bell())
         self._timer_bell = machine.Timer(1)
-        await _log.asyncLog("info", "Bell initialized")
+        asyncio.create_task(self._loop())
+        _log.info("Bell initialized")
         gc.collect()
 
-    async def __bell(self):
+    async def _loop(self):
         while True:
             await self._event_bell.wait()
             diff = time.ticks_diff(time.ticks_ms(), self._last_activation)
