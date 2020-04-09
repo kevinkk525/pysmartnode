@@ -11,7 +11,7 @@ import time
 
 
 class MQTTClient(_MQTTClient):
-    _ops_tasks = [None, None]  # publish and (un)sub operations, can be concurrently
+    _ops_tasks = [None, None]  # publish and (un)sub operations, can be concurrent
 
     async def _operationTimeout(self, coro, *args, i):
         try:
