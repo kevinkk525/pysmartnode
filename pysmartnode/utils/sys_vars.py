@@ -40,7 +40,7 @@ def hasFilesystem():
 
 def getDeviceDiscovery():
     from pysmartnode import config
-    mf = "espressif" if platform in ("esp8266", "esp32", "esp32_LoBo") else "None"
+    mf = "espressif" if platform in ("esp8266", "esp32") else "None"
     if platform != "linux":
         import network
         s = network.WLAN(network.STA_IF)

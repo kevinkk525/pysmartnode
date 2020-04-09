@@ -29,10 +29,7 @@ The device doesn't have much RAM but it's enough for multiple bigger components 
 
 ### ESP32
 
-Official ESP32 port is supported since version 4.1.0 and loboris fork is now official unsupported since there hasn't been any commit in over 7 months. 
-However no code for loboris fork has been removed and even the updated modules are written to be compatible, I just don't test any features on that platform myself anymore. 
-
-In recent tests this hardware has shown to be finally resilient and can be used 24/7.
+Official ESP32 port is supported since version 4.1.0 and loboris fork is officially unsupported since there hasn't been any updates and it doesn't support uasyncio v3.0, therefore all code for it got removed too.
 
 ### Unix port
 
@@ -56,7 +53,7 @@ git submodule update --init --recursive --remote
 To update run inside the repository directory
 ```
 git pull
-git submodule update --recursive --remote
+git submodule update --init --recursive --remote
 ```
 You should have the latest micropython firmware and include the directory "pysmartnode" as frozen bytecode into your firmware. (Put it in the "module" directory before building the firmware)
 On ESP32 frozen bytecode is not neccessary but should be considered if not using psram.
@@ -81,7 +78,7 @@ Alternatively a prebuilt firmware for the esp8266 can be used that should be att
 
 Required external modules are:
 
-* extmod/uasyncio (Part of the firmware since April 2020, the old uasyncio version from micropyhton-lib is not supported anymore!)
+* extmod/uasyncio (Version >3.0.0, Part of the firmware since April 2020, the old uasyncio version from micropyhton-lib is not supported anymore!)
 * micropython-mqtt-as, my own fork that has some needed features: ([mqtt_as](https://github.com/kevinkk525/micropython-mqtt))
 
 All required modules are in this repository and don't need to be aquired manually. 

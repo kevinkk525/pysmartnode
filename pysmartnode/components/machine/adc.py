@@ -19,8 +19,8 @@ Does not publish anything, just unifies reading of esp8266 ADC, esp32, Amux, Aru
 You can pass any ADC object or pin number to ADC() and it will return a corretly subclassed pyADC object
 """
 
-__version__ = "1.6"
-__updated__ = "2020-04-03"
+__version__ = "1.7"
+__updated__ = "2020-04-09"
 
 import machine
 from sys import platform
@@ -37,20 +37,11 @@ class pyADC:
         self._co = calibration_offset
         self._mv = max_voltage or calibration_v_max + calibration_offset
 
-    def readRaw(self) -> int:
-        # just loboris fork compatibility although support officialy dropped.
-        if isinstance(self, machine.ADC):
-            # Subclass of hardware ADC
-            return self.read() if platform != "esp32_Lobo" else self.readraw()
-        return self.read()  # on non-hardware ADCs read() always returns raw values
-
     def convertToVoltage(self, raw):
         if platform == "esp8266":
             v = raw / 1023 * self._cvm + self._co
         elif platform == "esp32":
             v = raw / 4095 * self._cvm + self._co
-        elif platform == "esp32_LoBo":
-            v = raw / 1000 + self._co  # loboris fork returns mV
         else:
             v = raw / 65535 * self._cvm + self._co  # every platform now provides this method
         if v > self._mv:
@@ -65,7 +56,7 @@ class pyADC:
         Return voltage according to used platform. Atten values are not recognized
         :return: float
         """
-        if platform in ("esp8266", "esp32", "esp32_LoBo"):
+        if platform in ("esp8266", "esp32"):
             raw = self.read()
         else:
             try:
@@ -121,9 +112,7 @@ def ADC(pin, *args, atten=None, calibration_v_max=3.3, calibration_offset=0, max
         # This does not retain the set atten value sadly.
         # It is however needed so that isinstance(adc, machine.ADC) is always True for hardware ADCs.
         astr = str(pin)
-        if platform == "esp32_Lobo":  # ADC(Pin(33): unit=ADC1, chan=5, width=12 bits, atten=0dB (1.1V), Vref=1100 mV)
-            pin = int(astr[astr.rfind("ADC(Pin(") + 8:astr.find("):")])
-        elif platform == "esp8266":  # esp8266 only has one ADC
+        if platform == "esp8266":  # esp8266 only has one ADC
             pin = 0
         elif platform == "esp32":  # ADC(Pin(33))
             pin = int(astr[astr.rfind("(") + 1:astr.rfind("))")])
@@ -134,7 +123,7 @@ def ADC(pin, *args, atten=None, calibration_v_max=3.3, calibration_offset=0, max
                 raise NotImplementedError(
                     "Platform {!s} not implemented, str {!s}, {!s}".format(platform, astr, e))
     if type(pin) == int:
-        if platform == "esp32" or platform == "esp32_LoBo":
+        if platform == "esp32":
             adc = machineADC(machine.Pin(pin), *args, calibration_v_max=calibration_v_max,
                              calibration_offset=calibration_offset, max_voltage=max_voltage,
                              **kwargs)

@@ -119,11 +119,7 @@ def start_services(state):
         return
     global services_started
     if services_started is False:
-        if sys.platform == "esp32_LoBo":
-            import pysmartnode.networking.wifi_esp32_lobo
-            del pysmartnode.networking.wifi_esp32_lobo
-            del sys.modules["pysmartnode.networking.wifi_esp32_lobo"]
-        elif sys.platform == "esp32":
+        if sys.platform == "esp32":
             import pysmartnode.networking.wifi_esp32
             del pysmartnode.networking.wifi_esp32
             del sys.modules["pysmartnode.networking.wifi_esp32"]

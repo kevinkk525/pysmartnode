@@ -38,16 +38,7 @@ WIFI_LED_ACTIVE_HIGH = True  # if led is on when output is low, change to False
 WEBREPL_ACTIVE = False  # If you want to have the webrepl active. Configures and starts it automatically.
 WEBREPL_PASSWORD = ""
 
-if platform == "esp32_LoBo":
-    MDNS_ACTIVE = True
-    MDNS_HOSTNAME = "esp32"
-    MDNS_DESCRIPTION = "esp32_mdns"
-    FTP_ACTIVE = True
-    TELNET_ACTIVE = True
-    RTC_SYNC_ACTIVE = True
-    RTC_SERVER = "de.pool.ntp.org"
-    RTC_TIMEZONE = "CET-1CEST,M3.5.0,M10.5.0/3"  # Germany, taken from MicroPython_BUILD/components/micropython/docs/zones.csv
-elif platform == "esp32":
+if platform == "esp32":
     FTP_ACTIVE = True
     RTC_SYNC_ACTIVE = True
     RTC_TIMEZONE_OFFSET = 2  # offset from GMT timezone as ntptime on esp8266 does not support timezones

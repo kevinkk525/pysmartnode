@@ -15,12 +15,6 @@ def reload(mod):
     return __import__(mod_name)
 
 
-import sys
-
-if sys.platform == "esp32_LoBo":
-    sys.path.insert(0, "/flash")
-    sys.path.append("/flash/lib")
-
 import uos
 import machine
 
