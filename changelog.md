@@ -4,7 +4,15 @@
 ### Version 6.1.0
 * [UASYNCIO] Support the new uasyncio version
 * [TIME] fix timezone offset if it changes the current day number
-TODO: implement adc.read_u16()
+* [ADC] supports read_u16(), supports calibration values (U=adc/resolution*calibration_v_max+calibration_offset). This also allows the usage of ATTEN on ESP32 as well as custom adc->voltage conversion e.g. when using a voltage divider.
+* [HCSR04] update to work more reliable, bugfixes, support setting reading iterations and use average of readings
+* [ECMeter] first working version, support setting reading iterations and use average of readings
+* [DS18] catch onewire error, set value to None on error so other components don't rely on an old sensor reading
+* [SENSORS] Extended API to pass **kwargs to base class, so base class constructor can be extended without needing to modify every component constructor
+* [SENSORS] improved error logging in loop to include stacktrace, fixed inconsitency with docs: timestamp only set after successful sensor reading (not None), allow setting a unique name for a sensor instead of always generating the name, support home-assistant sensor option "expire_after" for all sensor using the standard discovery type
+* [COMPONENTS] only list constructor kwargs that are used by the current subclass, everything else is covered by "**kwargs"
+* [CONFIG] Configuration of components now relies on kwargs. Providing args trough a config dictionary (e.g. remote configuration) is not supported anymore (but was never advised anyway).
+* [MQTT] timeout implementation split into different module, concurrent operations with timeouts now possible
 
 ---------------------------------------------------
 ### Version 6.0.2
