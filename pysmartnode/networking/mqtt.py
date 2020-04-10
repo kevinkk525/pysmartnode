@@ -172,10 +172,11 @@ class MQTTHandler(MQTTClient):
                 self.__first_connect = False
             elif self.__first_connect is False:
                 await _log.asyncLog("debug", "Reconnected")
-                # resubscribe topics because clean session is used
-                if self._sub_task is not None:
-                    self._sub_task.cancel()
-                self._sub_task = asyncio.create_task(self._subscribeTopics())
+            # subscribe topics because clean session is used. Some components might be added
+            # before connection has been made so subscribe on first connect too.
+            if self._sub_task is not None:
+                self._sub_task.cancel()
+            self._sub_task = asyncio.create_task(self._subscribeTopics())
             # TODO: change to asyncio.gather() as soon as cancelling gather works.
             for cb in self._reconnected_subs:
                 res = cb(client)
@@ -192,6 +193,9 @@ class MQTTHandler(MQTTClient):
         #  command topic won't be subscribed anymore because it is somehow jumped when
         #  the login topic is subscribed although already unsubscribed...
         _log.debug("_subscribeTopics, start", start, local_only=True)
+        if not self.isconnected():
+            _log.debug("_subscribeTopics, no connection", local_only=True)
+            return
         try:
             for i, sub in enumerate(self._subs):
                 # do not iter by range(start,length(_subs)) as _subs could get bigger while itering
@@ -207,7 +211,7 @@ class MQTTHandler(MQTTClient):
                     _log.debug("_subscribing", t[:-4], local_only=True)
                     if not await super().subscribe(t[:-4], 1, await_connection=False):
                         # state topic
-                        _log.error("Error subscribing, lost connection:", t[:-4], local_only=True)
+                        _log.debug("Error subscribing, lost connection:", t[:-4], local_only=True)
                         return  # connection loss exits the process
                     ts = time.ticks_ms()  # start timer after successful subscribe otherwise
                     # it might time out before subscribe has even finished.
@@ -221,12 +225,12 @@ class MQTTHandler(MQTTClient):
                         _log.debug("Unsubscribing state topic", t[:-4], "in _subsscribeTopics",
                                    local_only=True)
                         if not await super().unsubscribe(t[:-4], await_connection=False):
-                            _log.error("Error unsubscribing state topic, lost conenction:", t[:-4],
+                            _log.debug("Error unsubscribing state topic, lost conenction:", t[:-4],
                                        local_only=True)
                             return  # connection loss exits the process
                 _log.debug("_subscribing", t, local_only=True)
                 if not await super().subscribe(t, 1, await_connection=False):
-                    _log.error("Error subscribing, lost connection:", t, local_only=True)
+                    _log.debug("Error subscribing, lost connection:", t, local_only=True)
                     return  # connection loss exits the process
                 # no timeouts because _subscribeTopics will get canceled when connection is lost
         finally:
