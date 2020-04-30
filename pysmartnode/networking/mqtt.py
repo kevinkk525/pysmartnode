@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-02-17
 
-__updated__ = "2020-04-08"
-__version__ = "6.1"
+__updated__ = "2020-04-30"
+__version__ = "6.2"
 
 import gc
 import ujson
@@ -239,7 +239,7 @@ class MQTTHandler(MQTTClient):
                 self._subs.remove(sub)
                 self.__unsub_tmp = []
             self._sub_task = None
-            _log.debug("_subscribeTopics exited")
+            _log.debug("_subscribeTopics exited", local_only=True)
 
     def _convertToDeviceTopic(self, topic):
         t = topic.replace("{!s}/{!s}/".format(self.mqtt_home, self.client_id), "./")
@@ -255,14 +255,16 @@ class MQTTHandler(MQTTClient):
     def matchesSubscription(topic, subscription, ignore_command=False):
         if topic == subscription:
             return True
+        mt = memoryview(topic)
+        ms = memoryview(subscription)
         if ignore_command is True and subscription.endswith("/set"):
-            if memoryview(topic) == memoryview(subscription)[:-4]:
+            if mt == ms[:-4]:
                 return True
         if subscription.endswith("/#") or subscription.endswith("/+"):
             lens = len(subscription)
-            if memoryview(topic)[:lens - 2] == memoryview(subscription)[:-2]:
+            if mt[:lens - 2] == ms[:-2]:
                 if subscription.endswith("/#"):
-                    if len(topic) == lens - 2 or memoryview(topic)[lens - 2:lens - 1] == b"/":
+                    if len(topic) == lens - 2 or mt[lens - 2:lens - 1] == b"/":
                         # check if identifier matches subscription or has sublevel
                         # (home/test/# does not listen to home/testing but to home/test)
                         return True
@@ -273,20 +275,20 @@ class MQTTHandler(MQTTClient):
         pl = subscription.find("/+/")
         if pl != -1:
             st = topic.find("/", pl + 1) + 1
-            if memoryview(subscription)[:pl + 1] == memoryview(topic)[:pl + 1]:  # equal until /+
+            if ms[:pl + 1] == mt[:pl + 1]:  # equal until /+
                 if subscription.endswith("/#"):
                     sub = subscription.replace("/+/", topic[pl:topic.find("/", pl + 1) + 1])
                     return MQTTHandler.matchesSubscription(topic, sub, ignore_command)
                 if ignore_command is True:
-                    if memoryview(subscription)[-5:] == b"+/set" and st == 0:  # st==0 no subtopics
+                    if ms[-5:] == b"+/set" and st == 0:  # st==0 no subtopics
                         return True
-                    elif memoryview(subscription)[-4:] == b"/set":
+                    elif ms[-4:] == b"/set":
                         ed = len(subscription) - 4
                     else:
                         ed = len(subscription)
                 else:
                     ed = len(subscription)
-                if memoryview(subscription)[pl + 3:ed] == memoryview(topic)[st:]:
+                if ms[pl + 3:ed] == mt[st:]:
                     return True
             return False
         return False
