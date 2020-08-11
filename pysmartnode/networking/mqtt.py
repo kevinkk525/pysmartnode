@@ -233,6 +233,8 @@ class MQTTHandler(MQTTClient):
                     _log.debug("Error subscribing, lost connection:", t, local_only=True)
                     return  # connection loss exits the process
                 # no timeouts because _subscribeTopics will get canceled when connection is lost
+        except asyncio.CancelledError:
+            _log.debug("_subscribeTopics cancelled", local_only=True)
         finally:
             # remove pending unsubscribe requests
             for sub in self.__unsub_tmp:
@@ -250,7 +252,7 @@ class MQTTHandler(MQTTClient):
     def _isDeviceSubscription(self, topic):
         return topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.client_id))
 
-    @micropython.native
+    # @micropython.native
     @staticmethod
     def matchesSubscription(topic, subscription, ignore_command=False):
         if topic == subscription:

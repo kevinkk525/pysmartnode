@@ -18,12 +18,12 @@ example config:
         # friendly_name: [...]   # optional, list of friendly names for each published category
     }
 }
-Sensor is tested with esp32. ESP8266 has only 1 uart but *could* be used if the repl is disconnected (not tested).
+Sensor should work with every port.
 NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2020-03-29"
-__version__ = "1.9"
+__updated__ = "2020-07-03"
+__version__ = "1.9.1"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -32,8 +32,8 @@ import machine
 import uasyncio as asyncio
 from pysmartnode.utils.component.sensor import ComponentSensor, VALUE_TEMPLATE_JSON
 
-DISCOVERY_PM = '"unit_of_meas":"{!s}",' \
-               '"val_tpl":"{{{{ value_json.{!s} }}}}",'
+_DISCOVERY_PM = '"unit_of_meas":"{!s}",' \
+                '"val_tpl":"{{{{ value_json.{!s} }}}}",'
 
 TYPES = ["pm10_standard", "pm25_standard", "pm100_standard", "pm10_env", "pm25_env",
          "pm100_env", "particles_03um", "particles_05um", "particles_10um",
@@ -62,7 +62,7 @@ class PMS5003(ComponentSensor):
                  interval_reading=0.1, active_mode=True, eco_mode=True, friendly_name: list = None,
                  **kwargs):
         """
-        :param uart_number: esp32 has multiple uarts
+        :param uart_number: multiple uarts possible.
         :param uart_tx: tx pin number
         :param uart_rx: rx pin number
         :param set_pin: optional pin number for set pin
@@ -88,13 +88,13 @@ class PMS5003(ComponentSensor):
             ind = TYPES.index(tp)
             self._addSensorType(tp, 0, 0, VALUE_TEMPLATE_JSON.format(tp), UNITS[ind],
                                 friendly_name[ind] if friendly_name is not None else tp,
-                                None, DISCOVERY_PM.format(UNITS[ind], tp))
+                                None, _DISCOVERY_PM.format(UNITS[ind], tp))
         uart = machine.UART(uart_number, tx=uart_tx, rx=uart_rx, baudrate=9600)
         self._count = 0
 
         ##############################
         # create sensor object
-        self.pms = sensorModule.PMS5003(self, uart, asyncio.Lock(), set_pin, reset_pin,
+        self.pms = sensorModule.PMS5003(self, uart, set_pin, reset_pin,
                                         interval_reading, active_mode=active_mode,
                                         eco_mode=eco_mode)
         self._active_mode = active_mode

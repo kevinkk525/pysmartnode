@@ -31,11 +31,11 @@ class repeating(BaseMode):
         self._task = None
 
     async def _changeOnTime(self, topic, msg, retain):
-        self._on_time = int(msg)
+        self._on_time = float(msg)
         return True
 
     async def _changeOffTime(self, topic, msg, retain):
-        self._off_time = int(msg)
+        self._off_time = float(msg)
         return True
 
     async def _repeating(self, component_on, component_off):

@@ -38,15 +38,16 @@ WIFI_LED_ACTIVE_HIGH = True  # if led is on when output is low, change to False
 WEBREPL_ACTIVE = False  # If you want to have the webrepl active. Configures and starts it automatically.
 WEBREPL_PASSWORD = ""
 
+RTC_SYNC_ACTIVE = True  # uses ~600B additional RAM on esp8266
+RTC_TIMEZONE_OFFSET = 2  # offset from GMT timezone as ntptime does not support timezones
+
 if platform == "esp32":
     FTP_ACTIVE = True
-    RTC_SYNC_ACTIVE = True
-    RTC_TIMEZONE_OFFSET = 2  # offset from GMT timezone as ntptime on esp8266 does not support timezones
+elif platform == "pyboard":
+    FTP_ACTIVE = True
 elif platform == "esp8266":
     LIGTWEIGHT_LOG = False  # uses a smaller class for logging on esp8266 omitting module names, saves ~500Bytes
     USE_SOFTWARE_WATCHDOG = True  # uses ~700B of RAM, started with timeout=2xMQTT_KEEPALIVE, use if you experience outages
-    RTC_SYNC_ACTIVE = True  # uses ~600B additional RAM on esp8266
-    RTC_TIMEZONE_OFFSET = 2  # offset from GMT timezone as ntptime on esp8266 does not support timezones
     WIFI_SLEEP_MODE = 0  # WIFI_NONE_SLEEP = 0, WIFI_LIGHT_SLEEP = 1, WIFI_MODEM_SLEEP = 2; changed to 0 for increased stability. Standard is 2. Integrated into mqtt_as.
 elif platform == "linux":
     RTC_SYNC_ACTIVE = True  # This should always be True unless your system doesn't have access to the internet or sync the time

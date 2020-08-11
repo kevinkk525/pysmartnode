@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 sudo apt-get install git wget libncurses-dev flex bison gperf python python-pip python-setuptools python-serial python-click python-cryptography python-future python-pyparsing python-pyelftools cmake ninja-build ccache
-pip3 install pyserial pyparsing esptool rshell
+sudo apt-get install git wget libncurses-dev flex bison gperf python python-pip python-setuptools cmake ninja-build ccache libffi-dev libssl-dev
+pip3 install pyserial 'pyparsing<2.4' esptool rshell
 cd ~/
 git clone https://github.com/micropython/micropython.git
 cd micropython
 git submodule update --init
 cd ports/esp32
-hash=$(make | grep "Supported git hash:")
-hash=${hash:20}
+hash=$(make | grep "Supported git hash (v4.0) (experimental):")
+hash=${hash:42}
 cd ~/
-git clone https://github.com/espressif/esp-idf.git
+git clone -b release/v4.0 --recursive https://github.com/espressif/esp-idf.git
 cd esp-idf
+git pull
 git checkout $hash
 git submodule update --init
+./install.sh
+. $HOME/esp-idf/export.sh
 cd ..
 mkdir esp
 cd esp
