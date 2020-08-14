@@ -10,14 +10,14 @@ rsync -av --prune-empty-dirs  --include "*/" --include "*.py" --exclude "*" --ex
 
 function foo {
                    echo $1
-                   local res=$(/home/kevin/.local/bin/strip-hints --only-assigns-and-defs --only-test-for-changes $1)
-                   if [[ $res = "True" ]]; then
-                       echo "$1 stripped of hints"
-                       v=$(/home/kevin/.local/bin/strip-hints --only-assigns-and-defs $1)
-                       echo "$v" > $1
+                   #local res=$(/home/kevin/.local/bin/strip-hints --only-assigns-and-defs --only-test-for-changes $1)
+                   #if [[ $res = "True" ]]; then
+                   #    echo "$1 stripped of hints"
+                   #    v=$(/home/kevin/.local/bin/strip-hints --only-assigns-and-defs $1)
+                   #    echo "$v" > $1
                    #else
                    #    echo $1 $res
-                   fi
+                   #fi
                    ~/micropython/mpy-cross/mpy-cross -march=xtensawin $1;
                    rm $1
                 }
