@@ -16,7 +16,6 @@
 * [BELL]: drop timer because it worked unreliable on esp8266, change component to inherit from ComponentSensor, add option to read pin state multiple times to ensure that it works with AC signals.
 * Support for Pyboard D added
 * Support for loboris fork dropped because it won't get any updates and probably doesn't support the new uasyncio
-# TODO: test mqtt on esp8266
 
 ---------------------------------------------------
 ### Version 6.0.2
