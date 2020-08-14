@@ -10,6 +10,8 @@ import uasyncio as asyncio
 import time
 
 
+# doesn't work with new version of uasyncio
+
 class MQTTClient(_MQTTClient):
     _ops_tasks = [None, None]  # publish and (un)sub operations, can be concurrent
 

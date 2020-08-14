@@ -2,13 +2,12 @@
 # Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-02-17
 
-__updated__ = "2020-04-30"
-__version__ = "6.2"
+__updated__ = "2020-08-12"
+__version__ = "6.3"
 
 import gc
 import ujson
 import time
-import micropython
 import uasyncio as asyncio
 import os
 from pysmartnode import config
@@ -17,11 +16,7 @@ from pysmartnode import logging
 from pysmartnode.utils import sys_vars
 
 if config.MQTT_TYPE:
-    if platform != "esp8266":
-        from micropython_mqtt_as.mqtt_as_timeout_concurrent import MQTTClient
-    else:
-        # version for esp8266 with only concurrent publish and (un)subscribe
-        from .mqtt_timeout import MQTTClient
+    from micropython_mqtt_as.mqtt_as_timeout_concurrent import MQTTClient
 else:
     from dev.mqtt_iot import MQTTClient  # Currently not working/under development
 gc.collect()
@@ -252,7 +247,7 @@ class MQTTHandler(MQTTClient):
     def _isDeviceSubscription(self, topic):
         return topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.client_id))
 
-    # @micropython.native
+    # @micropython.native native emitter on esp8266 not working anymore and not working on pyboard
     @staticmethod
     def matchesSubscription(topic, subscription, ignore_command=False):
         if topic == subscription:
