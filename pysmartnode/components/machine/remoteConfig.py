@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-15 
 
-__updated__ = "2020-04-07"
-__version__ = "0.92"
+__updated__ = "2020-08-11"
+__version__ = "0.93"
 
 from pysmartnode.utils.component import ComponentBase
 from pysmartnode import config
@@ -19,7 +19,8 @@ _mqtt = config.getMQTT()
 _log = logging.getLogger(COMPONENT_NAME)
 
 # SPIRAM is very slow when importing modules
-WAIT = 1.5 if platform == "esp8266" else (0.5 if "(spiram)" not in os.uname().machine else 3)
+WAIT = 1.5 if platform == "esp8266" else (
+    0.5 if os.uname() == "posix" or "(spiram)" not in os.uname().machine else 3)
 
 
 class RemoteConfig(ComponentBase):
