@@ -58,20 +58,7 @@ git submodule update --init --recursive --remote
 You should have the latest micropython firmware and include the directory "pysmartnode" as frozen bytecode into your firmware. (Put it in the "module" directory before building the firmware)
 On ESP32 frozen bytecode is not neccessary but should be considered if not using psram.
 
-#### Warning
-Many modules use Variable Annotations ([PEP526](https://www.python.org/dev/peps/pep-0526/)) but micropython doesn't support
-[PEP 526 (Syntax for Variable Annotations)](https://github.com/micropython/micropython/issues/2415#issuecomment-548173512) yet.
-<br> This means that every build, .mpy or directly uploaded file with variable annotations will fail.
-<br> To work around this problem, the files have to be stripped of their variable annotations. This can be done with the python module "strip-hints".
-
-<br> In tools there is a [script](./tools/esp8266/esp8266_remove_hints.sh) that will replace all files with varibale annotations with a stripped version of the file.
-<br> Use that script after syncing/copying the files in the modules directory before building the
-firmware. You have to adapt the path in the script, so you could point it to any directory, doesn't
- need to be the esp8266 modules directory.
-
 Alternatively a prebuilt firmware for the esp8266 can be used that should be attached to every release on github. On esp32 the precompiled .mpy files can be used that are also attached to every github release.
-<br> Then it is not neccesary to strip the source files of hints.
-<br> This is recommended because the esp8266 needs a custom firmware build anyway as it can't compile the project because of its small RAM.
 <br>The esp32 could build the project but that is very slow and therefore it is recommended to use .mpy files.
 
 ### 2.2. Dependencies
