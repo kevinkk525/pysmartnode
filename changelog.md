@@ -1,7 +1,7 @@
 # Changelog
 
 ---------------------------------------------------
-### Version 6.1.0
+### Version 6.1.1
 * [UASYNCIO] Support the new uasyncio version
 * [TIME] fix timezone offset if it changes the current day number
 * [ADC] supports read_u16(), supports calibration values (U=adc/resolution*calibration_v_max+calibration_offset). This also allows the usage of ATTEN on ESP32 as well as custom adc->voltage conversion e.g. when using a voltage divider.
@@ -10,9 +10,13 @@
 * [DS18] catch onewire error, set value to None on error so other components don't rely on an old sensor reading
 * [SENSORS] Extended API to pass **kwargs to base class, so base class constructor can be extended without needing to modify every component constructor
 * [SENSORS] improved error logging in loop to include stacktrace, fixed inconsitency with docs: timestamp only set after successful sensor reading (not None), allow setting a unique name for a sensor instead of always generating the name, support home-assistant sensor option "expire_after" for all sensor using the standard discovery type
-* [COMPONENTS] only list constructor kwargs that are used by the current subclass, everything else is covered by "**kwargs"
+* [COMPONENTS] only list constructor kwargs that are used by the current subclass, everything else is covered by "**kwargs", fix random.random not always available anymore, add "expire_after" option to sensors, fix delete discovery option, add option to not publish a value if reading failed (by returnin False), fix discovery message for binary_sensors, remove icon from binary sensor discovery message (maybe falsely removed by homeassistant?)
 * [CONFIG] Configuration of components now relies on kwargs. Providing args trough a config dictionary (e.g. remote configuration) is not supported anymore (but was never advised anyway).
-* [MQTT] timeout implementation split into different module, concurrent operations with timeouts now possible
+* [MQTT] concurrent operations with timeouts now possible, fix for esp8266 with native not working anymore
+* [BELL]: drop timer because it worked unreliable on esp8266, change component to inherit from ComponentSensor, add option to read pin state multiple times to ensure that it works with AC signals.
+* Support for Pyboard D added
+* Support for loboris fork dropped because it won't get any updates and probably doesn't support the new uasyncio
+# TODO: test mqtt on esp8266
 
 ---------------------------------------------------
 ### Version 6.0.2
