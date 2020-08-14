@@ -1,34 +1,36 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-15 
 
-__updated__ = "2019-11-03"
-__version__ = "0.8"
+__updated__ = "2020-08-11"
+__version__ = "0.93"
 
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
 from sys import platform
 import gc
+import os
 
 COMPONENT_NAME = "remoteConfig"
 
 _mqtt = config.getMQTT()
 _log = logging.getLogger(COMPONENT_NAME)
 
-WAIT = 1.5 if platform == "esp8266" else 0.5
+# SPIRAM is very slow when importing modules
+WAIT = 1.5 if platform == "esp8266" else (
+    0.5 if os.uname() == "posix" or "(spiram)" not in os.uname().machine else 3)
 
 
-class RemoteConfig(Component):
-    def __init__(self):
-        super().__init__(COMPONENT_NAME, __version__, unit_index=0)
+class RemoteConfig(ComponentBase):
+    def __init__(self, **kwargs):
+        super().__init__(COMPONENT_NAME, __version__, unit_index=0, logger=_log, **kwargs)
         self._topic = "{!s}/login/{!s}/#".format(_mqtt.mqtt_home, _mqtt.client_id)
-        self._watcher_coro = self._watcher()
         self._icomp = None
         self._rcomp = []
         self._done = False
-        asyncio.get_event_loop().create_task(self._watcher_coro)
+        self._watcher_task = asyncio.create_task(self._watcher())
 
     def done(self):
         return self._done
@@ -96,5 +98,5 @@ class RemoteConfig(Component):
             self._saveComponent(name, msg)
             await config.registerComponent(name, msg)
         if len(self._rcomp) == self._icomp:  # received all components
-            asyncio.cancel(self._watcher_coro)
+            self._watcher_task.cancel()
         return False

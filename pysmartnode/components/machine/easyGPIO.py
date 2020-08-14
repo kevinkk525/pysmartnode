@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Copyright Kevin Köck 2017-2020 Released under the MIT license
 # Created on 2017-10-30
 
 """
@@ -14,29 +14,32 @@ example config:
 }
 Makes esp8266 listen to requested gpio changes or return pin.value() if message is published without payload.
 This component is just a generic interface to device pins, it does not offer ComponentSwitch features.
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2019-11-07"
-__version__ = "1.8"
+__updated__ = "2020-04-03"
+__version__ = "1.91"
 
 import gc
 import machine
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode import config
 from pysmartnode import logging
-from pysmartnode.utils.component import Component, DISCOVERY_SWITCH
+from pysmartnode.utils.component import ComponentBase, DISCOVERY_SWITCH
 
 _mqtt = config.getMQTT()
 
 COMPONENT_NAME = "easyGPIO"
 _COMPONENT_TYPE = "switch"
 
+_log = logging.getLogger("easyGPIO")
+
 gc.collect()
 
 
-class GPIO(Component):
-    def __init__(self, mqtt_topic=None, discover_pins=None):
-        super().__init__(COMPONENT_NAME, __version__, unit_index=0)
+class GPIO(ComponentBase):
+    def __init__(self, mqtt_topic=None, discover_pins=None, **kwargs):
+        super().__init__(COMPONENT_NAME, __version__, unit_index=0, logger=_log, **kwargs)
         self._topic = mqtt_topic or _mqtt.getDeviceTopic("easyGPIO/+/set")
         _mqtt.subscribeSync(self._topic, self.on_message, self, check_retained_state=True)
         self._d = discover_pins or []
@@ -52,7 +55,6 @@ class GPIO(Component):
 
     @staticmethod
     async def on_message(topic, msg, retain):
-        _log = logging.getLogger("easyGPIO")
         if topic.endswith("/set") is False:
             if retain:
                 pin = topic[topic.rfind("easyGPIO/") + 9:]

@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-06-16
 
 """
@@ -13,32 +13,27 @@ example config:
         uart_rx: 26        # uart rx pin
         # set_pin: null    # optional, sets device to sleep/wakes it up, can be done with uart
         # reset_pin: null   # optional, without this pin the device can not be reset
-        # interval_reading: 0.1   # optional, In passive mode controls the reading interval, defaults to 0.1 in active_mode.
-        # interval_publish: 600   # publish interval, independent of interval_reading and active_mode, defaults to 600s
         # active_mode: true     # optional, defaults to true, in passive mode device is in sleep between measurements
         # eco_mode: true        # optional, defaults to true, puts device to sleep between passive reads
-        # interval: 600            #optional, defaults to 600, 0 means publish every value received
-        # mqtt_topic: sometopic  #optional, defaults to home/<controller-id>/PMS5003
         # friendly_name: [...]   # optional, list of friendly names for each published category
-        # discover: true            # optional, if false no discovery message for homeassistant will be sent.
-        # expose_intervals: Expose intervals to mqtt so they can be changed remotely
-        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
-Sensor can only be used with esp32 as esp8266 has only 1 uart at 115200 (9600 needed) 
+Sensor should work with every port.
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2019-11-02"
-__version__ = "1.8"
+__updated__ = "2020-07-03"
+__version__ = "1.9.1"
 
 from pysmartnode import config
 from pysmartnode import logging
 import gc
 import machine
+import uasyncio as asyncio
 from pysmartnode.utils.component.sensor import ComponentSensor, VALUE_TEMPLATE_JSON
 
-DISCOVERY_PM = '"unit_of_meas":"{!s}",' \
-               '"val_tpl":"{{{{ value_json.{!s} }}}}",'
+_DISCOVERY_PM = '"unit_of_meas":"{!s}",' \
+                '"val_tpl":"{{{{ value_json.{!s} }}}}",'
 
 TYPES = ["pm10_standard", "pm25_standard", "pm100_standard", "pm10_env", "pm25_env",
          "pm100_env", "particles_03um", "particles_05um", "particles_10um",
@@ -64,11 +59,10 @@ gc.collect()
 
 class PMS5003(ComponentSensor):
     def __init__(self, uart_number, uart_tx, uart_rx, set_pin=None, reset_pin=None,
-                 interval_reading=0.1, active_mode=True, eco_mode=True,
-                 interval_publish=None, mqtt_topic=None, friendly_name: list = None,
-                 discover=True, expose_intervals=False, intervals_topic=None):
+                 interval_reading=0.1, active_mode=True, eco_mode=True, friendly_name: list = None,
+                 **kwargs):
         """
-        :param uart_number: esp32 has multiple uarts
+        :param uart_number: multiple uarts possible.
         :param uart_tx: tx pin number
         :param uart_rx: rx pin number
         :param set_pin: optional pin number for set pin
@@ -76,15 +70,10 @@ class PMS5003(ComponentSensor):
         :param interval_reading: In passive mode controls the reading interval, defaults to 0.1 in active_mode.
         :param active_mode:
         :param eco_mode:
-        :param interval_publish: publish interval, independent of interval_reading and active_mode
-        :param mqtt_topic:
         :param friendly_name: optional, list of friendly_names for all types. Has to provide a name for every type.
-        :param discover:
-        :param expose_intervals: intervals can be changed through mqtt
-        :param intervals_topic:
         """
-        super().__init__(COMPONENT_NAME, __version__, 0, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
+        super().__init__(COMPONENT_NAME, __version__, 0, logger=_log,
+                         interval_reading=interval_reading, **kwargs)
         if type(friendly_name) is not None:
             if type(friendly_name) == list:
                 if len(friendly_name) != 12:
@@ -99,13 +88,13 @@ class PMS5003(ComponentSensor):
             ind = TYPES.index(tp)
             self._addSensorType(tp, 0, 0, VALUE_TEMPLATE_JSON.format(tp), UNITS[ind],
                                 friendly_name[ind] if friendly_name is not None else tp,
-                                None, DISCOVERY_PM.format(UNITS[ind], tp))
+                                None, _DISCOVERY_PM.format(UNITS[ind], tp))
         uart = machine.UART(uart_number, tx=uart_tx, rx=uart_rx, baudrate=9600)
         self._count = 0
 
         ##############################
         # create sensor object
-        self.pms = sensorModule.PMS5003(self, uart, config.Lock(), set_pin, reset_pin,
+        self.pms = sensorModule.PMS5003(self, uart, set_pin, reset_pin,
                                         interval_reading, active_mode=active_mode,
                                         eco_mode=eco_mode)
         self._active_mode = active_mode

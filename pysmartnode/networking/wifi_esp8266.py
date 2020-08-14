@@ -4,7 +4,7 @@ Created on 26.05.2018
 @author: Kevin Köck
 '''
 
-__updated__ = "2019-10-26"
+__updated__ = "2020-03-08"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -61,5 +61,5 @@ if config.RTC_SYNC_ACTIVE:
                 # sockets still open (Errno 98 EADDRINUSE). Got killed by WDT after a few minutes.
 
 
-    asyncio.get_event_loop().create_task(_sync())
+    asyncio.create_task(_sync())
     gc.collect()

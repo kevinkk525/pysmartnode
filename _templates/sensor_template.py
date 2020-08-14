@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-04-14
 
 """
@@ -25,8 +25,8 @@ example config:
 }
 """
 
-__updated__ = "2019-11-02"
-__version__ = "2.2"
+__updated__ = "2020-03-29"
+__version__ = "2.3"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -55,9 +55,7 @@ _unit_index = -1
 class MySensor(ComponentSensor):
     def __init__(self, i2c, precision_temp=2, precision_humid=1,
                  temp_offset=0, humid_offset=0,  # extend or shrink according to your sensor
-                 interval_publish=None, interval_reading=None, mqtt_topic=None,
-                 friendly_name_temp=None, friendly_name_humid=None,
-                 discover=True, expose_intervals=False, intervals_topic=None):
+                 friendly_name_temp=None, friendly_name_humid=None, **kwargs):
         """
         :param i2c: i2c object for temperature sensor
         :param precision_temp: precision of the temperature value, digits after separator "."
@@ -82,8 +80,7 @@ class MySensor(ComponentSensor):
         # Initialize before super()__init__(...) to not pass the wrong value.
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch

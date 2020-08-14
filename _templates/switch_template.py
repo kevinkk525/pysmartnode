@@ -1,8 +1,6 @@
-'''
-Created on 31.10.2017
-
-@author: Kevin Köck
-'''
+# Author: Kevin Köck
+# Copyright Kevin Köck 2017-2020 Released under the MIT license
+# Created on 2017-10-31
 
 """
 example config:
@@ -12,13 +10,13 @@ example config:
     constructor_args: {
         # mqtt_topic: null    # optional, defaults to <mqtt_home>/<device_id>/Switch<_unit_index>/set
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
-        # discover: true      # optional, if false no discovery message for homeassistant will be sent.
     }
 }
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2019-11-02"
-__version__ = "1.8"
+__updated__ = "2020-04-03"
+__version__ = "1.91"
 
 from pysmartnode import config
 from pysmartnode.utils.component.switch import ComponentSwitch
@@ -35,16 +33,18 @@ _unit_index = -1
 
 
 class Switch(ComponentSwitch):
-    def __init__(self, mqtt_topic=None, friendly_name=None, discover=True):
-        # discover: boolean, if this component should publish its mqtt discovery.
-        # This can be used to prevent combined Components from exposing underlying
-        # hardware components like a power switch
-
+    def __init__(self, mqtt_topic=None, friendly_name=None, **kwargs):
         # This makes it possible to use multiple instances of Button.
         # It is needed for every default value for mqtt.
         # Initialize before super()__init__(...) to not pass the wrong value.
         global _unit_index
         _unit_index += 1
+
+        # mqtt_topic and friendly_name can be removed from the constructor if not initialized
+        # differently by this module if not given by the user. If removed from the constructor,
+        # also remove it from super().__init__(...)!
+        # example:
+        friendly_name = friendly_name or "mySwitch_name_friendly_{!s}".format(_unit_index)
 
         ###
         # set the initial state otherwise it will be "None" (unknown) and the first request
@@ -54,21 +54,24 @@ class Switch(ComponentSwitch):
         # you initialize a pin in a certain state.
         ###
 
-        # mqtt_topic can be adapted otherwise a default mqtt_topic will be generated if None
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, mqtt_topic, instance_name=None,
-                         wait_for_lock=True, discover=discover, friendly_name=friendly_name,
-                         initial_state=initial_state)
+        # mqtt_topic can be adapted otherwise a default mqtt_topic will be generated if not
+        # provided by user configuration.
+        # friendly_name can be adapted, otherwise it will be unconfigured (which is ok too).
+        super().__init__(COMPONENT_NAME, __version__, _unit_index,
+                         friendly_name=friendly_name, mqtt_topic=mqtt_topic,
+                         # remove friendly_name and mqtt_topic if removed from constructor
+                         wait_for_lock=True, initial_state=initial_state, **kwargs)
 
         # If the device needs extra code, launch a new coroutine.
 
     #####################
     # Change these methods according to your device.
     #####################
-    async def _on(self):
+    async def _on(self) -> bool:
         """Turn device on."""
         return True  # return True when turning device on was successful.
 
-    async def _off(self):
+    async def _off(self) -> bool:
         """Turn device off. """
         return True  # return True when turning device off was successful.
     #####################

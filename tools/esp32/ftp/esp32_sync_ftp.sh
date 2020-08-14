@@ -1,5 +1,5 @@
 #!/bin/bash
-HOST="192.168.178.51"
+HOST="192.168.178.70"
 USER=""
 PASS=""
 TARGETFOLDER="/pysmartnode"

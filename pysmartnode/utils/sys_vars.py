@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-02-02
 
 __updated__ = "2019-10-22"
@@ -40,7 +40,7 @@ def hasFilesystem():
 
 def getDeviceDiscovery():
     from pysmartnode import config
-    mf = "espressif" if platform in ("esp8266", "esp32", "esp32_LoBo") else "None"
+    mf = "espressif" if platform in ("esp8266", "esp32") else "None"
     if platform != "linux":
         import network
         s = network.WLAN(network.STA_IF)

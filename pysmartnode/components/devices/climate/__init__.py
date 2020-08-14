@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-10-10
 
 """
@@ -19,7 +19,6 @@ example config:
         # temp_high: 21                 # optional, initial temperature high if no value saved by mqtt
         # away_temp_low: 16             # optional, initial away temperature low if no value saved by mqtt
         # away_temp_high: 17            # optional, initial away temperature high if no value saved by mqtt
-        # disover: true                 # optional, send mqtt discovery
         # interval: 300            #optional, defaults to 300s, interval sensor checks situation. Should be >60s
         # friendly_name: null    # optional, friendly name shown in homeassistant gui with mqtt discovery
     }
@@ -33,16 +32,17 @@ cooling_unit
 fan_unit
 """
 
-__updated__ = "2019-11-02"
-__version__ = "0.8"
+# TODO: make it possible to only use one target_temp instead of high/low and away_high/low
+
+__updated__ = "2020-04-03"
+__version__ = "0.92"
 
 from pysmartnode import config
 from pysmartnode import logging
 import uasyncio as asyncio
-from pysmartnode.utils.event import Event
 import gc
 import time
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 
 # imports of ComponentSensor and ComponentSwitch to keep heap fragmentation low
 # as those will be needed in any case
@@ -68,18 +68,18 @@ gc.collect()
 _unit_index = -1
 
 
-class Climate(Component):
+class Climate(ComponentBase):
     def __init__(self, temperature_sensor: ComponentSensor, heating_unit: ComponentSwitch,
                  modes: list, interval: float = 300, temp_step=0.1, min_temp: float = 16,
                  max_temp: float = 26, temp_low: float = 20, temp_high: float = 21,
                  away_temp_low: float = 16, away_temp_high: float = 17,
-                 friendly_name=None, discover=True):
+                 friendly_name=None, **kwargs):
         self.checkSensorType(temperature_sensor, SENSOR_TEMPERATURE)
         self.checkSwitchType(heating_unit)
         # This makes it possible to use multiple instances of MyComponent
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
 
         self._temp_step = temp_step
         self._min_temp = min_temp
@@ -121,8 +121,8 @@ class Climate(Component):
                       STORAGE_TEMPERATURE_LOW:       temp_low,  # temperature low, storage value
                       CURRENT_MODE:                  str(self._modes["off"]),
                       CURRENT_ACTION:                ACTION_OFF}
-        self.event = Event()
-        self.lock = config.Lock()
+        self.event = asyncio.Event()
+        self.lock = asyncio.Lock()
         # every extneral change (like mode) that could break an ongoing trigger needs
         # to be protected by self.lock.
         self.log = _log
@@ -142,7 +142,7 @@ class Climate(Component):
         _mqtt.subscribeSync(self._away_topic, self.changeAwayMode, self)
 
         self._restore_done = False
-        asyncio.get_event_loop().create_task(self._loop(interval))
+        asyncio.create_task(self._loop(interval))
 
     async def _init_network(self):
         await _mqtt.awaitSubscriptionsDone()  # wait until subscriptions are done
@@ -159,7 +159,6 @@ class Climate(Component):
         gc.collect()
 
     async def _loop(self, interval):
-        interval = interval * 1000
         t = time.ticks_ms()
         while not self._restore_done and time.ticks_diff(time.ticks_ms(), t) < 30000:
             await asyncio.sleep(1)
@@ -172,9 +171,12 @@ class Climate(Component):
         await asyncio.sleep(1)
         t = 0
         while True:
-            while time.ticks_diff(time.ticks_ms(), t) < interval and not self.event.is_set():
-                await asyncio.sleep_ms(100)
-            if self.event.is_set():
+            try:
+                await asyncio.wait_for(self.event.wait(),
+                                       interval - time.ticks_diff(time.ticks_ms(), t) / 1000)
+            except asyncio.TimeoutError:
+                pass
+            else:
                 self.event.clear()
             async with self.lock:
                 cur_temp = await self.temp_sensor.getValue(SENSOR_TEMPERATURE)
@@ -295,7 +297,7 @@ class Climate(Component):
         else:
             sens = ""
         gc.collect()
-        topic = Component._getDiscoveryTopic(_COMPONENT_TYPE, name)
+        topic = ComponentBase._getDiscoveryTopic(_COMPONENT_TYPE, name)
         await _mqtt.publish(topic, sens, qos=1, retain=True)
 
 

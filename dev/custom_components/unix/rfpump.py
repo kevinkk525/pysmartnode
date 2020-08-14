@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-07-13
 
 """
@@ -94,7 +94,7 @@ class RFPump(RF433):
         await asyncio.sleep(4)  # get retained states going if available
         if self._repeating_mode is True and self._off_coro is None:
             self._off_coro = self._repeating()
-            asyncio.get_event_loop().create_task(self._off_coro)
+            asyncio.create_task(self._off_coro)
 
     def changeOnTime(self, topic, msg, retain):
         self._on_time = int(msg)
@@ -115,7 +115,7 @@ class RFPump(RF433):
             elif self._repeating_mode is False:
                 await super().on_message(self._topic, "OFF", retain)
                 self._off_coro = self._repeating()
-                asyncio.get_event_loop().create_task(self._off_coro)
+                asyncio.create_task(self._off_coro)
         elif msg in _mqtt.payload_off:
             if self._off_coro is not None:
                 asyncio.cancel(self._off_coro)  # will shut down pump
@@ -183,12 +183,12 @@ class RFPump(RF433):
             if (await super().on_message(topic, msg, retain)) is True:
                 if self._repeating_mode is False:
                     self._off_coro = self._wait_off()
-                    asyncio.get_event_loop().create_task(self._off_coro)
+                    asyncio.create_task(self._off_coro)
         elif msg in _mqtt.payload_off:
             if (await super().on_message(topic, msg, retain)) is False:
                 if self._repeating_mode is False:
                     self._off_coro = self._wait_off()
-                    asyncio.get_event_loop().create_task(self._off_coro)  # try again
+                    asyncio.create_task(self._off_coro)  # try again
         else:
             await _log.asyncLog("error", "unsupported payload: {!s}".format(msg))
             return False

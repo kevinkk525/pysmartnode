@@ -1,9 +1,9 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-28 
 
-__updated__ = "2019-09-29"
-__version__ = "0.2"
+__updated__ = "2019-11-15"
+__version__ = "0.3"
 
 from pysmartnode.components.switches.switch_extension import Switch, ComponentSwitch, _mqtt, \
     COMPONENT_NAME, BaseMode
@@ -24,7 +24,7 @@ class safety_off(BaseMode):
             COMPONENT_NAME, count)
         topic = _mqtt.getDeviceTopic("{!s}/safety_off/on_time".format(_name), is_request=True)
         _mqtt.subscribeSync(topic, self._changeOnTime, extended_switch, check_retained_state=True)
-        self._coro = None
+        self._task = None
         self.topic = topic
 
     async def _changeOnTime(self, topic, msg, retain):
@@ -33,12 +33,11 @@ class safety_off(BaseMode):
 
     async def on(self, extended_switch, component, component_on, component_off):
         """Turn device on"""
-        if component.state() is True and self._coro is not None:
+        if component.state() is True and self._task is not None:
             return True
-        if self._coro is None:
+        if self._task is None:
             if await component_on() is True:
-                self._coro = self._wait_off(component_off)
-                asyncio.get_event_loop().create_task(self._coro)
+                self._task = asyncio.create_task(self._wait_off(component_off))
                 return True
             else:
                 return False
@@ -56,14 +55,14 @@ class safety_off(BaseMode):
         except asyncio.CancelledError:
             print("wait_off canceled")
         finally:
-            self._coro = None  # prevents cancelling the cancelled coro
+            self._task = None  # prevents cancelling the cancelled coro
             await component_off()
             print("wait_off exited")
 
     async def off(self, extended_switch, component, component_on, component_off):
         """Turn device off"""
-        if self._coro is not None:
-            asyncio.cancel(self._coro)
+        if self._task is not None:
+            self._task.cancel()
         else:
             await component_off()
         return True

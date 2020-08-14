@@ -2,9 +2,11 @@ import gc
 import uasyncio as asyncio
 from pysmartnode import config
 from sys import platform
+import io
+import sys
 
-__updated__ = "2019-11-02"
-__version__ = "0.5"
+__updated__ = "2020-04-02"
+__version__ = "0.6"
 
 if config.DEBUG:
     def __printRAM(start, info=""):
@@ -32,17 +34,6 @@ def _getKwargs(kwargs):
             if arg in COMPONENTS:
                 kwargs[key] = COMPONENTS[arg]
     return kwargs
-
-
-def _getArgs(args):
-    if type(args) != list:
-        return []
-    COMPONENTS = config.COMPONENTS
-    for i, arg in enumerate(args):
-        if type(arg) == str:
-            if arg in COMPONENTS:
-                args[i] = COMPONENTS[arg]
-    return args
 
 
 def _checkPackage(data):
@@ -75,8 +66,11 @@ def registerComponent(componentname, component, _log):
                 module = __import__(component["package"], globals(),
                                     locals(), [component["component"]], 0)
             except Exception as e:
+                s = io.StringIO()
+                sys.print_exception(e, s)
                 _log.critical(
-                    "Error importing package {!s}, error: {!s}".format(component["package"], e))
+                    "Error importing package {!s}, error: {!s}".format(component["package"],
+                                                                       s.getvalue()))
                 module = None
             gc.collect()
             err = False
@@ -91,17 +85,16 @@ def registerComponent(componentname, component, _log):
                     kwargs = _getKwargs(
                         component["constructor_args"]) if "constructor_args" in component and type(
                         component["constructor_args"]) == dict else {}
-                    args = _getArgs(
-                        component["constructor_args"]) if "constructor_args" in component and type(
-                        component["constructor_args"]) == list else []
                     try:
                         obj = getattr(module, component["component"])
-                        obj = obj(*args, **kwargs)
+                        obj = obj(**kwargs)
                         # only support functions (no coroutines) to prevent network block in user/component code
                     except Exception as e:
+                        s = io.StringIO()
+                        sys.print_exception(e, s)
                         _log.error(
                             "Error during creation of object {!r}, {!r}, version {!s}: {!s}".format(
-                                component["component"], componentname, version, e))
+                                component["component"], componentname, version, s.getvalue()))
                         obj = None
                         err = True
                     if obj is not None:

@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-08 
 
 """
@@ -40,14 +40,13 @@ Example configuration:
 }
 """
 
-__updated__ = "2019-11-02"
-__version__ = "0.5"
+__updated__ = "2020-04-03"
+__version__ = "0.61"
 
 from pysmartnode import logging
 from pysmartnode.utils.abutton import Pushbutton
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 from pysmartnode.components.machine.pin import Pin
-from pysmartnode.utils.event import Event
 import machine
 import uasyncio as asyncio
 
@@ -56,16 +55,16 @@ loaded_components = {
 
 COMPONENT_NAME = "Button"
 
-_log = logging.getLogger("button")
+_log = logging.getLogger(COMPONENT_NAME)
 _unit_index = -1
 
 
-class Button(Pushbutton, Component):
+class Button(Pushbutton, ComponentBase):
     def __init__(self, pin, pull=None, pressed_component=None, pressed_method="on",
                  released_component=None, released_method="off",
                  double_pressed_component=None, double_pressed_method="on",
                  long_pressed_component=None, long_pressed_method="on",
-                 suppress=False):
+                 suppress=False, **kwargs):
         """
         :param pin: pin number or name
         :param pull: None for no pullup or pull_down, otherwise value of pull configuration
@@ -94,7 +93,8 @@ class Button(Pushbutton, Component):
         Pushbutton.__init__(self, pin, suppress=suppress)
         global _unit_index
         _unit_index += 1
-        Component.__init__(self, COMPONENT_NAME, __version__, _unit_index)
+        ComponentBase.__init__(self, COMPONENT_NAME, __version__, _unit_index, discover=False,
+                               logger=_log, **kwargs)
         if pressed_component is not None:
             self.press_func(getattr(pressed_component, pressed_method))
         if released_component is not None:
@@ -109,7 +109,7 @@ class ToggleButton(Button):
     def __init__(self, pin, pull=None, released_component=None,
                  double_pressed_component=None, double_pressed_method="on",
                  long_pressed_component=None, long_pressed_method="on",
-                 suppress=False):
+                 suppress=False, **kwargs):
         """
         Basic functionality for push is to toggle a device. Double press and long press are
         just extended functionality.
@@ -123,18 +123,18 @@ class ToggleButton(Button):
         :param suppress: Suppress calling release function after double click and long press. Will delay release function by 300ms if double click is used.
         """
         self._component = released_component
-        self._event = Event()
+        self._event = asyncio.Event()
         # Synchronous method _event.set() to prevent queue overflows from pressing button too often
         super().__init__(pin, pull,
                          None, "off",
                          self._event, "set",
                          double_pressed_component, double_pressed_method,
                          long_pressed_component, long_pressed_method,
-                         suppress)
-        asyncio.get_event_loop().create_task(self._watcher())
+                         suppress, **kwargs)
+        asyncio.create_task(self._watcher())
 
     async def _watcher(self):
         while True:
-            await self._event
+            await self._event.wait()
             self._event.clear()
             await self._component.toggle()

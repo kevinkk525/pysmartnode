@@ -1,28 +1,24 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-02-17
 
-__updated__ = "2019-11-09"
-__version__ = "5.7"
+__updated__ = "2020-08-12"
+__version__ = "6.3"
 
 import gc
 import ujson
 import time
-
-gc.collect()
-
+import uasyncio as asyncio
+import os
 from pysmartnode import config
 from sys import platform
 from pysmartnode import logging
 from pysmartnode.utils import sys_vars
 
 if config.MQTT_TYPE:
-    from micropython_mqtt_as.mqtt_as import MQTTClient, Lock
+    from micropython_mqtt_as.mqtt_as_timeout_concurrent import MQTTClient
 else:
-    from dev.mqtt_iot import MQTTClient, Lock  # Currently not working/developed
-import uasyncio as asyncio
-import os
-
+    from dev.mqtt_iot import MQTTClient  # Currently not working/under development
 gc.collect()
 
 _log = logging.getLogger("MQTT")
@@ -38,11 +34,11 @@ class MQTTHandler(MQTTClient):
         self.client_id = sys_vars.getDeviceID()
         self.mqtt_home = config.MQTT_HOME
         self._subs = []
-        self._sub_coro = None
+        self._sub_task = None
         self._sub_retained = False
         super().__init__(client_id=self.client_id,
                          server=config.MQTT_HOST,
-                         port=config.MQTT_PORT if hasattr(config, "MQTT_PORT") is True else 1883,
+                         port=config.MQTT_PORT if hasattr(config, "MQTT_PORT") else 1883,
                          user=config.MQTT_USER,
                          password=config.MQTT_PASSWORD,
                          keepalive=config.MQTT_KEEPALIVE,
@@ -56,18 +52,17 @@ class MQTTHandler(MQTTClient):
                          clean=False,
                          ssid=config.WIFI_SSID,
                          wifi_pw=config.WIFI_PASSPHRASE)
-        asyncio.get_event_loop().create_task(self._connectCaller())
+        asyncio.create_task(self._connectCaller())
         self.__first_connect = True
-        self._connected_coro = None
+        self._connected_task = None
         self._reconnected_subs = []
-        self._wifi_coro = None
+        self._wifi_task = None
         self._wifi_subs = []
-        self._ops_coros = [None, None]  # publish and (un)sub operations, can be concurrently
         self.__unsub_tmp = []
         self.__last_disconnect = None  # ticks_ms() of last disconnect
         self.__downtime = 0  # mqtt downtime in seconds
         self.__reconnects = -1  # not counting the first connect
-        self.__dropped = 0  # dropped messages due to waitq being too full
+        self.__dropped = 0  # dropped messages due to MQTT_MAX_CONCURRENT_EXECUTIONS
         self.__timedout = 0  # operations that timed out. doesn't mean it's a problem.
         self.__active_cbs = 0  # currently active callbacks due to received messages
         gc.collect()
@@ -136,31 +131,29 @@ class MQTTHandler(MQTTClient):
                 continue
 
     async def _wifiChanged(self, state):
-        if self._wifi_coro is not None:
-            asyncio.cancel(self._wifi_coro)
-        self._wifi_coro = self._wifi_changed(state)
-        asyncio.get_event_loop().create_task(self._wifi_coro)
+        if self._wifi_task is not None:
+            self._wifi_task.cancel()
+        self._wifi_task = asyncio.create_task(self._wifi_changed(state))
 
     async def _wifi_changed(self, state):
-        if config.DEBUG:
-            _log.info("WIFI state", state, local_only=True)
+        _log.info("WIFI state", state, local_only=True)
+        # TODO: change to asyncio.gather() [not on esp8266] as soon as cancelling gather works.
         for cb in self._wifi_subs:
             res = cb(self)
             if type(res) == type_gen:
                 await res
-        self._wifi_coro = None
+        self._wifi_task = None
 
     async def _connected(self, client):
-        _log.debug("mqtt connected", local_only=True)
+        _log.info("mqtt connected", local_only=True)
         self.__reconnects += 1
         if self.__last_disconnect is not None:
             self.__downtime += (time.ticks_ms() - self.__last_disconnect) / 1000
         self.__last_disconnect = None
-        if self._connected_coro is not None:
+        if self._connected_task is not None:
             # processed subscriptions would have to be done again anyway
-            asyncio.cancel(self._connected_coro)
-        self._connected_coro = self._connected_handler(client)
-        asyncio.get_event_loop().create_task(self._connected_coro)
+            self._connected_task.cancel()
+        self._connected_task = asyncio.create_task(self._connected_handler(client))
 
     async def _connected_handler(self, client):
         try:
@@ -174,22 +167,30 @@ class MQTTHandler(MQTTClient):
                 self.__first_connect = False
             elif self.__first_connect is False:
                 await _log.asyncLog("debug", "Reconnected")
-                # resubscribe topics because clean session is used
-                if self._sub_coro is not None:
-                    asyncio.cancel(self._sub_coro)
-                self._sub_coro = self._subscribeTopics()
-                asyncio.get_event_loop().create_task(self._sub_coro)
+            # subscribe topics because clean session is used. Some components might be added
+            # before connection has been made so subscribe on first connect too.
+            if self._sub_task is not None:
+                self._sub_task.cancel()
+            self._sub_task = asyncio.create_task(self._subscribeTopics())
+            # TODO: change to asyncio.gather() as soon as cancelling gather works.
             for cb in self._reconnected_subs:
                 res = cb(client)
                 if type(res) == type_gen:
                     await res
-            self._connected_coro = None
+            self._connected_task = None
         except asyncio.CancelledError:
-            if self._sub_coro is not None:
-                asyncio.cancel(self._sub_coro)
+            if self._sub_task is not None:
+                self._sub_task.cancel()
 
     async def _subscribeTopics(self, start: int = 0):
+        # TODO: make concurrent for esp32
+        # TODO: if state topic gets unsubscribed in callback and connection breaks,
+        #  command topic won't be subscribed anymore because it is somehow jumped when
+        #  the login topic is subscribed although already unsubscribed...
         _log.debug("_subscribeTopics, start", start, local_only=True)
+        if not self.isconnected():
+            _log.debug("_subscribeTopics, no connection", local_only=True)
+            return
         try:
             for i, sub in enumerate(self._subs):
                 # do not iter by range(start,length(_subs)) as _subs could get bigger while itering
@@ -203,28 +204,39 @@ class MQTTHandler(MQTTClient):
                     # if coro gets canceled in the process, the state topic will be checked
                     # the next time _subscribeTopic runs after the reconnect
                     _log.debug("_subscribing", t[:-4], local_only=True)
-                    await self._preprocessor(super().subscribe, t[:-4], 1)  # subscribe state topic
+                    if not await super().subscribe(t[:-4], 1, await_connection=False):
+                        # state topic
+                        _log.debug("Error subscribing, lost connection:", t[:-4], local_only=True)
+                        return  # connection loss exits the process
                     ts = time.ticks_ms()  # start timer after successful subscribe otherwise
                     # it might time out before subscribe has even finished.
                     while time.ticks_diff(time.ticks_ms(), ts) < 4000 and self._sub_retained:
                         # wait 4 seconds for answer
+                        # TODO: split this into a different task so it doesn't delay subscribing.
                         await asyncio.sleep_ms(100)
                     if self._sub_retained is True:  # no state message received
                         self._subs[i] = sub[:3]
                         self._sub_retained = False
                         _log.debug("Unsubscribing state topic", t[:-4], "in _subsscribeTopics",
                                    local_only=True)
-                        await self._preprocessor(super().unsubscribe, t[:-4],
-                                                 await_connection=False)
+                        if not await super().unsubscribe(t[:-4], await_connection=False):
+                            _log.debug("Error unsubscribing state topic, lost conenction:", t[:-4],
+                                       local_only=True)
+                            return  # connection loss exits the process
                 _log.debug("_subscribing", t, local_only=True)
-                await self._preprocessor(super().subscribe, t, 1)
+                if not await super().subscribe(t, 1, await_connection=False):
+                    _log.debug("Error subscribing, lost connection:", t, local_only=True)
+                    return  # connection loss exits the process
                 # no timeouts because _subscribeTopics will get canceled when connection is lost
+        except asyncio.CancelledError:
+            _log.debug("_subscribeTopics cancelled", local_only=True)
         finally:
             # remove pending unsubscribe requests
             for sub in self.__unsub_tmp:
                 self._subs.remove(sub)
                 self.__unsub_tmp = []
-            self._sub_coro = None
+            self._sub_task = None
+            _log.debug("_subscribeTopics exited", local_only=True)
 
     def _convertToDeviceTopic(self, topic):
         t = topic.replace("{!s}/{!s}/".format(self.mqtt_home, self.client_id), "./")
@@ -235,18 +247,21 @@ class MQTTHandler(MQTTClient):
     def _isDeviceSubscription(self, topic):
         return topic.startswith("{!s}/{!s}/".format(self.mqtt_home, self.client_id))
 
+    # @micropython.native native emitter on esp8266 not working anymore and not working on pyboard
     @staticmethod
     def matchesSubscription(topic, subscription, ignore_command=False):
         if topic == subscription:
             return True
+        mt = memoryview(topic)
+        ms = memoryview(subscription)
         if ignore_command is True and subscription.endswith("/set"):
-            if memoryview(topic) == memoryview(subscription)[:-4]:
+            if mt == ms[:-4]:
                 return True
         if subscription.endswith("/#") or subscription.endswith("/+"):
             lens = len(subscription)
-            if memoryview(topic)[:lens - 2] == memoryview(subscription)[:-2]:
+            if mt[:lens - 2] == ms[:-2]:
                 if subscription.endswith("/#"):
-                    if len(topic) == lens - 2 or memoryview(topic)[lens - 2:lens - 1] == b"/":
+                    if len(topic) == lens - 2 or mt[lens - 2:lens - 1] == b"/":
                         # check if identifier matches subscription or has sublevel
                         # (home/test/# does not listen to home/testing but to home/test)
                         return True
@@ -257,26 +272,26 @@ class MQTTHandler(MQTTClient):
         pl = subscription.find("/+/")
         if pl != -1:
             st = topic.find("/", pl + 1) + 1
-            if memoryview(subscription)[:pl + 1] == memoryview(topic)[:pl + 1]:  # equal until /+
+            if ms[:pl + 1] == mt[:pl + 1]:  # equal until /+
                 if subscription.endswith("/#"):
                     sub = subscription.replace("/+/", topic[pl:topic.find("/", pl + 1) + 1])
                     return MQTTHandler.matchesSubscription(topic, sub, ignore_command)
                 if ignore_command is True:
-                    if memoryview(subscription)[-5:] == b"+/set" and st == 0:  # st==0 no subtopics
+                    if ms[-5:] == b"+/set" and st == 0:  # st==0 no subtopics
                         return True
-                    elif memoryview(subscription)[-4:] == b"/set":
+                    elif ms[-4:] == b"/set":
                         ed = len(subscription) - 4
                     else:
                         ed = len(subscription)
                 else:
                     ed = len(subscription)
-                if memoryview(subscription)[pl + 3:ed] == memoryview(topic)[st:]:
+                if ms[pl + 3:ed] == mt[st:]:
                     return True
             return False
         return False
 
     def scheduleUnsubscribe(self, topic=None, component=None):
-        asyncio.get_event_loop().create_task(self.unsubscribe(topic, component))
+        asyncio.create_task(self.unsubscribe(topic, component))
 
     async def unsubscribe(self, topic=None, component=None):
         """
@@ -312,14 +327,13 @@ class MQTTHandler(MQTTClient):
         s = True
         for sub in t:
             _log.debug("Unsubscribing from broker:", sub, local_only=True)
-            if not await self._preprocessor(super().unsubscribe, self.getRealTopic(sub),
-                                            await_connection=False):
-                _log.error("Error unsubscribing from broker:", sub, local_only=True)
+            if not await super().unsubscribe(self.getRealTopic(sub), await_connection=False):
+                _log.error("Error unsubscribing, lost conenction:", sub, local_only=True)
                 s = False
         del t
         # unsubscribe from broker but locally have to wait for subscribe to be finished
-        # so the subs list doesn't get messed up. _sub_coro will remove values on finish.
-        if self._sub_coro:
+        # so the subs list doesn't get messed up. _sub_task will remove values on finish.
+        if self._sub_task:
             return s
         # remove pending unsubscribe requests
         for sub in r:
@@ -356,18 +370,18 @@ class MQTTHandler(MQTTClient):
         else:  # if no command_topic then ignore check_retained_state
             sub = (topic, cb, component)
         self._subs.append(sub)
-        if self._sub_coro is None:
-            self._sub_coro = self._subscribeTopics(self._subs.index(sub))
-            asyncio.get_event_loop().create_task(self._sub_coro)
+        if self._sub_task is None:
+            self._sub_task = asyncio.create_task(self._subscribeTopics(self._subs.index(sub)))
 
     async def awaitSubscriptionsDone(self, timeout=None, await_connection=True):
         start = time.ticks_ms()
         while timeout is None or time.ticks_diff(time.ticks_ms(), start) < timeout * 1000:
             if not await_connection and not self._isconnected:
                 return False
-            if self._sub_coro is None:
+            if self._sub_task is None:
                 return True  # all topics subscribed.
-            await asyncio.sleep_ms(50)
+            await asyncio.sleep_ms(50)  # can't await task directly because if this task gets
+            # cancelled, it will cancel the subscription task.. Could use an Event though.
         return False  # timeout
 
     @staticmethod
@@ -384,7 +398,7 @@ class MQTTHandler(MQTTClient):
         return "{}/{}/{}".format(self.mqtt_home, self.client_id, device_topic[2:])
 
     def _execute_sync(self, topic, msg, retained):
-        _log.debug("mqtt execution:", topic, msg, retained, local_only=True)
+        _log.debug("mqtt received:", topic, msg, retained, local_only=True)
         # optional safety feature if memory allocation fails on receive of messages.
         # Should actually never happen in a user controlled environment.
         # mqtt_as must support it for code having any effect.
@@ -403,31 +417,29 @@ class MQTTHandler(MQTTClient):
             pass  # maybe not a json string, no way of knowing
         if self._isDeviceSubscription(topic):
             topic = self._convertToDeviceTopic(topic)
-        loop = asyncio.get_event_loop()
         found = False
         for sub in self._subs:
             if self.matchesSubscription(topic, sub[0], ignore_command=len(sub) == 4):
-                if config.MQTT_MAX_CONCURRENT_EXECUTIONS == -1:
-                    dr = config.LEN_ASYNC_QUEUE - len(loop.waitq) <= 4
-                else:
+                if config.MQTT_MAX_CONCURRENT_EXECUTIONS != -1:
                     dr = self.__active_cbs >= config.MQTT_MAX_CONCURRENT_EXECUTIONS
+                else:
+                    dr = 0
                 if dr:
                     self.__dropped += 1
                     _log.error("dropping message of topic", topic, "component", sub[2],
-                               "too many active cbs/coros:",
-                               "{!s}/{!s}/{!s}".format(
-                                   self.__active_cbs, len(loop.waitq), config.LEN_ASYNC_QUEUE),
+                               "too many active cbss:", "{!s}".format(self.__active_cbs),
                                local_only=True)
                 else:
                     self.__active_cbs += 1
-                    loop.create_task(self._execute_callback(sub, topic, msg, retained))
-                    _log.debug("execute_callback of component", sub[2], ":", topic, msg,
-                               local_only=True)
+                    asyncio.create_task(self._execute_callback(sub, topic, msg, retained))
                 found = True
         if found is False:
-            _log.warn("Subscribed topic", topic, "not found, should solve itself", local_only=True)
+            _log.warn("Subscribed topic", topic,
+                      "not found, should solve itself. not yet unsubscribed", local_only=True)
 
     async def _execute_callback(self, sub, topic, msg, retained):
+        _log.debug("execute_callback of", sub[2], ":", topic,
+                   msg if type(msg) in (str, int, float) else type(msg), local_only=True)
         if len(sub) == 4 and "/+" not in sub[0]:  # sub can't end with /#/set but /+/set
             # retained state topic received without wildcards (could receive multiple states)
             self._subs[self._subs.index(sub)] = sub[:3]
@@ -437,7 +449,8 @@ class MQTTHandler(MQTTClient):
             else:
                 t = sub[0][:-4]
             _log.debug("Unsubscribing state topic", t, "in _exec_cb", local_only=True)
-            await self._preprocessor(super().unsubscribe, t, await_connection=False)
+            if not await super().unsubscribe(t, await_connection=False):
+                _log.error("Error unsubscribing state topic, lost conenction:", t, local_only=True)
             del t
             gc.collect()
             # unsubscribing before executing to prevent callback to publish to state topic
@@ -446,6 +459,8 @@ class MQTTHandler(MQTTClient):
                            topic, ",ignoring message", local_only=True)
                 self.__active_cbs -= 1
                 return
+        _t1 = time.ticks_ms()
+        res = None
         try:
             res = sub[1](topic, msg, retained)
             if type(res) == type_gen:
@@ -454,8 +469,7 @@ class MQTTHandler(MQTTClient):
                 # if a /set topic is found, send without /set, this is always retained:
                 if res:  # Could be any return value
                     if res is True:
-                        res = msg
-                        # send original msg back
+                        res = msg  # send original msg back if return is True
                     await self.publish(topic[:-4], res, qos=1, retain=True)
         except Exception as e:
             await _log.asyncLog("error",
@@ -463,6 +477,11 @@ class MQTTHandler(MQTTClient):
                                     "retained " if retained else "", topic, e))
         finally:
             self.__active_cbs -= 1
+            _t2 = time.ticks_ms()
+            _log.debug("execute_callback of", sub[2], ":", topic,
+                       msg if type(msg) in (str, int, float) else type(msg),
+                       "took {!s}ms".format(time.ticks_diff(_t2, _t1)), "returned", res,
+                       local_only=True)
 
     async def publish(self, topic, msg, retain=False, qos=0, timeout=None, await_connection=True):
         """
@@ -475,8 +494,10 @@ class MQTTHandler(MQTTClient):
         :param await_connection: wait for wifi to be available.
         Depending on application this might not be desired as it could block further processing but
         due to restraint resources and complexity you don't want to launch a new coroutine for
-        each publish.
-        :return:
+        each publish, so if connection becomes unavailable, this returns False immediately.
+        :return: True on success, False on timeout or connection loss. No need to raise TimeoutError
+        because False already represents timeout error and the difference between connection loss
+        and timeout shouldn't matter.
         """
         if (not await_connection and not self.isconnected()) or timeout == 0:
             return False
@@ -487,53 +508,16 @@ class MQTTHandler(MQTTClient):
         if self.isDeviceTopic(topic):
             topic = self.getRealTopic(topic)
         msg = msg.encode() if type(msg) == str else msg
-        gc.collect()
         # note that msg has to be bytes otherwise mqtt library produces errors when sending
-        return await self._preprocessor(super().publish, topic, msg, retain, qos,
-                                        timeout=timeout, await_connection=await_connection)
+        gc.collect()
+        try:
+            return await super().publish(topic, msg, retain, qos, timeout=timeout,
+                                         await_connection=await_connection)
+        except asyncio.TimeoutError:
+            self.__timedout += 1
+            return False
 
     def schedulePublish(self, topic, msg, retain=False, qos=0, timeout=None,
-                        await_connection=True):
-        asyncio.get_event_loop().create_task(
+                        await_connection=True) -> asyncio.Task:
+        return asyncio.create_task(
             self.publish(topic, msg, retain, qos, timeout, await_connection))
-
-    # Await broker connection. Subclassed to reduce canceling time from 1s to 50ms
-    async def _connection(self):
-        while not self._isconnected:
-            await asyncio.sleep_ms(50)
-
-    async def _operationTimeout(self, coro, *args, i):
-        try:
-            await coro(*args)
-        except asyncio.CancelledError:
-            raise  # in case the calling function need to handle Cancellation too
-        finally:
-            self._ops_coros[i] = None
-
-    async def _preprocessor(self, coroutine, *args, timeout=None, await_connection=True):
-        coro = None
-        start = time.ticks_ms()
-        i = 0 if len(args) == 4 else 1  # 0: publish, 1:(un)sub
-        try:
-            while timeout is None or time.ticks_diff(time.ticks_ms(), start) < timeout * 1000:
-                if not await_connection and not self._isconnected:
-                    return False
-                if self._ops_coros[i] is coro is None:
-                    coro = self._operationTimeout(coroutine, *args, i=i)
-                    asyncio.get_event_loop().create_task(coro)
-                    self._ops_coros[i] = coro
-                elif coro:
-                    if self._ops_coros[i] != coro:
-                        return True  # published
-                await asyncio.sleep_ms(20)
-            _log.debug("timeout on", "(un)sub" if i else "publish", args, local_only=True)
-            self.__timedout += 1
-        except asyncio.CancelledError:
-            raise  # the caller should be cancelled too
-        finally:
-            if coro and self._ops_coros[i] == coro:
-                async with self.lock:
-                    asyncio.cancel(coro)
-                return False
-            # else: returns value during process
-        return False

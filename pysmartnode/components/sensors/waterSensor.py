@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-04-10
 
 """
@@ -11,7 +11,6 @@ Simple water sensor using 2 wires in water. As soon as some conductivity is poss
     constructor_args: {
         adc: 33
         power_pin: 5                # optional if connected to permanent power
-        # interval_publish: -1      # optional, defaults to -1 because sensor will automatically publish on any state change. Can be changed for sending "keepalives" in between changes.
         # interval_reading: 1       # optional, interval in seconds that the sensor gets polled
         # cutoff_voltage: 3.3       # optional, defaults to ADC maxVoltage (on ESP 3.3V). Above this voltage means dry
         # mqtt_topic: "sometopic"   # optional, defaults to home/<controller-id>/waterSensor/<count>
@@ -20,19 +19,20 @@ Simple water sensor using 2 wires in water. As soon as some conductivity is poss
         # expose_intervals: Expose intervals to mqtt so they can be changed remotely
         # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
-} 
-Will publish on any state change and in the given interval. State changes are detected in the interval_reading.
+}
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
+Will publish on any state change. State changes are detected in the interval_reading.
 Only the polling interval of the first initialized sensor is used.
 The publish interval is unique to each sensor. 
-This is to use only one uasyncio task for all sensors to prevent a uasyncio queue overflow.
+This is to use only one uasyncio task for all sensors (because old uasyncio would overflow).
 
 ** How to connect:
 Put a Resistor (~10kR) between the power pin (or permanent power) and the adc pin.
 Connect the wires to the adc pin and gnd.
 """
 
-__updated__ = "2019-11-02"
-__version__ = "1.5"
+__updated__ = "2020-04-03"
+__version__ = "1.8"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -56,21 +56,20 @@ gc.collect()
 class WaterSensor(ComponentSensor):
     DEBUG = False
 
-    def __init__(self, adc, power_pin=None, cutoff_voltage=None, interval_publish=None,
-                 interval_reading=1, mqtt_topic=None, friendly_name=None, discover=True,
-                 expose_intervals=False, intervals_topic=None):
-        interval_publish = interval_publish or -1
+    def __init__(self, adc, power_pin=None, cutoff_voltage=None,
+                 interval_reading=1, friendly_name=None, **kwargs):
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log,
+                         interval_reading=interval_reading, interval_publish=-1,
+                         **kwargs)
         self._adc = ADC(adc)
         self._ppin = Pin(power_pin, machine.Pin.OUT) if power_pin is not None else None
         self._cv = cutoff_voltage or self._adc.maxVoltage()
         self._lv = None
         self._addSensorType(SENSOR_BINARY_MOISTURE, 0, 0, VALUE_TEMPLATE, "", friendly_name,
-                            mqtt_topic, None, True)
-        self._pub_coro = None
+                            self._topic, None, True)
+        self._pub_task = None
 
     async def _read(self):
         a = time.ticks_us()
@@ -86,21 +85,22 @@ class WaterSensor(ComponentSensor):
             state = False
             if self._lv != state:
                 # dry
-                if self._pub_coro is not None:
-                    asyncio.cancel(self._pub_coro)
-                self._pub_coro = _mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "OFF", qos=1,
-                                               retain=True, timeout=None, await_connection=True)
-                asyncio.get_event_loop().create_task(self._pub_coro)
+                if self._pub_task is not None:
+                    self._pub_task.cancel()
+                self._pub_task = asyncio.create_task(
+                    _mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "OFF", qos=1,
+                                  retain=True, timeout=None, await_connection=True))
+
             self._lv = state
         else:
             state = True
             if self._lv != state:
                 # wet
-                if self._pub_coro is not None:
-                    asyncio.cancel(self._pub_coro)
-                self._pub_coro = _mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "ON", qos=1,
-                                               retain=True, timeout=None, await_connection=True)
-                asyncio.get_event_loop().create_task(self._pub_coro)
+                if self._pub_task is not None:
+                    self._pub_task.cancel()
+                self._pub_task = asyncio.create_task(
+                    _mqtt.publish(self.getTopic(SENSOR_BINARY_MOISTURE), "ON", qos=1,
+                                  retain=True, timeout=None, await_connection=True))
             self._lv = state
         b = time.ticks_us()
         if WaterSensor.DEBUG:

@@ -1,8 +1,8 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Copyright Kevin Köck 2017-2020 Released under the MIT license
 # Created on 2017-08-10
 
-__updated__ = "2019-11-11"
+__updated__ = "2020-04-03"
 
 import gc
 
@@ -14,13 +14,20 @@ from pysmartnode import logging
 import uasyncio as asyncio
 import sys
 import os
-
-if sys.platform != "linux":
-    import machine
-
-    rtc = machine.RTC()
+import io
+import machine
 
 _log = logging.getLogger("main")
+
+
+def _handle_exception(loop, context):
+    s = io.StringIO()
+    sys.print_exception(context["exception"], s)
+    _log.error(s.getvalue())  # log exception to mqtt too
+
+
+loop = asyncio.get_event_loop()
+loop.set_exception_handler(_handle_exception)
 
 if config.WEBREPL_ACTIVE:
     try:
@@ -40,8 +47,6 @@ if config.WEBREPL_ACTIVE:
     # webrepl started here to start it as quickly as possible.
 
 gc.collect()
-
-loop = asyncio.get_event_loop()
 
 print("free ram {!r}".format(gc.mem_free()))
 gc.collect()
@@ -66,7 +71,9 @@ if not config.MQTT_RECEIVE_CONFIG:  # otherwise ignore as config will be receive
     except ImportError:
         _log.critical("components.py does not exist")
     except Exception as e:
-        _log.critical("components.py:", e)
+        s = io.StringIO()
+        sys.print_exception(e, s)
+        _log.critical("components.py:", s.getvalue())
     else:
         gc.collect()
         if hasattr(components, "COMPONENTS") and type(components.COMPONENTS) == dict:
@@ -76,15 +83,11 @@ if not config.MQTT_RECEIVE_CONFIG:  # otherwise ignore as config will be receive
 
 
 async def _resetReason():
-    if sys.platform == "esp8266" and rtc.memory() != b"":
-        await _log.asyncLog("critical", "Reset reason:", rtc.memory().decode())
-        rtc.memory(b"")
-    else:
-        if "reset_reason.txt" not in os.listdir():
-            return
-        with open("reset_reason.txt", "r") as f:
-            await _log.asyncLog("critical", "Reset reason:", f.read())
-        os.remove("reset_reason.txt")
+    if "reset_reason.txt" not in os.listdir():
+        return
+    with open("reset_reason.txt", "r") as f:
+        await _log.asyncLog("critical", "Reset reason:", f.read())
+    os.remove("reset_reason.txt")
 
 
 async def _receiveConfig():
@@ -116,11 +119,7 @@ def start_services(state):
         return
     global services_started
     if services_started is False:
-        if sys.platform == "esp32_LoBo":
-            import pysmartnode.networking.wifi_esp32_lobo
-            del pysmartnode.networking.wifi_esp32_lobo
-            del sys.modules["pysmartnode.networking.wifi_esp32_lobo"]
-        elif sys.platform == "esp32":
+        if sys.platform == "esp32":
             import pysmartnode.networking.wifi_esp32
             del pysmartnode.networking.wifi_esp32
             del sys.modules["pysmartnode.networking.wifi_esp32"]
@@ -152,20 +151,15 @@ def main():
         except:
             pass
         if config.DEBUG_STOP_AFTER_EXCEPTION:
-            # want to see the exception trace in debug mode
+            # should actually never happen that the uasyncio main loop runs into an exception
             if config.USE_SOFTWARE_WATCHDOG:
                 wdt.deinit()  # so it doesn't reset the board
             raise e
         # just log the exception and reset the microcontroller
-        if sys.platform == "esp8266":
-            try:
-                rtc.memory("{!s}".format(e).encode())
-            except Exception as e:
-                print(e)
-            print("{!s}".format(e).encode())
-        else:
-            with open("reset_reason.txt", "w") as f:
-                f.write(e)
+        with open("reset_reason.txt", "w") as f:
+            s = io.StringIO()
+            sys.print_exception(e, s)
+            f.write(s.getvalue())
         machine.reset()
 
 

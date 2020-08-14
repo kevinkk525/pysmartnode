@@ -1,12 +1,12 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-10-31 
 
 """
 example config:
 {
-    package: .sensors.remoteSensors.base
-    component: BaseRemote
+    package: .sensors.remoteSensors
+    component: RemoteSensor
     constructor_args: {
         sensor_type: "temperature" # sensor_type of remote sensor
         mqtt_topic: sometopic      # topic of the remote sensor, if None, then the command topic can be used to set a topic to listen to
@@ -21,12 +21,13 @@ Since other components might depend on this component's topic, setting it throug
 cause problems since the topic won't be stored on startup. You need to wait for network to be
 finished so the retained state can be restored. Typically if a component is initialized after
 this sensor and the _init_network is called, the topic value should have been received.
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
 # TODO: implement support for multiple sensor_types that share one topic in one component
 
-__updated__ = "2019-11-04"
-__version__ = "0.2"
+__updated__ = "2020-04-01"
+__version__ = "0.4"
 
 import gc
 import time
@@ -44,7 +45,7 @@ _unit_index = -1
 
 class RemoteSensor(ComponentSensor):
     def __init__(self, sensor_type, mqtt_topic=None, command_topic=None,
-                 value_template=None, stale_time=900):
+                 value_template=None, stale_time=900, **kwargs):
         # This makes it possible to use multiple instances of BaseRemote
         global _unit_index
         _unit_index += 1
@@ -64,8 +65,9 @@ class RemoteSensor(ComponentSensor):
             else:
                 raise TypeError("value_template type {!s} not supported".format(v))
         self._log = logging.getLogger("{}_{}{}".format(COMPONENT_NAME, sensor_type, _unit_index))
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, False, -1, -1, None, self._log,
-                         False, None)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover=False,
+                         interval_publish=-1, interval_reading=-1, logger=self._log,
+                         expose_intervals=False, **kwargs)
         self._addSensorType(sensor_type, 2, 0, value_template, "")
         # no unit_of_measurement as only used for mqtt discovery
         self._stale_time = stale_time

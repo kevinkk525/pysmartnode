@@ -33,22 +33,22 @@ from pysmartnode.components.machine.pin import Pin
 from pysmartnode.components.machine.adc import ADC, pyADC
 from pysmartnode import config
 import uasyncio as asyncio
+from uasyncio import Lock
 import gc
-from pysmartnode.utils.component import Component, DISCOVERY_BINARY_SENSOR
+from pysmartnode.utils.component import ComponentBase, DISCOVERY_BINARY_SENSOR
 
 COMPONENT_NAME = "Moisture"
 _COMPONENT_TYPE = "sensor"
 _VAL_T_HUMIDITY = "{{ value|float }}"
 
 _mqtt = config.getMQTT()
-Lock = config.Lock
 gc.collect()
 
 
 # TODO: Divide sensor into multiple components as this is currently just a controller returning
 #  all values and therefore doesn't conform to the new API. Only affects other programs calling humidity()
 
-class Moisture(Component):
+class Moisture(ComponentBase):
     def __init__(self, adc_pin, water_voltage, air_voltage, sensor_types,
                  power_pin=None, power_warmup=None,
                  publish_converted_value=False,
@@ -81,7 +81,7 @@ class Moisture(Component):
         self._frn = friendly_name
         self._frn_cv = friendly_name_cv
         gc.collect()
-        asyncio.get_event_loop().create_task(self._loop())
+        asyncio.create_task(self._loop())
 
     async def _loop(self):
         while True:

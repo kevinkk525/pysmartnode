@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-06-25
 
 """
@@ -12,19 +12,15 @@ example config:
         precision_temp: 2         #precision of the temperature value published
         precision_humid: 1        #precision of the humid value published
         offset_temp: 0            #offset for temperature to compensate bad sensor reading offsets
-        offset_humid: 0           #...             
-        #interval: 600            #optional, defaults to 600. -1 means do not automatically read sensor and publish values
-        #mqtt_topic: sometopic  #optional, defaults to home/<controller-id>/DHT22
+        offset_humid: 0           #...
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
-        # discover: true            # optional, if false no discovery message for homeassistant will be sent.
-        # expose_intervals: Expose intervals to mqtt so they can be changed remotely
-        # intervals_topic: if expose_intervals then use this topic to change intervals. Defaults to <home>/<device-id>/<COMPONENT_NAME><_unit_index>/interval/set. Send a dictionary with keys "reading" and/or "publish" to change either/both intervals.
     }
 }
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2019-11-02"
-__version__ = "1.0"
+__updated__ = "2020-03-29"
+__version__ = "1.2"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -54,15 +50,12 @@ _unit_index = -1
 
 class DHT22(ComponentSensor):
     def __init__(self, pin, precision_temp=2, precision_humid=1,
-                 offset_temp=0, offset_humid=0,
-                 interval_publish=None, interval_reading=None, mqtt_topic=None,
-                 friendly_name_temp=None, friendly_name_humid=None,
-                 discover=True, expose_intervals=False, intervals_topic=None):
+                 offset_temp=0, offset_humid=0, friendly_name_temp=None, friendly_name_humid=None,
+                 **kwargs):
         # This makes it possible to use multiple instances of MySensor and have unique identifier
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, interval_publish,
-                         interval_reading, mqtt_topic, _log, expose_intervals, intervals_topic)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
         self._addSensorType(SENSOR_TEMPERATURE, precision_temp, offset_temp, _VAL_T_TEMPERATURE,
                             "°C", friendly_name_temp)
         self._addSensorType(SENSOR_HUMIDITY, precision_humid, offset_humid, _VAL_T_HUMIDITY, "%",

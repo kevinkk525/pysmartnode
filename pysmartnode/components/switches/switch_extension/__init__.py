@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-27
 
 """
@@ -9,9 +9,7 @@ example config:
     component: Switch
     constructor_args: {
         component: "pump"                 # name of the component that will be controlled. (It has to have "on" and "off" implemented)
-        modes_enabled: ["static","safety","repeating"]  # list of modes to make available. Available modes: "static","safety","repeating"
-        # on_time: 300                        # optional, when given switch will deactivate after on_time (e.g. as security measure)
-        # off_time: 300                       # optional, off-time in repeating mode
+        modes_enabled: ["safety_off","repeating"]  # list of modes to make available. Available modes: "safety_off","repeating"
         # mqtt_topic_on_time: null     #optional, defaults to <mqtt_home>/<device_id>/Switch<count>/on_time/set
         # mqtt_topic_off_time: null     #optional, defaults to <mqtt_home>/<device_id>/Switch<count>/off_time/set
         # mqtt_topic_mode: null     #optional, defaults to <mqtt_home>/<device_id>/Switch<count>/mode/set ; accepts string of modes_enabled
@@ -29,14 +27,16 @@ As Homeassistant only supports sensors and switches to be discovered, every mode
 to enable the mode.
 """
 
-__updated__ = "2019-11-02"
-__version__ = "0.7"
+# TODO: change mode initialization to make default constructor args possible
+
+__updated__ = "2020-03-29"
+__version__ = "0.8"
 
 from pysmartnode import config
 from pysmartnode import logging
 import gc
-from pysmartnode.utils.component.switch import Component, ComponentSwitch, DISCOVERY_SWITCH
-from pysmartnode.config import Lock
+from pysmartnode.utils.component.switch import ComponentBase, ComponentSwitch, DISCOVERY_SWITCH
+from uasyncio import Lock
 
 ####################
 COMPONENT_NAME = "SwitchExtension"
@@ -85,12 +85,12 @@ class BaseMode:
 Mode = BaseMode()
 
 
-class Switch(Component):
+class Switch(ComponentBase):
     def __init__(self, component: ComponentSwitch, modes_enabled: list,
-                 mqtt_topic_mode=None, friendly_name_mode=None, discover=True):
+                 mqtt_topic_mode=None, friendly_name_mode=None, **kwargs):
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
         if type(component) == str:
             self._component = config.getComponent(component)
             if self._component is None:

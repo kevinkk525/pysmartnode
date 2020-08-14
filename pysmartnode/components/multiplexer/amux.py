@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2017-2019 Released under the MIT license
+# Copyright Kevin Köck 2017-2020 Released under the MIT license
 # Created on 2017-08-09
 
 """
@@ -19,8 +19,8 @@ example config:
 }
 """
 
-__updated__ = "2019-04-03"
-__version__ = "3.3"
+__updated__ = "2020-04-09"
+__version__ = "3.4"
 
 # Version 2.0 should support an Amux connected to an Amux, not tested though, only have one amux
 
@@ -42,7 +42,6 @@ class Amux:
             :type mux: Mux object if a multiplexer is used
             :type adc: ADC pin number (esp32) or None (esp8266) or Arduino ADC object or any ADC object
             Amux uses default return values of ADC in .read()
-            --> On esp8266/esp32 raw, on esp32_LoBo voltage
             s3 is optional, only needed if 16 pins are used, 8 pins possible with s0-s2.
             Amux can be read like a list: value=amux[2]
         """
@@ -97,13 +96,10 @@ class Amux:
         if return_voltage is True or return_voltage is None and self._return_voltages is True:
             return self._adc.readVoltage()
         else:
-            return self._adc.readRaw()
+            return self._adc.read()
 
     def readVoltage(self, a):
         return self.read(a, return_voltage=True)
-
-    def readRaw(self, a):
-        return self.read(a, return_voltage=False)
 
     def ADC(self, i, *args, **kwargs):
         """ compatible to machine.ADC, returns an ADC object"""
@@ -127,9 +123,6 @@ class ADC(_pyADC):
 
     def readVoltage(self):
         return self.__amux.readVoltage(self.__pin)
-
-    def readRaw(self):
-        return self.__amux.readRaw(self.__pin)
 
     def __str__(self):
         return "amuxADC({!s})".format(self.__pin)

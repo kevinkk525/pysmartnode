@@ -1,12 +1,12 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-03-09
 
 ##
 # Configuration management file
 ##
 
-__updated__ = "2018-11-04"
+__updated__ = "2020-04-02"
 
 from .config_base import *
 from sys import platform
@@ -15,7 +15,7 @@ if platform == "linux" and DEVICE_NAME is None:
     raise TypeError("DEVICE_NAME has to be set on unix port")
 
 # General
-VERSION = const(602)
+VERSION = const(611)
 print("PySmartNode version {!s} started".format(VERSION))
 
 import gc
@@ -36,8 +36,6 @@ __printRAM(_mem, "Imported .sys_vars")
 
 import uasyncio as asyncio
 
-loop = asyncio.get_event_loop(runq_len=LEN_ASYNC_RQUEUE, waitq_len=LEN_ASYNC_QUEUE)
-
 gc.collect()
 __printRAM(_mem, "Imported uasyncio")
 
@@ -51,7 +49,7 @@ _log = logging.getLogger("config")
 gc.collect()
 __printRAM(_mem, "Imported logging")
 
-from pysmartnode.networking.mqtt import MQTTHandler, Lock  # Lock possibly needed by other modules
+from pysmartnode.networking.mqtt import MQTTHandler
 
 gc.collect()
 __printRAM(_mem, "Imported MQTTHandler")
@@ -114,7 +112,7 @@ def getMQTT():
     return _mqtt
 
 
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 
 __printRAM(_mem, "Imported Component base class")
 

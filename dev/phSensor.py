@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-05-11 
 
 """
@@ -39,7 +39,7 @@ from pysmartnode import config
 from pysmartnode.components.machine.adc import ADC
 from pysmartnode import logging
 import uasyncio as asyncio
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 import gc
 
 COMPONENT_NAME = "PHsensor"
@@ -57,15 +57,15 @@ PH_TYPE = '"unit_of_meas":"pH",' \
 _VAL_T_ACIDITY = "{{ value|float }}"
 
 
-class PHsensor(Component):
+class PHsensor(ComponentBase):
     def __init__(self, adc, adc_multi, voltage_calibration_0, pH_calibration_value_0,
                  voltage_calibration_1, pH_calibration_value_1,
                  precision=2, interval=None, mqtt_topic=None,
-                 friendly_name=None, discover=True):
+                 friendly_name=None, discover=True, **kwargs):
         # This makes it possible to use multiple instances of MySensor
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover, **kwargs)
         self._interval = interval or config.INTERVAL_SENSOR_PUBLISH
         self._topic = mqtt_topic
         self._frn = friendly_name
@@ -82,7 +82,7 @@ class PHsensor(Component):
         self._ph1 = pH_calibration_value_1
         gc.collect()
         if self._interval > 0:  # if interval==-1 no loop will be started
-            asyncio.get_event_loop().create_task(self._loop())
+            asyncio.create_task(self._loop())
 
     async def _loop(self):
         interval = self._interval

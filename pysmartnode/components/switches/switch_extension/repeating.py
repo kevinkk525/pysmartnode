@@ -1,9 +1,9 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-28
 
-__updated__ = "2019-10-20"
-__version__ = "0.3"
+__updated__ = "2019-11-15"
+__version__ = "0.4"
 
 from pysmartnode.components.switches.switch_extension import Switch, ComponentSwitch, _mqtt, \
     COMPONENT_NAME, BaseMode
@@ -26,15 +26,16 @@ class repeating(BaseMode):
         topic = _mqtt.getDeviceTopic("{!s}/repeating/on_time".format(_name), is_request=True)
         _mqtt.subscribeSync(topic, self._changeOnTime, extended_switch, check_retained_state=True)
         topic2 = _mqtt.getDeviceTopic("{!s}/repeating/off_time".format(_name), is_request=True)
-        _mqtt.subscribeSync(topic2, self._changeOffTime, extended_switch, check_retained_state=True)
-        self._coro = None
+        _mqtt.subscribeSync(topic2, self._changeOffTime, extended_switch,
+                            check_retained_state=True)
+        self._task = None
 
     async def _changeOnTime(self, topic, msg, retain):
-        self._on_time = int(msg)
+        self._on_time = float(msg)
         return True
 
     async def _changeOffTime(self, topic, msg, retain):
-        self._off_time = int(msg)
+        self._off_time = float(msg)
         return True
 
     async def _repeating(self, component_on, component_off):
@@ -53,21 +54,20 @@ class repeating(BaseMode):
             print("repeating canceled")
         finally:
             await component_off()
-            self._coro = None
+            self._task = None
             print("repeating exited")
 
     async def activate(self, extended_switch, component, component_on, component_off):
         """Triggered whenever the mode changes and this mode has been activated"""
-        if self._coro is not None:
-            print("Coro already active")
-            asyncio.cancel(self._coro)
-        self._coro = self._repeating(component_on, component_off)
-        asyncio.get_event_loop().create_task(self._coro)
+        if self._task is not None:
+            print("Task already active")
+            self._task.cancel()
+        self._task = asyncio.create_task(self._repeating(component_on, component_off))
         return True
 
     async def deactivate(self, extended_switch, component, component_on, component_off):
         """Triggered whenever the mode changes and this mode has been deactivated"""
-        asyncio.cancel(self._coro)
+        self._task.cancel()
         return True
 
     def __str__(self):

@@ -1,9 +1,9 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2019-10-30"
-__version__ = "0.3"
+__updated__ = "2020-08-13"
+__version__ = "0.5"
 
 # The discovery base should be a json string to keep the RAM requirement low and only need
 # to use format to enter the dynamic values so that the string is only loaded into RAM once
@@ -28,17 +28,20 @@ DISCOVERY_AVAILABILITY = '"avty_t":"{!s}/{!s}/{!s}",'
 
 DISCOVERY_SENSOR = '"dev_cla":"{!s}",' \
                    '"unit_of_meas":"{!s}",' \
-                   '"val_tpl":"{!s}",'
+                   '"val_tpl":"{!s}",' \
+                   '"expire_after":"{!s}",'
 
 DISCOVERY_TIMELAPSE = '"dev_cla":"timestamp",' \
                       '"ic":"mdi:timelapse",'
 
-DISCOVERY_BINARY_SENSOR = '"dev_cla":"{!s}",'  # "pl_on":"ON", "pl_off":"OFF",' are default
+DISCOVERY_BINARY_SENSOR = '"dev_cla":"{!s}",' \
+                          '"expire_after":"{!s}",'  # "pl_on":"ON", "pl_off":"OFF",' are default
 
 DISCOVERY_SWITCH = '"cmd_t":"~/set",'  # '"stat_on":"ON","stat_off":"OFF",' are default
 
 VALUE_TEMPLATE_JSON = "{{{{ value_json.{!s} }}}}"
 VALUE_TEMPLATE_FLOAT = "{{ value|float }}"
+VALUE_TEMPLATE_INT = "{{ value|int }}"
 VALUE_TEMPLATE = "{{ value }}"
 
 # By homeassistant supported sensor definitions to be used as device classes in discovery

@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2018 Released under the MIT license
+# Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-06-22
 
 """
@@ -17,13 +17,13 @@ example config for MyComponent:
 }
 """
 
-__updated__ = "2019-11-02"
-__version__ = "1.8"
+__updated__ = "2020-03-29"
+__version__ = "1.91"
 
 import uasyncio as asyncio
 from pysmartnode import config
 from pysmartnode import logging
-from pysmartnode.utils.component import Component, DISCOVERY_SWITCH
+from pysmartnode.utils.component import ComponentBase, DISCOVERY_SWITCH
 import gc
 
 ####################
@@ -47,16 +47,16 @@ _unit_index = -1
 # component like a sensor or a switch.
 
 
-class MyComponent(Component):
+class MyComponent(ComponentBase):
     def __init__(self, my_value,  # extend or shrink according to your sensor
                  mqtt_topic=None, mqtt_topic2=None,
-                 friendly_name=None, discover=True):
+                 friendly_name=None, discover=True, **kwargs):
         # This makes it possible to use multiple instances of MyComponent
         # It is needed for every default value for mqtt.
         # Initialize before super()__init__(...) to not pass the wrong value.
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover=discover)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover=discover, **kwargs)
         # discover: boolean, if this component should publish its mqtt discovery.
         # This can be used to prevent combined Components from exposing underlying
         # hardware components like a power switch
@@ -76,11 +76,10 @@ class MyComponent(Component):
 
         self._frn = friendly_name  # will default to unique name in discovery if None
 
-        self._loop_coro = self._loop()
+        self._loop_task = asyncio.create_task(self._loop())
         # the component might get removed in which case it should be able to locate and stop
         # any running loops it created (otherwise the component will create Exceptions and
         # won't be able to be fully removed from RAM)
-        asyncio.get_event_loop().create_task(self._loop_coro)
         gc.collect()
 
     async def _init_network(self):
@@ -107,10 +106,7 @@ class MyComponent(Component):
     async def _remove(self):
         """Will be called if the component gets removed"""
         # Cancel any loops/asyncio coroutines started by the component
-        try:
-            asyncio.cancel(self._loop_coro)
-        except Exception:
-            pass
+        self._loop_task.cancel()
         await super()._remove()
 
     async def _discovery(self, register=True):

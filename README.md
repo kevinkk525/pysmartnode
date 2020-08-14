@@ -29,10 +29,7 @@ The device doesn't have much RAM but it's enough for multiple bigger components 
 
 ### ESP32
 
-Official ESP32 port is supported since version 4.1.0 and loboris fork is now official unsupported since there hasn't been any commit in over 7 months. 
-However no code for loboris fork has been removed and even the updated modules are written to be compatible, I just don't test any features on that platform myself anymore. 
-
-In recent tests this hardware has shown to be finally resilient and can be used 24/7.
+Official ESP32 port is supported since version 4.1.0 and loboris fork is officially unsupported since there hasn't been any updates and it doesn't support uasyncio v3.0, therefore all code for it got removed too.
 
 ### Unix port
 
@@ -56,38 +53,24 @@ git submodule update --init --recursive --remote
 To update run inside the repository directory
 ```
 git pull
-git submodule update --recursive --remote
+git submodule update --init --recursive --remote
 ```
 You should have the latest micropython firmware and include the directory "pysmartnode" as frozen bytecode into your firmware. (Put it in the "module" directory before building the firmware)
 On ESP32 frozen bytecode is not neccessary but should be considered if not using psram.
 
-#### Warning
-Many modules use Variable Annotations ([PEP526](https://www.python.org/dev/peps/pep-0526/)) but micropython doesn't support
-[PEP 526 (Syntax for Variable Annotations)](https://github.com/micropython/micropython/issues/2415#issuecomment-548173512) yet.
-<br> This means that every build, .mpy or directly uploaded file with variable annotations will fail.
-<br> To work around this problem, the files have to be stripped of their variable annotations. This can be done with the python module "strip-hints".
-
-<br> In tools there is a [script](./tools/esp8266/esp8266_remove_hints.sh) that will replace all files with varibale annotations with a stripped version of the file.
-<br> Use that script after syncing/copying the files in the modules directory before building the
-firmware. You have to adapt the path in the script, so you could point it to any directory, doesn't
- need to be the esp8266 modules directory.
-
 Alternatively a prebuilt firmware for the esp8266 can be used that should be attached to every release on github. On esp32 the precompiled .mpy files can be used that are also attached to every github release.
-<br> Then it is not neccesary to strip the source files of hints.
-<br> This is recommended because the esp8266 needs a custom firmware build anyway as it can't compile the project because of its small RAM.
 <br>The esp32 could build the project but that is very slow and therefore it is recommended to use .mpy files.
 
 ### 2.2. Dependencies
 
 Required external modules are:
 
-* uasyncio (>=V2.0) (if not already part of the firmware)
+* extmod/uasyncio (Version >3.0.0, Part of the firmware since April 2020, the old uasyncio version from micropyhton-lib is not supported anymore!)
 * micropython-mqtt-as, my own fork that has some needed features: ([mqtt_as](https://github.com/kevinkk525/micropython-mqtt))
 
 All required modules are in this repository and don't need to be aquired manually. 
-Just put the directories `micropython_mqtt_as` and `uasyncio` from `external_modules` into your `modules` directory before building the firmware or run the correct script in section `Tools`.
+Just put the directory `micropython_mqtt_as` from `external_modules` into your `modules` directory before building the firmware or run the correct script in section `Tools`.
 The *micropython_mqtt_as* directory is a submodule to my repository so this will be updated automatically.
-Uasyncio is copied from the official repository and I will update the file as soon as a new version is published.
 
 ## 3. Components
 The included components can be found in the directory "pysmartnode/components".
@@ -103,14 +86,14 @@ Every loaded component will be published as *log.info* to "<home>/log/info/<devi
 Components can be and do anything. There is a basic API and [base class](./pysmartnode/utils/component/__init__.py) which helps with homeassistant mqtt discovery and the basic API.
 <br>Sensors all have a similar API to have a standardized usage through the [sensor base class](./pysmartnode/utils/component/sensor.py).
 The sensor base class makes developing sensors very easy as it takes care of mqtt discovery, reading and publishing intervals and the standardized API.
-All sensors now have a common API:
+All sensors have a common API:
 - getValue(sensor_type)->sensor_type last read value
 - getTopic(sensor_type)->mqtt topic of sensor_type
 - getTemplate(sensor_type)->homeassistant value template of sensor_type
 - getTimestamp(sensor_type)->timestamp of last successful sensor reading
 - getReadingsEvent()->Event being set on next sensor reading
 
-<br>Sensor_types in definitions but can be custom, those are only the ones supported by Homeassistant.
+<br>Sensor_types are in [definitions](./pysmartnode/utils/component/definitions) but can be custom, those are only the ones supported by Homeassistant.
 
 <br>Common features:
 - Reading interval and publish interval separated and not impacting each other
@@ -134,6 +117,8 @@ It should help understanding how the configuration can be read and mqtt subscrip
 Besides the general components, components can mostly be divided in sensors and switches, which have a slightly different API.
 There are templates for both types of components, [sensors](./_templates/sensor_template.py) and [switches](./_templates/switch_template.py).
 There is also a [Pushbutton template](./_templates/button_template.py) which is just a simpler version of the switch.
+
+A more detailed documentation of the basic components can be found in [COMPONENTS.md](./COMPONENTS.md)
 
 ## 4.Configuration
 
@@ -217,7 +202,7 @@ See the template for the components.py file in the template directory [here](./_
 The basic configuration options of a component are when using SmartServer or COMPONENTS dictionary in components.py:
 * package:                  The python package location, the "." means that it is in *pysmartnode.components*
 * component:                The component is the class name or function/coroutine name. A component started by a function is called a "service"
-* constructor_args:         These are the arguments for the constructor of the component class or function/coroutine. It can be a dictionary or a list but a dictionary is preferred as it makes the configuration more readable.
+* constructor_args:         These are the arguments for the constructor of the component class or function/coroutine. It has to be a dictionary.
 
 
 ## 5. Tools

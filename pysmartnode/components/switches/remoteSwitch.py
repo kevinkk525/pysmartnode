@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-10-11
 
 """
@@ -13,18 +13,20 @@ example config:
         # timeout: 10                 # optional, defaults to 10s, timeout for receiving an answer
     }
 }
+NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
 # TODO: implement possibility to set sensor topics through mqtt, similar to RemoteSensor implementation
 # TODO: make a real ComponentSwitch class so type checks won't fail
 
-__updated__ = "2019-11-02"
-__version__ = "0.2"
+__updated__ = "2020-03-29"
+__version__ = "0.3"
 
 COMPONENT_NAME = "RemoteSwitch"
 
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 from pysmartnode import config
+import uasyncio as asyncio
 import time
 from micropython import const
 
@@ -33,20 +35,20 @@ _TIMEOUT = const(10)  # wait for a single reconnect but should be short enough i
 _unit_index = -1
 
 
-class RemoteSwitch(Component):
+class RemoteSwitch(ComponentBase):
     """
     Generic Switch class.
     Use it according to the template.
     """
 
-    def __init__(self, command_topic, state_topic, timeout=_TIMEOUT):
+    def __init__(self, command_topic, state_topic, timeout=_TIMEOUT, **kwargs):
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover=False)
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, discover=False, **kwargs)
         self._state = False
         self._topic = command_topic
         self._state_topic = state_topic
-        self.lock = config.Lock()
+        self.lock = asyncio.Lock()
         # in case switch activates a device that will need a while to finish
         self._state_time = 0
         self._timeout = timeout

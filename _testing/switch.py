@@ -1,9 +1,9 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-09 
 
-__updated__ = "2019-09-09"
-__version__ = "0.0"
+__updated__ = "2019-11-11"
+__version__ = "0.1"
 
 from pysmartnode.utils.component.switch import ComponentSwitch as _Switch
 from pysmartnode import config
@@ -15,9 +15,9 @@ log = logging.getLogger("Switch")
 
 class Switch(_Switch):
     def __init__(self):
-        super().__init__("testswitch", __version__, mqtt.getDeviceTopic("switch", is_request=True),
-                         "switch")
-        self._frn = "Testswitch"
+        super().__init__("testswitch", __version__, 0,
+                         mqtt_topic=mqtt.getDeviceTopic("switch", is_request=True),
+                         friendly_name="Testswitch", initial_state=None, discover=False)
         log.info("State: {!s}".format(self._state), local_only=True)
 
     async def _on(self):

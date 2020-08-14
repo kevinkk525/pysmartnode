@@ -1,5 +1,5 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2018-2019 Released under the MIT license
+# Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-03-10
 
 __updated__ = "2019-11-02"
@@ -26,7 +26,7 @@ class Logging:
             return
         if config.getMQTT() and not local_only:
             message = (b"{} " * len(message)).format(*message)
-            asyncio.get_event_loop().create_task(
+            asyncio.create_task(
                 config.getMQTT().publish(self.base_topic.format(level), message, qos=1,
                                          timeout=timeout, await_connection=True))
             # format message as bytes so there's no need to encode it later.

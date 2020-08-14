@@ -1,21 +1,20 @@
 # Author: Kevin Köck
-# Copyright Kevin Köck 2019 Released under the MIT license
+# Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-04-28 
 
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2019-11-02"
-__version__ = "1.4"
+__updated__ = "2020-04-03"
+__version__ = "1.71"
 
 import gc
 
 from pysmartnode import config
 import uasyncio as asyncio
-from pysmartnode.utils.component import Component
+from pysmartnode.utils.component import ComponentBase
 import time
 from sys import platform
-from pysmartnode import logging
 from pysmartnode.utils import sys_vars
 
 try:
@@ -42,16 +41,16 @@ STATE_TYPE = '"json_attributes_topic":"~",' \
              '"ic":"mdi:information-outline",'
 
 
-class STATS(Component):
-    def __init__(self):
-        super().__init__(COMPONENT_NAME, __version__, unit_index=0)
+class STATS(ComponentBase):
+    def __init__(self, **kwargs):
+        super().__init__(COMPONENT_NAME, __version__, unit_index=0, **kwargs)
         self._interval = config.INTERVAL_SENSOR_PUBLISH
         self._last_boot = None
 
     async def _init_network(self):
         await super()._init_network()
         await self._publish()
-        asyncio.get_event_loop().create_task(self._loop())
+        asyncio.create_task(self._loop())
         # start loop once network is completely set up because it doesn't have
         # any use otherwise because component only publishes stats.
 
@@ -75,13 +74,13 @@ class STATS(Component):
                                                                               t[3], t[4], t[5])
             s = int(time.time() - time.mktime(t))
         else:
-            s = int(time.ticks_ms() / 1000 + 0.5)  
+            s = int(time.ticks_ms() / 1000 + 0.5)
             # approximate uptime depending on accuracy of ticks_ms()
         m, s = divmod(s, 60)
         h, m = divmod(m, 60)
         d, h = divmod(h, 24)
         val["Uptime"] = '{:d}T{:02d}:{:02d}:{:02d}'.format(d, h, m, s)
-        logging.getLogger("RAM").info(gc.mem_free(), local_only=True)
+        self._log.info(gc.mem_free(), local_only=True)
         val["RAM free (bytes)"] = gc.mem_free()
         if sta is not None:
             try:
@@ -106,14 +105,11 @@ class STATS(Component):
         d, h = divmod(h, 24)
         val["MQTT Downtime"] = '{:d}T{:02d}:{:02d}:{:02d}'.format(d, h, m, s)
         val["MQTT Reconnects"] = _mqtt.getReconnects()
-        val["MQTT Dropped messages"] = _mqtt.getDroppedMessages()
         val["MQTT Subscriptions"] = _mqtt.getLenSubscribtions()
         if config.DEBUG:
             # only needed for debugging and could be understood wrongly otherwise
             val["MQTT TimedOutOps"] = _mqtt.getTimedOutOperations()
             val["MQTT Repubs"] = _mqtt.REPUB_COUNT
-        val["Asyncio waitq"] = "{!s}/{!s}".format(len(asyncio.get_event_loop().waitq),
-                                                  config.LEN_ASYNC_QUEUE)
         await _mqtt.publish(_mqtt.getDeviceTopic("status"), val, qos=1, retain=False, timeout=5)
         del val
         gc.collect()
