@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-10-27 
 
-__updated__ = "2020-04-03"
-__version__ = "0.9"
+__updated__ = "2020-08-13"
+__version__ = "0.9.2"
 
 from pysmartnode.utils.component import ComponentBase
 from pysmartnode import config
@@ -13,7 +13,12 @@ import gc
 import time
 import sys
 import io
-import random
+from micropython import const
+
+try:
+    import urandom as random
+except:
+    import random
 
 # sensor value lookup table
 _iPRECISION = const(0)
@@ -54,7 +59,7 @@ class ComponentSensor(ComponentBase):
         # _intpb can be >0, -1 for not publishing or 0/None for config.INTERVAL_SENSOR_PUBLISH
         self._intpb: float = interval_publish or config.INTERVAL_SENSOR_PUBLISH
         self._intrd: float = config.INTERVAL_SENSOR_READ if interval_reading is None else interval_reading
-        if self._intpb < self._intrd:
+        if self._intrd > self._intpb > 0:
             raise ValueError("interval_publish can't be lower than interval_reading")
         self._topic = mqtt_topic  # can be None
         self._event = None
@@ -77,8 +82,9 @@ class ComponentSensor(ComponentBase):
             self._loop_task.cancel()
         await super()._remove()
 
-    def _addSensorType(self, sensor_type: str, precision: int, offset: float, value_template: str,
-                       unit_of_meas: str, friendly_name: str = None, topic: str = None,
+    def _addSensorType(self, sensor_type: str, precision: int = 0, offset: float = 0.0,
+                       value_template: str = VALUE_TEMPLATE, unit_of_meas: str = "",
+                       friendly_name: str = None, topic: str = None,
                        discovery_type: str = None, binary_sensor: bool = False,
                        unique_name: str = None):
         """
@@ -152,7 +158,7 @@ class ComponentSensor(ComponentBase):
             self._event = asyncio.Event()
         return self._event
 
-    async def publishValues(self, timeout: float = 5):
+    async def _publishValues(self, timeout: float = 5):
         """
         Publish all current sensor readings.
         Ususally used internally but can be called externally to control the publication (e.g. if automatic publications are disabled).
@@ -170,9 +176,9 @@ class ComponentSensor(ComponentBase):
                     msg = val[_iVALUE]
                     if type(msg) == bool and val[_iBINARY_SENSOR]:  # binary sensor
                         msg = _mqtt.payload_on[0] if msg else _mqtt.payload_off[0]
-                    # elif type(msg)==float:
-                    #     msg =("{0:." + str(val[0]) + "f}").format(msg)
-                    # on some platforms this might make sense as a workaround for 25.3000000001
+                    elif sys.platform in ("esp32", "pyboard") and type(msg) == float:
+                        msg = ("{0:." + str(val[0]) + "f}").format(msg)
+                        # on some platforms this might make sense as a workaround for 25.3000000001
                     await _mqtt.publish(val[_iTOPIC], msg, qos=1, timeout=timeout)
         if len(d) == 1 and "value_json" not in self._values[list(d.keys())[0]][_iVALUE_TEMPLATE]:
             # topic has no json template so send it without dict
@@ -195,16 +201,19 @@ class ComponentSensor(ComponentBase):
                 name = "{!s}{!s}".format(self._default_name(), sensor_type[0].upper())
             else:
                 name = self._default_name()
+            expire = self._intpb * 2.1 if self._intpb > 0 else 0
             tp = val[_iDISC_TYPE] or self._composeSensorType(sensor_type, val[_iUNIT_OF_MEAS],
                                                              val[_iVALUE_TEMPLATE],
-                                                             expire_after=self._intpb * 2.1)
+                                                             expire_after=expire,
+                                                             binary=val[_iBINARY_SENSOR])
             if register:
                 await self._publishDiscovery("binary_sensor" if val[_iBINARY_SENSOR] else "sensor",
                                              self.getTopic(sensor_type), name, tp,
                                              val[_iFRIENDLY_NAME] or "{}{}".format(
                                                  sensor_type[0].upper(), sensor_type[1:]))
             else:
-                await self._deleteDiscovery("binary_sensor", name)
+                await self._deleteDiscovery("binary_sensor" if val[_iBINARY_SENSOR] else "sensor",
+                                            name)
             del name, tp
             gc.collect()
 
@@ -262,7 +271,7 @@ class ComponentSensor(ComponentBase):
                 await self._read()
                 self._reading = False
             if publish:
-                await self.publishValues(timeout=timeout)
+                await self._publishValues(timeout=timeout)
         return self._values[sensor_type][_iVALUE]
 
     def getTemplate(self, sensor_type) -> str:
@@ -308,7 +317,7 @@ class ComponentSensor(ComponentBase):
             s[_iTIMESTAMP] = time.ticks_ms()  # time of last successful sensor reading
 
     async def _loop(self):
-        await asyncio.sleep(random.random() * 2)
+        await asyncio.sleep_ms(random.getrandbits(8) * 2)
         # delayed start to give network operations and discovery a chance.
         # also random between 0-2 seconds so not all components run at the same time.
         d = float("inf") if self._intpb == -1 else (self._intpb / self._intrd)
@@ -317,7 +326,7 @@ class ComponentSensor(ComponentBase):
 
         def pub(timeout=None):
             nonlocal pub_task
-            await self.publishValues(timeout)
+            await self._publishValues(timeout)
             pub_task = None
 
         try:
@@ -332,11 +341,11 @@ class ComponentSensor(ComponentBase):
                     # getValue request could be called with publish=False so can't skip iteration.
                     await asyncio.sleep_ms(100)
                 self._reading = True
-                await self._read()
+                res = await self._read()
                 self._reading = False
-                if self._event:
+                if self._event and res is not False:
                     self._event.set()
-                if pb:
+                if pb and res is not False:
                     if pub_task and not self._ignore_stale:  # cancel active publish task
                         pub_task.cancel()
                         pub_task = None

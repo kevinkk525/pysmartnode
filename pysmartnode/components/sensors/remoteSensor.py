@@ -125,7 +125,7 @@ class RemoteSensor(ComponentSensor):
         await self._setValue(list(self.sensor_types)[0], msg)
         # not changing timeout because there should be no error
 
-    async def publishValues(self, timeout=5):
+    async def _publishValues(self, timeout=5):
         pass  # there is no publish for a remote sensor, even if "accidentally" requested
 
     def _default_name(self):

@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-04-26 
 
-__updated__ = "2020-04-01"
-__version__ = "1.6"
+__updated__ = "2020-08-13"
+__version__ = "1.7"
 
 from pysmartnode import config
 import uasyncio as asyncio
@@ -174,10 +174,13 @@ class ComponentBase:
                                      sys_vars.getDeviceDiscovery())  # device
 
     @staticmethod
-    def _composeSensorType(device_class, unit_of_measurement, value_template, expire_after=0):
+    def _composeSensorType(device_class, unit_of_measurement="", value_template=VALUE_TEMPLATE,
+                           expire_after=0, binary=False):
         """Just to make it easier for component developers."""
-        return DISCOVERY_SENSOR.format(device_class, unit_of_measurement, value_template,
-                                       int(expire_after))
+        if not binary:
+            return DISCOVERY_SENSOR.format(device_class, unit_of_measurement, value_template,
+                                           int(expire_after))
+        return DISCOVERY_BINARY_SENSOR.format(device_class, int(expire_after))
 
     @staticmethod
     def _getDiscoveryTopic(component_type, name):
