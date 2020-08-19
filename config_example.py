@@ -35,8 +35,8 @@ MQTT_PASSWORD = ""  # optional if no authentication needed
 # WEBREPL_ACTIVE = False  # If you want to have the webrepl active. Configures and starts it automatically.
 # WEBREPL_PASSWORD = ""   # Be aware that webrepl needs 1.4kB of RAM! Also password can't be more than 9 characters!
 
-if platform == "esp32" or platform == "esp8266":
-    RTC_TIMEZONE_OFFSET = 2  # offset from GMT timezone as ntptime on esp8266 does not support timezones
+RTC_TIMEZONE_OFFSET = 1  # offset from GMT timezone as ntptime on esp8266 does not support timezones
+RTC_DAYLIGHT_SAVINGS = False  # True will add +1 hour to timezone during summer time.
 
 # 10min, Interval sensors send a new value if not specified by specific configuration
 # INTERVAL_SEND_SENSOR = const(600)

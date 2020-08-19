@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-10-22 
 
-__updated__ = "2019-11-02"
+__updated__ = "2020-08-18"
 
 from sys import platform
 from micropython import const
@@ -39,7 +39,8 @@ WEBREPL_ACTIVE = False  # If you want to have the webrepl active. Configures and
 WEBREPL_PASSWORD = ""
 
 RTC_SYNC_ACTIVE = True  # uses ~600B additional RAM on esp8266
-RTC_TIMEZONE_OFFSET = 2  # offset from GMT timezone as ntptime does not support timezones
+RTC_TIMEZONE_OFFSET = 1  # offset from GMT timezone as ntptime does not support timezones
+RTC_DAYLIGHT_SAVINGS = False  # will add +1 hour to timezone during summer time.
 
 if platform == "esp32":
     FTP_ACTIVE = True
