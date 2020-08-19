@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-10-27 
 
-__updated__ = "2020-08-13"
-__version__ = "0.9.2"
+__updated__ = "2020-08-18"
+__version__ = "0.9.3"
 
 from pysmartnode.utils.component import ComponentBase
 from pysmartnode import config
@@ -30,6 +30,7 @@ _iTOPIC = const(5)
 _iDISC_TYPE = const(6)
 _iBINARY_SENSOR = const(7)
 _iUNIQUE_NAME = const(8)
+_iRETAINED_PUB = const(9)
 _iTIMESTAMP = const(-2)
 _iVALUE = const(-1)
 
@@ -86,7 +87,7 @@ class ComponentSensor(ComponentBase):
                        value_template: str = VALUE_TEMPLATE, unit_of_meas: str = "",
                        friendly_name: str = None, topic: str = None,
                        discovery_type: str = None, binary_sensor: bool = False,
-                       unique_name: str = None):
+                       unique_name: str = None, retained_publication: bool = False):
         """
         :param sensor_type: Name of the sensor type, preferrably used by references to .definitons module
         :param precision: digits after separator "."
@@ -99,11 +100,12 @@ class ComponentSensor(ComponentBase):
         standard types with device_class, unit_of_meas, value_template
         :param binary_sensor: if sensor is a binary_sensor, otherwise default sensor.
         :param unique_name: Sensor name for discovery. Has to be unique. Optional, will get generated.
+        :param retained_publication: publish the sensor readings as retained messages.
         :return:
         """
         self._values[sensor_type] = [int(precision), float(offset), value_template, unit_of_meas,
                                      friendly_name, topic, discovery_type, binary_sensor,
-                                     unique_name, None, None]
+                                     unique_name, retained_publication, None, None]
         # value[-1] is last sensor reading, value[-2] is timestamp of last reading that is not None
         self._log.info("Sensor", self._default_name(), "will publish readings for", sensor_type,
                        "to topic", _mqtt.getRealTopic(
@@ -179,7 +181,8 @@ class ComponentSensor(ComponentBase):
                     elif sys.platform in ("esp32", "pyboard") and type(msg) == float:
                         msg = ("{0:." + str(val[0]) + "f}").format(msg)
                         # on some platforms this might make sense as a workaround for 25.3000000001
-                    await _mqtt.publish(val[_iTOPIC], msg, qos=1, timeout=timeout)
+                    await _mqtt.publish(val[_iTOPIC], msg, qos=1, timeout=timeout,
+                                        retain=val[_iRETAINED_PUB])
         if len(d) == 1 and "value_json" not in self._values[list(d.keys())[0]][_iVALUE_TEMPLATE]:
             # topic has no json template so send it without dict
             d = d[list(d.keys())[0]]
