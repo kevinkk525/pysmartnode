@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2020 Released under the MIT license
 # Created on 2020-08-19 
 
-__updated__ = "2020-08-19"
-__version__ = "0.1"
+__updated__ = "2020-08-20"
+__version__ = "0.2"
 
 import ntptime
 import time
@@ -12,6 +12,7 @@ from pysmartnode import logging
 import uasyncio as asyncio
 from pysmartnode import config
 import gc
+from sys import platform
 
 
 async def sync():
@@ -50,11 +51,11 @@ async def sync():
             machine.RTC().datetime(tm)
             print("Set time to", time.localtime())
             s = 1
-            await asyncio.sleep(18000)  # every 5h
+            await asyncio.sleep(18000 if platform != "esp8266" else 7200)  # every 5h, 2h esp8266
         except Exception as e:
             await logging.getLogger("wifi").asyncLog("error",
                                                      "Error syncing time: {!s}, retry in {!s}s".format(
-                                                         e, s))
+                                                         e, s), timeout=10)
             await asyncio.sleep(s)
             s += 5
             # should prevent crashes because previous request was not finished and
