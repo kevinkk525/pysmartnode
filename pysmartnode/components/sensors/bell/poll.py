@@ -14,6 +14,7 @@ example config:
         direction: 2      # optional, falling 2 (ring on GND), rising 1 (ring on Vcc)
         pull_up: true         # optional, if pin should be initialized as pull_up
         confirmations: 1      # optional, will read the pin value this often during debounce_time. (e.g. to ensure that a state is solid when having a pulsating/AC signal)
+        ac_signal: false      # optional, if an ac signal needs to be detected when bell ringing
         # friendly_name: null # optional, friendly name shown in homeassistant gui with mqtt discovery
         # friendly_name_last: null # optional, friendly name for last_bell
     }
@@ -21,8 +22,8 @@ example config:
 NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2020-08-18"
-__version__ = "2.2"
+__updated__ = "2020-09-01"
+__version__ = "2.4"
 
 import gc
 from pysmartnode import config
@@ -45,7 +46,8 @@ _unit_index = -1
 
 class Bell(ComponentSensor):
     def __init__(self, pin, debounce_time, on_time=None, direction=None, pull_up=True,
-                 friendly_name=None, friendly_name_last=None, confirmations=1, **kwargs):
+                 friendly_name=None, friendly_name_last=None, confirmations=1,
+                 ac_signal=False, **kwargs):
         global _unit_index
         _unit_index += 1
         super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log,
@@ -58,6 +60,7 @@ class Bell(ComponentSensor):
         self._timer_delay = 0
         self._last_activation = 0
         self._confirmations = confirmations
+        self._ac = ac_signal
         self._active = False
         gc.collect()
         self._addSensorType("bell", friendly_name=friendly_name, binary_sensor=True,
@@ -76,7 +79,7 @@ class Bell(ComponentSensor):
                 self._on_time - time.ticks_diff(time.ticks_ms(), self.getTimestamp("bell")))
             await self._setValue("bell", False)
             self._active = False
-            print(time.ticks_us(), "loop cleared event")
+            # print(time.ticks_us(), "loop cleared event")
             return
         # print(time.ticks_us(), "loop awaiting pin value change")
         while self._pin_bell.value() == self._low_active:
@@ -84,32 +87,40 @@ class Bell(ComponentSensor):
         self._timer_delay = time.ticks_us()
         self._last_activation = time.ticks_ms()
         # print(time.ticks_us(), "loop pin value changed")
-        sl = int(self._debounce_time / self._confirmations)
+        sl = int(self._debounce_time / self._confirmations) if self._confirmations > 0 else 0
         diff = []
-        await asyncio.sleep_ms(sl)
+        confirmations = 0
         for _ in range(0, self._confirmations):
+            self._timer_delay = time.ticks_us()
+            await asyncio.sleep_ms(sl)
             diff.append(time.ticks_diff(time.ticks_us(), self._timer_delay))
             value = self._pin_bell.value()
             # print(time.ticks_us(), "Timer took", diff / 1000, "ms, pin value", value)
-            if value == self._low_active:
-                print(time.ticks_us(), "pin value didn't stay")
-                print(diff)
+            if not self._ac and value == self._low_active:
+                # print(time.ticks_us(), "pin value didn't stay")
+                # print(diff)
                 return False  # return False so no value gets published
-            self._timer_delay = time.ticks_us()
-            await asyncio.sleep_ms(sl)
-        print(time.ticks_us(), "pin change confirmed")
-        print(diff)
+            elif self._ac and value != self._low_active:
+                confirmations += 1
+        if self._ac:
+            if confirmations > 0:
+                # print(time.ticks_us(), "ac signal confirmed")
+                pass
+            else:
+                # print(time.ticks_us(), "no ac signal, only irq")
+                return False
+        # print(time.ticks_us(), "pin change confirmed")
+        # print(diff)
         diff = time.ticks_diff(time.ticks_ms(), self._last_activation)
         if diff > 10000:
             _log.error("Bell rang {!s}s ago, not activated ringing".format(diff / 1000))
             return False  # return False so no value gets published
-        else:
-            self._active = True
-            await self._setValue("bell", True)
-            t = time.localtime()
-            await self._setValue("last_bell",
-                                 "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1],
-                                                                                t[2], t[3],
-                                                                                t[4], t[5]))
-            if diff > 500:
-                _log.warn("Bell rang {!s}ms ago, activated ringing anyways".format(diff))
+        self._active = True
+        await self._setValue("bell", True)
+        t = time.localtime()
+        await self._setValue("last_bell",
+                             "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1],
+                                                                            t[2], t[3],
+                                                                            t[4], t[5]))
+        if diff > 500:
+            _log.warn("Bell rang {!s}ms ago, activated ringing anyways".format(diff))
