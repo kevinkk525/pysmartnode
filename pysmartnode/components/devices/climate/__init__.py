@@ -19,6 +19,8 @@ example config:
         # temp_high: 21                 # optional, initial temperature high if no value saved by mqtt
         # away_temp_low: 16             # optional, initial away temperature low if no value saved by mqtt
         # away_temp_high: 17            # optional, initial away temperature high if no value saved by mqtt
+        # single_temp: false            # optional, use a single temperature instead of temp_low and temp_high
+        # tolerance_single_temp: 0.5    # optional, tolerance when using single temperature.
         # interval: 300            #optional, defaults to 300s, interval sensor checks situation. Should be >60s
         # friendly_name: null    # optional, friendly name shown in homeassistant gui with mqtt discovery
     }
@@ -32,10 +34,8 @@ cooling_unit
 fan_unit
 """
 
-# TODO: make it possible to only use one target_temp instead of high/low and away_high/low
-
-__updated__ = "2020-04-03"
-__version__ = "0.92"
+__updated__ = "2020-09-01"
+__version__ = "0.94"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -73,6 +73,7 @@ class Climate(ComponentBase):
                  modes: list, interval: float = 300, temp_step=0.1, min_temp: float = 16,
                  max_temp: float = 26, temp_low: float = 20, temp_high: float = 21,
                  away_temp_low: float = 16, away_temp_high: float = 17,
+                 single_temp: bool = False, tolerance_single_temp: float = 0.5,
                  friendly_name=None, **kwargs):
         self.checkSensorType(temperature_sensor, SENSOR_TEMPERATURE)
         self.checkSwitchType(heating_unit)
@@ -84,6 +85,8 @@ class Climate(ComponentBase):
         self._temp_step = temp_step
         self._min_temp = min_temp
         self._max_temp = max_temp
+        self._stemp = single_temp
+        self._tolerance = tolerance_single_temp
         self.temp_sensor: ComponentSensor = temperature_sensor
         self.heating_unit: ComponentSwitch = heating_unit
         self._modes = {}
@@ -114,6 +117,7 @@ class Climate(ComponentBase):
         self._frn = friendly_name
         self.state = {CURRENT_TEMPERATURE_HIGH:      temp_high,  # current temperature high
                       CURRENT_TEMPERATURE_LOW:       temp_low,  # current temperature low
+                      CURRENT_TEMPERATURE_SINGLE:    (temp_high - temp_low) / 2 + temp_low,
                       AWAY_MODE_STATE:               AWAY_OFF,  # away mode "ON"/"OFF"
                       STORAGE_AWAY_TEMPERATURE_HIGH: away_temp_high,  # away temperature low
                       STORAGE_AWAY_TEMPERATURE_LOW:  away_temp_low,  # away temperature high
@@ -134,11 +138,14 @@ class Climate(ComponentBase):
             "{!s}{!s}/statetl/set".format(COMPONENT_NAME, self._count))
         self._temp_high_topic = _mqtt.getDeviceTopic(
             "{!s}{!s}/stateth/set".format(COMPONENT_NAME, self._count))
+        self._temp_single_topic = _mqtt.getDeviceTopic(
+            "{!s}{!s}/statet/set".format(COMPONENT_NAME, self._count))
         self._away_topic = _mqtt.getDeviceTopic(
             "{!s}{!s}/stateaw/set".format(COMPONENT_NAME, self._count))
         _mqtt.subscribeSync(self._mode_topic, self.changeMode, self)
         _mqtt.subscribeSync(self._temp_low_topic, self.changeTempLow, self)
         _mqtt.subscribeSync(self._temp_high_topic, self.changeTempHigh, self)
+        _mqtt.subscribeSync(self._temp_single_topic, self.changeTempSingle, self)
         _mqtt.subscribeSync(self._away_topic, self.changeAwayMode, self)
 
         self._restore_done = False
@@ -206,6 +213,17 @@ class Climate(ComponentBase):
         await asyncio.sleep(1)
         self.event.set()
 
+    def _updateSingleTemp(self):
+        self.state[CURRENT_TEMPERATURE_SINGLE] = (self.state[CURRENT_TEMPERATURE_HIGH] -
+                                                  self.state[CURRENT_TEMPERATURE_LOW]) / 2 + \
+                                                 self.state[CURRENT_TEMPERATURE_LOW]
+
+    def _updateHiLoTemp(self):
+        self.state[CURRENT_TEMPERATURE_HIGH] = self.state[
+                                                   CURRENT_TEMPERATURE_SINGLE] + self._tolerance
+        self.state[CURRENT_TEMPERATURE_LOW] = self.state[
+                                                  CURRENT_TEMPERATURE_SINGLE] - self._tolerance
+
     async def changeAwayMode(self, topic, msg, retain):
         if msg in _mqtt.payload_on:
             if self.state[AWAY_MODE_STATE] == AWAY_ON:
@@ -214,6 +232,7 @@ class Climate(ComponentBase):
                 self.state[AWAY_MODE_STATE] = AWAY_ON
                 self.state[CURRENT_TEMPERATURE_HIGH] = self.state[STORAGE_AWAY_TEMPERATURE_HIGH]
                 self.state[CURRENT_TEMPERATURE_LOW] = self.state[STORAGE_AWAY_TEMPERATURE_LOW]
+                self._updateSingleTemp()
                 self.event.set()
                 return False  # no publish needed as done in _loop
         elif msg in _mqtt.payload_off:
@@ -223,6 +242,7 @@ class Climate(ComponentBase):
                 self.state[AWAY_MODE_STATE] = AWAY_OFF
                 self.state[CURRENT_TEMPERATURE_HIGH] = self.state[STORAGE_TEMPERATURE_HIGH]
                 self.state[CURRENT_TEMPERATURE_LOW] = self.state[STORAGE_TEMPERATURE_LOW]
+                self._updateSingleTemp()
                 self.event.set()
                 return False  # no publish needed as done in _loop
         else:
@@ -256,6 +276,7 @@ class Climate(ComponentBase):
         if self.state[CURRENT_TEMPERATURE_HIGH] == msg:
             return False  # already set to requested temperature, prevents unneeded event & publish
         self.state[CURRENT_TEMPERATURE_HIGH] = msg
+        self._updateSingleTemp()
         if self.state[AWAY_MODE_STATE] == AWAY_ON:
             self.state[STORAGE_AWAY_TEMPERATURE_HIGH] = msg
         else:
@@ -271,11 +292,28 @@ class Climate(ComponentBase):
         if self.state[CURRENT_TEMPERATURE_LOW] == msg:
             return False  # already set to requested temperature, prevents unneeded event & publish
         self.state[CURRENT_TEMPERATURE_LOW] = msg
+        self._updateSingleTemp()
         if self.state[AWAY_MODE_STATE] == AWAY_ON:
             self.state[STORAGE_AWAY_TEMPERATURE_LOW] = msg
         else:
             self.state[STORAGE_TEMPERATURE_LOW] = msg
         self.event.set()
+        return False
+
+    async def changeTempSingle(self, topic, msg, retain):
+        msg = float(msg)
+        if not self._min_temp < msg < self._max_temp:
+            raise ValueError(
+                "Can't set temp to {!s}, min temp is {!s}, max temp is {!s}".format(msg,
+                                                                                    self._min_temp,
+                                                                                    self._max_temp))
+        if self.state[CURRENT_TEMPERATURE_SINGLE] == msg:
+            return False  # already set to requested temperature, prevents unneeded event & publish
+        await self.changeTempHigh(topic, msg + self._tolerance, retain)
+        await self.changeTempLow(topic, msg - self._tolerance, retain)
+        if self.state[CURRENT_TEMPERATURE_SINGLE] != msg:
+            self.log.error("Single temp not as requested, set {!s} but received {!s}".format(
+                self.state[CURRENT_TEMPERATURE_SINGLE], msg))
         return False
 
     async def _discovery(self, register=True):
@@ -292,8 +330,13 @@ class Climate(ComponentBase):
                                             # current_temp_topic
                                             self.temp_sensor.getTemplate(SENSOR_TEMPERATURE),
                                             # cur_temp_template
-                                            self._temp_step, self._min_temp, self._max_temp,
-                                            modes, sys_vars.getDeviceDiscovery())
+                                            self._temp_step,
+                                            self._min_temp + (
+                                                self._tolerance if self._stemp else 0),
+                                            self._max_temp - (
+                                                self._tolerance if self._stemp else 0), modes,
+                                            CLIMATE_DISCOVERY_STEMP if self._stemp else CLIMATE_DISCOVERY_HILOW,
+                                            sys_vars.getDeviceDiscovery())
         else:
             sens = ""
         gc.collect()
