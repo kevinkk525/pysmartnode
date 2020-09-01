@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-02-02
 
-__updated__ = "2019-10-22"
+__updated__ = "2020-09-01"
 
 import os
 import ubinascii
@@ -25,8 +25,8 @@ def getDeviceType():
 
 
 def getDeviceID():
-    if platform == "linux":
-        from pysmartnode import config
+    from pysmartnode import config
+    if config.DEVICE_NAME is not None:
         return config.DEVICE_NAME
     import machine
     return ubinascii.hexlify(machine.unique_id()).decode()
