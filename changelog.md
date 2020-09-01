@@ -1,6 +1,15 @@
 # Changelog
 
 ---------------------------------------------------
+### Version 6.1.2
+* [BELL] 2 different modules, one for usage with interrupts, the other for polling using uasyncio. They are interchangeable. Support for detecting an AC signal when bell is ringing.
+* [NTPTIME] Support for daylight savings (summer/winter time). Note: time may be wrong for a few hours on the day of the time change.
+* [SENSORS] Support for publishing readings as retained
+* [TOOLS] support 1M esp8266 module, remove deprecated files
+* [CLIMATE] support using one target_temp with tolerance instead of temp_high and temp_low
+* sys_vars: fix DEVICE_NAME being only used on unix port
+
+---------------------------------------------------
 ### Version 6.1.1
 * [UASYNCIO] Support the new uasyncio version
 * [TIME] fix timezone offset if it changes the current day number
@@ -13,7 +22,7 @@
 * [COMPONENTS] only list constructor kwargs that are used by the current subclass, everything else is covered by "**kwargs", fix random.random not always available anymore, add "expire_after" option to sensors, fix delete discovery option, add option to not publish a value if reading failed (by returnin False), fix discovery message for binary_sensors, remove icon from binary sensor discovery message (maybe falsely removed by homeassistant?)
 * [CONFIG] Configuration of components now relies on kwargs. Providing args trough a config dictionary (e.g. remote configuration) is not supported anymore (but was never advised anyway).
 * [MQTT] concurrent operations with timeouts now possible, fix for esp8266 with native not working anymore
-* [BELL]: drop timer because it worked unreliable on esp8266, change component to inherit from ComponentSensor, add option to read pin state multiple times to ensure that it works with AC signals.
+* [BELL] drop timer because it worked unreliable on esp8266, change component to inherit from ComponentSensor, add option to read pin state multiple times to ensure that it works with AC signals.
 * Support for Pyboard D added
 * Support for loboris fork dropped because it won't get any updates and probably doesn't support the new uasyncio
 
