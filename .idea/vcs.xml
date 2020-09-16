@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/external_modules/micropython_mqtt_as" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/pysmartnode/libraries" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/pysmartnode/libraries/arduinoGPIO" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/pysmartnode/libraries/ftpserver" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/pysmartnode/libraries/htu21d" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/pysmartnode/libraries/pms5003" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/tools/esp32/docker_build/dockercontainer-mpy-esp32-cc" vcs="Git" />
+  </component>
+</project>
