@@ -23,7 +23,7 @@ The module can also be used to automatically detect all connected DS18 units.
 NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2020-04-03"
+__updated__ = "2020-10-17"
 __version__ = "3.5"
 
 from pysmartnode import config
