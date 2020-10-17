@@ -24,7 +24,7 @@ NOTE: additional constructor arguments are available from base classes, check CO
 """
 
 __updated__ = "2020-04-03"
-__version__ = "3.4"
+__version__ = "3.5"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -82,9 +82,9 @@ class DS18(ComponentSensor):
             kwargs["interval_publish"] = -1
         global _unit_index
         _unit_index += 1
-        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
         self.rom: str = rom
         self._generic = True if rom is None and not auto_detect else False
+        super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
         if type(pin) == ds18x20.DS18X20:
             self.sensor: ds18x20.DS18X20 = pin
         else:
