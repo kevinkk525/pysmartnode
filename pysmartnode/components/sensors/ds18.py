@@ -127,7 +127,7 @@ class DS18(ComponentSensor):
                     if rom not in self._instances:
                         self._instances[rom] = DS18(self.sensor, rom, False, **self._kwargs)
                 for rom in self._instances:
-                    if rom not in roms:  # sensor not connected anymore
+                    if self.str2rom(rom) not in roms:  # sensor not connected anymore
                         await self.removeComponent(self._instances[rom])
                         # will stop its loop and remove component and unsubcribe every topic
                         del self._instances[rom]
