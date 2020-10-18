@@ -23,8 +23,8 @@ The module can also be used to automatically detect all connected DS18 units.
 NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2020-10-17"
-__version__ = "3.5"
+__updated__ = "2020-10-18"
+__version__ = "3.6"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -128,7 +128,7 @@ class DS18(ComponentSensor):
                         self._instances[rom] = DS18(self.sensor, rom, False, **self._kwargs)
                 for rom in self._instances:
                     if rom not in roms:  # sensor not connected anymore
-                        await self.removeComponent(roms[rom])
+                        await self.removeComponent(self._instances[rom])
                         # will stop its loop and remove component and unsubcribe every topic
                         del self._instances[rom]
                         await _log.asyncLog("info", "DS18 removed:", rom, timeout=5)
