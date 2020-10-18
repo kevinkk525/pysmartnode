@@ -6,7 +6,7 @@
 # Configuration management file
 ##
 
-__updated__ = "2020-04-02"
+__updated__ = "2020-10-18"
 
 from .config_base import *
 from sys import platform
@@ -15,7 +15,7 @@ if platform == "linux" and DEVICE_NAME is None:
     raise TypeError("DEVICE_NAME has to be set on unix port")
 
 # General
-VERSION = const(612)
+VERSION = const(613)
 print("PySmartNode version {!s} started".format(VERSION))
 
 import gc
@@ -96,6 +96,13 @@ def getComponentName(component):
         if COMPONENTS[comp] == component:
             return comp
     return None
+
+
+def removeComponent(component):
+    for comp in COMPONENTS:
+        if COMPONENTS[comp] == component:
+            del COMPONENTS[comp]
+            return
 
 
 def addComponent(name, obj):

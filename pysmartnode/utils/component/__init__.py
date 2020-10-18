@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-04-26 
 
-__updated__ = "2020-08-13"
-__version__ = "1.7"
+__updated__ = "2020-10-18"
+__version__ = "1.8"
 
 from pysmartnode import config
 import uasyncio as asyncio
@@ -98,6 +98,7 @@ class ComponentBase:
         await config._log.asyncLog("info", "Removed component", config.getComponentName(self),
                                    "module", self.COMPONENT_NAME, "version", self.VERSION,
                                    timeout=5)
+        config.removeComponent(self)
         if config.MQTT_DISCOVERY_ENABLED and self.__discover:
             await self._discovery(False)
 

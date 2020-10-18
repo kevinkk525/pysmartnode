@@ -126,6 +126,7 @@ class DS18(ComponentSensor):
                     rom = self.rom2str(rom)
                     if rom not in self._instances:
                         self._instances[rom] = DS18(self.sensor, rom, False, **self._kwargs)
+                        config.addComponent("ds18_{!s}".format(rom), self._instances[rom])
                 for rom in self._instances:
                     if self.str2rom(rom) not in roms:  # sensor not connected anymore
                         await self.removeComponent(self._instances[rom])
