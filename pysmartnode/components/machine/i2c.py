@@ -18,8 +18,8 @@ example config:
 
 """
 
-__updated__ = "2018-08-18"
-__version__ = "0.4"
+__updated__ = "2020-10-25"
+__version__ = "0.5"
 
 import gc
 
@@ -28,9 +28,15 @@ Easy I2C-creation
 """
 
 
-def I2C(SCL, SDA, FREQ=100000):
-    from machine import I2C
+def SoftI2C(SCL, SDA, FREQ=100000):
+    from machine import SoftI2C
     from pysmartnode.components.machine.pin import Pin
-    i2c = I2C(scl=Pin(SCL), sda=Pin(SDA), freq=FREQ)
+    i2c = SoftI2C(scl=Pin(SCL), sda=Pin(SDA), freq=FREQ)
     gc.collect()
     return i2c
+
+
+I2C = SoftI2C  # compatibility to old code
+
+# Changed to SoftI2C with commit
+# https://github.com/micropython/micropython/commit/39d50d129ce428858332523548f0594503d0f45b
