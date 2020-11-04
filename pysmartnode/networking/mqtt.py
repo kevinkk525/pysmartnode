@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2018-2020 Released under the MIT license
 # Created on 2018-02-17
 
-__updated__ = "2020-08-12"
-__version__ = "6.3"
+__updated__ = "2020-11-04"
+__version__ = "6.4"
 
 import gc
 import ujson
@@ -139,7 +139,7 @@ class MQTTHandler(MQTTClient):
         _log.info("WIFI state", state, local_only=True)
         # TODO: change to asyncio.gather() [not on esp8266] as soon as cancelling gather works.
         for cb in self._wifi_subs:
-            res = cb(self)
+            res = cb(self, state)
             if type(res) == type_gen:
                 await res
         self._wifi_task = None
