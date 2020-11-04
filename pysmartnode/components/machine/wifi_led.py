@@ -8,8 +8,8 @@ Best to be activated in config.py so it can display the status before receving/l
 Therefore no example configuration given.
 """
 
-__updated__ = "2020-03-29"
-__version__ = "1.5"
+__updated__ = "2020-11-04"
+__version__ = "1.6"
 
 import gc
 import machine
@@ -64,7 +64,7 @@ class WIFILED(ComponentBase):
             self.pin.value(0 if self._active_high else 1)
             await asyncio.sleep_ms(duration)
 
-    async def _wifiChanged(self, state):
+    async def _wifiChanged(self, mqtt, state):
         if state is True:
             self._next.append((50, 2))
         else:

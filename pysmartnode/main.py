@@ -114,7 +114,7 @@ async def _receiveConfig():
 services_started = False
 
 
-def start_services(state):
+def start_services(mqtt, state):
     if not state:  # Wifi disconnected
         return
     global services_started
