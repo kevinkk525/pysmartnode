@@ -2,8 +2,8 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-09-10 
 
-__updated__ = "2020-04-01"
-__version__ = "1.6"
+__updated__ = "2020-11-25"
+__version__ = "1.7"
 
 from pysmartnode.utils.component import ComponentBase
 from .definitions import DISCOVERY_SWITCH
@@ -22,7 +22,7 @@ class ComponentSwitch(ComponentBase):
 
     def __init__(self, component_name, version, unit_index: int, mqtt_topic: str = None,
                  instance_name=None, wait_for_lock=True, restore_state=True,
-                 friendly_name=None, initial_state=None, **kwargs):
+                 friendly_name=None, initial_state=None, allow_retrigger: bool = True, **kwargs):
         """
         :param mqtt_topic: topic of subclass which controls the switch state. optional. If not ending with "/set", it will be added as the command_topic is being stored.
         :param instance_name: name of the instance. If not provided will get composed of component_name<count>
@@ -32,6 +32,7 @@ class ComponentSwitch(ComponentBase):
         Otherwise the new one will get ignored.
         :param friendly_name: friendly name for homeassistant gui
         :param initial_state: intitial state of the switch. By default unknown so first state change request will set initial state.
+        :param allow_retrigger: allows executing a state action even if the current state is the same. (switching on a switch that is already on) Doesn't trigger the event if the state didn't change.
         """
         super().__init__(component_name, version, unit_index, **kwargs)
         self._state = initial_state  # initial state is unknown if None
@@ -47,6 +48,7 @@ class ComponentSwitch(ComponentBase):
         self._event = None
         self._frn = friendly_name
         self._pub_task = None
+        self._retr = allow_retrigger
         gc.collect()
 
     def getStateChangeEvent(self):
@@ -69,10 +71,10 @@ class ComponentSwitch(ComponentBase):
         Can be subclassed if extended functionality is needed.
         """
         if msg in _mqtt.payload_on:
-            if not self._state:  # False or None (unknown)
+            if not self._state or self._retr:  # False or None (unknown) or retrigger is allowed
                 await self.on()  # no return because state will be published by on()/off()
         elif msg in _mqtt.payload_off:
-            if self._state is not False:  # True or None (unknown)
+            if self._state is not False or self._retr:  # True or None (unknown) or retrigger is allowed
                 await self.off()  # no return because state will be published by on()/off()
         else:
             raise TypeError("Payload {!s} not supported".format(msg))
@@ -120,16 +122,13 @@ class ComponentSwitch(ComponentBase):
         """Toggle device state. Can be used by other component to control this component"""
         if self._wfl:
             await self._lock.acquire()
+            self._lock.release()  # is being acquired in off()/on()
         elif self._lock.locked() and not self._wfl:
             return False
-        try:
-            if self._state is True:
-                return await self.off()
-            else:
-                return await self.on()
-        finally:
-            if self._wfl:
-                self._lock.release()
+        if self._state is True:
+            return await self.off()
+        else:
+            return await self.on()
 
     def state(self) -> bool:
         return self._state
@@ -147,3 +146,9 @@ class ComponentSwitch(ComponentBase):
     def topic(self) -> str:
         """Returns the topic of the component. Note that it returns the command_topic!"""
         return self._topic
+
+    async def _off(self):
+        raise NotImplementedError()
+
+    async def _on(self):
+        raise NotImplementedError()
