@@ -17,5 +17,7 @@ def reload(mod):
 
 import uos
 import machine
+import sys
 
-uos.dupterm(machine.UART(0, 115200), 1)
+if sys.platform == "esp8266":
+    uos.dupterm(machine.UART(0, 115200), 1)

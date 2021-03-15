@@ -15,7 +15,7 @@ So I decided to build one myself with the following points in mind:
 * Providing templates as example and help of how to make new components, etc.
 * Be reliable (Have a reliable connection using mqtt, do not fail if a component fails, ...)
 * Comment as much as possible so that anyone can understand what a file or configuration option is for
-
+* Tight integration with Home-Assistant (e.g. by using mqtt autodiscovery)
 
 ## 1.Hardware
 
@@ -67,6 +67,7 @@ Required external modules are:
 
 * extmod/uasyncio (Version >3.0.0, Part of the firmware since April 2020, the old uasyncio version from micropyhton-lib is not supported anymore!)
 * micropython-mqtt-as, my own fork that has some needed features: ([mqtt_as](https://github.com/kevinkk525/micropython-mqtt))
+* micropython-os (only missing in the Unix port!): install it executing: import upip;upip.install("micropython-os")
 
 All required modules are in this repository and don't need to be aquired manually. 
 Just put the directory `micropython_mqtt_as` from `external_modules` into your `modules` directory before building the firmware or run the correct script in section `Tools`.
