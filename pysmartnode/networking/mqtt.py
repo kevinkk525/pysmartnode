@@ -114,10 +114,15 @@ class MQTTHandler(MQTTClient):
         await super().disconnect()
 
     async def _connectCaller(self):
-        if platform == "esp8266":
-            import network
-            ap = network.WLAN(network.AP_IF)
-            ap.active(False)
+        import network
+        ap = network.WLAN(network.AP_IF)
+        ap.active(False)
+        if platform == "pyboard":
+            st = network.WLAN(network.STA_IF)
+            st.active(True)
+            st.connect(config.WIFI_SSID, config.WIFI_PASSPHRASE)
+            await asyncio.sleep(5)
+            st.disconnect()  # sadly needed otherwise first connection attempt won't work
         while True:
             try:
                 await self.connect()
@@ -483,7 +488,7 @@ class MQTTHandler(MQTTClient):
                        "took {!s}ms".format(time.ticks_diff(_t2, _t1)), "returned", res,
                        local_only=True)
 
-    async def publish(self, topic, msg, retain=False, qos=0, timeout=None, await_connection=True):
+    async def publish(self, topic, msg, retain=False, qos=1, timeout=None, await_connection=True):
         """
         publish a message to mqtt
         :param topic: str

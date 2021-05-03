@@ -19,8 +19,8 @@ Does not publish anything, just unifies reading of esp8266 ADC, esp32, Amux, Aru
 You can pass any ADC object or pin number to ADC() and it will return a corretly subclassed pyADC object
 """
 
-__version__ = "1.7"
-__updated__ = "2020-04-09"
+__version__ = "1.8"
+__updated__ = "2021-05-03"
 
 import machine
 from sys import platform
@@ -59,11 +59,7 @@ class pyADC:
         if platform in ("esp8266", "esp32"):
             raw = self.read()
         else:
-            try:
-                raw = self.read_u16()  # every platform should now provide this method
-            except NotImplementedError:
-                raise NotImplementedError(
-                    "Platform {!s} not implemented, please report".format(platform))
+            raw = self.read_u16()  # every platform should now provide this method
         return self.convertToVoltage(raw)
 
     def __str__(self):
@@ -79,7 +75,8 @@ class pyADC:
     # In other subclasses they have to be implemented.
 
     def read(self) -> int:
-        raise NotImplementedError("Implement your subclass correctly!")
+        # backwards compatibility because newer ports like Pyboard-D and RP2 don't support this.
+        return int(self.read_u16() / 65535 * 4095)
 
     def read_u16(self) -> int:
         """returns 0-65535"""
@@ -95,12 +92,17 @@ class pyADC:
 # machineADC = type("ADC", (machine.ADC, pyADC), {})  # machine.ADC subclass
 class machineADC(machine.ADC, pyADC):
     # machine.Pin ignores additional kwargs in constructor
-    pass
+    def __init__(self, pin, *args, calibration_v_max=3.3, calibration_offset=0, max_voltage=3.3,
+                 **kwargs):
+        pyADC.__init__(self, *args, calibration_v_max=calibration_v_max,
+                       calibration_offset=calibration_offset, max_voltage=max_voltage,
+                       **kwargs)
+        super().__init__(pin, *args, **kwargs)
 
 
 def ADC(pin, *args, atten=None, calibration_v_max=3.3, calibration_offset=0, max_voltage=3.3,
         **kwargs) -> pyADC:
-    if type(pin) == str:
+    if type(pin) == str and platform != "pyboard":
         raise TypeError("ADC pin can't be string")
     if isinstance(pin, pyADC):
         # must be a completely initialized ADC otherwise it wouldn't be a subclass of pyADC
@@ -116,13 +118,18 @@ def ADC(pin, *args, atten=None, calibration_v_max=3.3, calibration_offset=0, max
             pin = 0
         elif platform == "esp32":  # ADC(Pin(33))
             pin = int(astr[astr.rfind("(") + 1:astr.rfind("))")])
+        elif platform == "pyboard":  # <ADC1 channel=14>
+            pin = int(astr[astr.rfind("=") + 1:-1])
         else:
             try:
                 pin = int(astr[astr.rfind("(") + 1:astr.rfind("))")])
             except Exception as e:
                 raise NotImplementedError(
                     "Platform {!s} not implemented, str {!s}, {!s}".format(platform, astr, e))
-    if type(pin) == int:
+    elif type(pin) == machine.Pin:
+        if platform == "pyboard":
+            pin = pin.name()  # get pin number.
+    if type(pin) == int or (platform == "pyboard" and type(pin) == str):
         if platform == "esp32":
             adc = machineADC(machine.Pin(pin), *args, calibration_v_max=calibration_v_max,
                              calibration_offset=calibration_offset, max_voltage=max_voltage,
@@ -133,6 +140,10 @@ def ADC(pin, *args, atten=None, calibration_v_max=3.3, calibration_offset=0, max
             return machineADC(pin, *args, calibration_v_max=calibration_v_max,
                               calibration_offset=calibration_offset, max_voltage=max_voltage,
                               **kwargs)  # esp8266 does not require a pin object
+        elif platform == "pyboard":
+            return machineADC(pin, *args, calibration_v_max=calibration_v_max,
+                              calibration_offset=calibration_offset, max_voltage=max_voltage,
+                              **kwargs)  # pyboard does not require a pin object or str pin name
         else:
             try:
                 return machineADC(machine.Pin(pin), *args, calibration_v_max=calibration_v_max,

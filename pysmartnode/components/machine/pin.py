@@ -13,8 +13,8 @@ import machine
 p=Pin("D0", machine.Pin.OUT, machine.Pin.PULL_UP)
 """
 
-__updated__ = "2019-04-04"
-__version__ = "0.3"
+__updated__ = "2021-05-02"
+__version__ = "0.4"
 
 import machine
 from sys import platform
@@ -34,14 +34,16 @@ def Pin(pin, *args, **kwargs):
         if platform == "esp8266":
             # generate dictionary on request so no RAM gets reserved all the time
             pins = {"D%i" % p: v for p, v in enumerate((16, 5, 4, 0, 2, 14, 12, 13, 15, 3, 1))}
+            if pin in pins:
+                pin = pins[pin]
+            else:
+                raise TypeError(
+                    "Pin type {!s}, name {!r} not found in dictionary".format(type(pin), pin))
+        elif platform == "pyboard":
+            pass  # pyboard-D only supports string pin names
         else:
             raise TypeError(
                 "Platform {!s} does not support string pin names like {!s}".format(platform, pin))
-        if pin in pins:
-            pin = pins[pin]
-        else:
-            raise TypeError(
-                "Pin type {!s}, name {!r} not found in dictionary".format(type(pin), pin))
         gc.collect()
     elif type(pin) != int:
         # assuming pin object

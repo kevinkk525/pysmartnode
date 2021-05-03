@@ -5,8 +5,8 @@
 # This component will be started automatically to provide basic device statistics.
 # You don't need to configure it to be active.
 
-__updated__ = "2020-04-03"
-__version__ = "1.71"
+__updated__ = "2021-05-03"
+__version__ = "1.8"
 
 import gc
 
@@ -83,11 +83,18 @@ class STATS(ComponentBase):
         self._log.info(gc.mem_free(), local_only=True)
         val["RAM free (bytes)"] = gc.mem_free()
         if sta is not None:
-            try:
-                val["RSSI"] = sta.status("rssi")
-            except Exception as e:
-                val["RSSI"] = 0  # platform doesn't support reading rssi
-                print(e)
+            if platform == "pyboard":
+                s = sta.scan()
+                for n in s:
+                    if n[0].decode() == config.WIFI_SSID:
+                        val["RSSI"] = n[3]
+            else:
+                try:
+                    val["RSSI"] = sta.status("rssi")
+                except Exception as e:
+                    val["RSSI"] = 0
+                    # platform doesn't support reading rssi
+                    print(e)
             try:
                 val["IPAddress"] = sta.ifconfig()[0]
             except Exception as e:

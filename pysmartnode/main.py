@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2017-2020 Released under the MIT license
 # Created on 2017-08-10
 
-__updated__ = "2020-04-03"
+__updated__ = "2021-05-03"
 
 import gc
 
@@ -127,6 +127,10 @@ def start_services(mqtt, state):
             import pysmartnode.networking.wifi_esp8266
             del pysmartnode.networking.wifi_esp8266
             del sys.modules["pysmartnode.networking.wifi_esp8266"]
+        elif sys.platform == "pyboard":
+            import pysmartnode.networking.wifi_pyboard
+            del pysmartnode.networking.wifi_pyboard
+            del sys.modules["pysmartnode.networking.wifi_pyboard"]
         if config.MQTT_RECEIVE_CONFIG:
             loop.create_task(_receiveConfig())
         services_started = True
