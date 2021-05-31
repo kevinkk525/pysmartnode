@@ -10,12 +10,14 @@ example config:
     constructor_args: {
         id: 0                   #optional, number of the timer to be used
         timeout: 120            #optional, defaults to 120s, resets machine after this
+        hard: false             # optional, hard=True is hardware WDT (if available)
     }
 }
+Warning: A hardware WDT doesn't log the reset.
 """
 
-__updated__ = "2020-04-03"
-__version__ = "1.3"
+__updated__ = "2021-05-31"
+__version__ = "1.4"
 
 import gc
 import uasyncio as asyncio
@@ -26,11 +28,15 @@ gc.collect()
 
 
 class WDT:
-    def __init__(self, id=0, timeout=120):
+    def __init__(self, id=0, timeout=120, hard=False):
         self._timeout = timeout / 10
-        self._counter = 0
-        self._timer = machine.Timer(id)
-        self.init()
+        if not hard:
+            self._counter = 0
+            self._timer = machine.Timer(id)
+            self.init()
+        else:
+            self._wdt = machine.WDT(id, timeout=timeout*1000)
+        self._hard = hard
         asyncio.create_task(self._resetCounter())
         """ Done in pysmartnode.main
         try:
@@ -65,9 +71,14 @@ class WDT:
                          callback=self._wdt)
 
     def deinit(self):  # will not stop coroutine
+        if self._hard:
+            raise AttributeError("Hardware WDT can't be deinitialized")
         self._timer.deinit()
 
     async def _resetCounter(self):
         while True:
             await asyncio.sleep(self._timeout)
-            self.feed()
+            if self._hard:
+                self._wdt.feed()
+            else:
+                self.feed()
