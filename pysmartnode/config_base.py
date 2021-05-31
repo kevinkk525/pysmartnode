@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2019-2020 Released under the MIT license
 # Created on 2019-10-22 
 
-__updated__ = "2020-08-18"
+__updated__ = "2021-05-24"
 
 from sys import platform
 from micropython import const
@@ -42,13 +42,22 @@ RTC_SYNC_ACTIVE = True  # uses ~600B additional RAM on esp8266
 RTC_TIMEZONE_OFFSET = 1  # offset from GMT timezone as ntptime does not support timezones
 RTC_DAYLIGHT_SAVINGS = False  # will add +1 hour to timezone during summer time.
 
+FTP_ACTIVE = False
+FTP_THREADED = False
+
+MAIN_LOOP_THREADED = False # run main loop in a thread. Can be used on PYBD as a workaround to have a working webrepl
+
+WATCHDOG_LEVEL = 0 # 0 = disabled, 1 = Software Watchdog using Timers, 2 = Hardware Watchdog (if available on platform)
+
 if platform == "esp32":
     FTP_ACTIVE = True
 elif platform == "pyboard":
     FTP_ACTIVE = True
+    RTC_SYNC_ACTIVE = False # bug in pybd results in permenanet connection loss after syncing time once..
+    PIN3V3_ENABLED = True
 elif platform == "esp8266":
     LIGTWEIGHT_LOG = False  # uses a smaller class for logging on esp8266 omitting module names, saves ~500Bytes
-    USE_SOFTWARE_WATCHDOG = True  # uses ~700B of RAM, started with timeout=2xMQTT_KEEPALIVE, use if you experience outages
+    WATCHDOG_LEVEL = 1  # uses ~700B of RAM, started with timeout=2xMQTT_KEEPALIVE, use if you experience outages
     WIFI_SLEEP_MODE = 0  # WIFI_NONE_SLEEP = 0, WIFI_LIGHT_SLEEP = 1, WIFI_MODEM_SLEEP = 2; changed to 0 for increased stability. Standard is 2. Integrated into mqtt_as.
 elif platform == "linux":
     RTC_SYNC_ACTIVE = True  # This should always be True unless your system doesn't have access to the internet or sync the time

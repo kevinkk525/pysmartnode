@@ -26,8 +26,8 @@ Be careful with "reps", the amount of repitions as this currently uses a lot of 
 NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2020-04-03"
-__version__ = "0.2"
+__updated__ = "2021-02-03"
+__version__ = "0.3"
 
 from pysmartnode import config
 from pysmartnode.utils.component.switch import ComponentSwitch
@@ -55,7 +55,10 @@ class Switch433Mhz(ComponentSwitch):
         global _tx
         if file not in _remotes and _tx is None:
             pin = Pin(pin, machine.Pin.OUT)
-            _tx = TX(pin, file, reps)
+            try:
+                _tx = TX(pin, file, reps)
+            except OSError as e:
+                raise OSError("File not found")
             _remotes[file] = _tx._data
         elif file not in _remotes:
             with open(file, 'r') as f:

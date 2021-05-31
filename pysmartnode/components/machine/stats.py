@@ -120,7 +120,7 @@ class STATS(ComponentBase):
         await _mqtt.publish(_mqtt.getDeviceTopic("status"), val, qos=1, retain=False, timeout=5)
         del val
         gc.collect()
-        if config.DEBUG:
+        if config.DEBUG and platform not in ("pyboard",):
             # DEBUG to check RAM/Heap fragmentation
             import micropython
             micropython.mem_info(1)

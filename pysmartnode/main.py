@@ -2,7 +2,7 @@
 # Copyright Kevin Köck 2017-2020 Released under the MIT license
 # Created on 2017-08-10
 
-__updated__ = "2021-05-03"
+__updated__ = "2021-05-31"
 
 import gc
 
@@ -51,10 +51,13 @@ gc.collect()
 print("free ram {!r}".format(gc.mem_free()))
 gc.collect()
 
-if hasattr(config, "USE_SOFTWARE_WATCHDOG") and config.USE_SOFTWARE_WATCHDOG:
+if config.WATCHDOG_LEVEL:
     from pysmartnode.components.machine.watchdog import WDT
 
-    wdt = WDT(timeout=config.MQTT_KEEPALIVE * 2)
+    if config.WATCHDOG_LEVEL == 2:
+        wdt = WDT(timeout=10, hard=True)
+    else:
+        wdt = WDT(timeout=config.MQTT_KEEPALIVE * 2, hard=False)
     config.addComponent("wdt", wdt)
     gc.collect()
 
@@ -140,13 +143,7 @@ def start_services(mqtt, state):
             print("Connected, local ip {!r}".format(s.ifconfig()[0]))
 
 
-def main():
-    print("free ram {!r}".format(gc.mem_free()))
-    gc.collect()
-    loop.create_task(_resetReason())
-    config.getMQTT().registerWifiCallback(start_services)
-
-    print("Starting uasyncio loop")
+def _start_loop():
     try:
         loop.run_forever()
     except Exception as e:
@@ -156,7 +153,7 @@ def main():
             pass
         if config.DEBUG_STOP_AFTER_EXCEPTION:
             # should actually never happen that the uasyncio main loop runs into an exception
-            if config.USE_SOFTWARE_WATCHDOG:
+            if config.WATCHDOG_LEVEL:
                 wdt.deinit()  # so it doesn't reset the board
             raise e
         # just log the exception and reset the microcontroller
@@ -165,6 +162,23 @@ def main():
             sys.print_exception(e, s)
             f.write(s.getvalue())
         machine.reset()
+
+
+def main():
+    print("free ram {!r}".format(gc.mem_free()))
+    gc.collect()
+    if sys.platform == "pyboard" and config.PIN3V3_ENABLED:
+        machine.Pin(machine.Pin.board.EN_3V3).value(1)
+    loop.create_task(_resetReason())
+    config.getMQTT().registerWifiCallback(start_services)
+
+    print("Starting uasyncio loop")
+    if config.MAIN_LOOP_THREADED:
+        import _thread
+        _thread.stack_size(8192) # prevent recursion overflow
+        _thread.start_new_thread(_start_loop, [])
+    else:
+        _start_loop()
 
 
 main()
