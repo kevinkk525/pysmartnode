@@ -32,8 +32,10 @@ Be sure to connect it to 5V but use a voltage divider to connect the Echo pin to
 NOTE: additional constructor arguments are available from base classes, check COMPONENTS.md!
 """
 
-__updated__ = "2020-03-31"
-__version__ = "0.92"
+__updated__ = "2021-05-25"
+__version__ = "0.93"
+
+import errno
 
 from pysmartnode.components.machine.pin import Pin
 from pysmartnode.utils.component.sensor import ComponentSensor, SENSOR_TEMPERATURE, \
@@ -59,13 +61,15 @@ _unit_index = -1
 
 
 class HCSR04(ComponentSensor):
-    def __init__(self, pin_trigger, pin_echo, timeout=30000, temp_sensor: ComponentSensor = None,
+    def __init__(self, arduino_sensor=None, pin_trigger=None, pin_echo=None, timeout=30000,
+                 temp_sensor: ComponentSensor = None,
                  precision: int = 2, offset: float = 0, sleeping_time: int = 20,
                  iterations: int = 30, percentage_failed_readings_abort: float = 0.66,
                  value_template=None, friendly_name=None, **kwargs):
         """
         HC-SR04 ultrasonic sensor.
         Be sure to connect it to 5V but use a voltage divider to connect the Echo pin to an ESP.
+        :param arduino_sensor: if hcsr04 is connected to an arduino which is connected by uart
         :param pin_trigger: pin number/object of trigger pin
         :param pin_echo: pin number/object of echo pin
         :param timeout: reading timeout, corresponds to sensor limit range of 4m
@@ -81,9 +85,11 @@ class HCSR04(ComponentSensor):
         global _unit_index
         _unit_index += 1
         super().__init__(COMPONENT_NAME, __version__, _unit_index, logger=_log, **kwargs)
-        self._tr = Pin(pin_trigger, mode=machine.Pin.OUT)
-        self._tr.value(0)
-        self._ec = Pin(pin_echo, mode=machine.Pin.IN)
+        if not arduino_sensor:
+            self._tr = Pin(pin_trigger, mode=machine.Pin.OUT)
+            self._tr.value(0)
+            self._ec = Pin(pin_echo, mode=machine.Pin.IN)
+        self._ard = arduino_sensor
         self._to = timeout
         self._sleep = sleeping_time
         self._iters = iterations
@@ -94,11 +100,17 @@ class HCSR04(ComponentSensor):
         self._addSensorType("distance", precision, offset, value_template or VALUE_TEMPLATE_FLOAT,
                             "cm", friendly_name, discovery_type=DISCOVERY_DISTANCE)
 
-    def _pulse(self) -> int:
+    async def _pulse(self) -> int:
         """
         Send a pulse and wait for the echo pin using machine.time_pulse_us() to measure us.
         :return: int
         """
+        if self._ard:
+            res = await self._ard.read(COMPONENT_NAME, int, self._to)
+            if res > self._to:
+                print("res>_to", res, self._to)
+                raise OSError(errno.ETIMEDOUT)
+            return res
         tr = self._tr
         tr.value(0)
         time.sleep_us(5)
@@ -129,7 +141,7 @@ class HCSR04(ComponentSensor):
         for _ in range(self._iters):
             try:
                 a = time.ticks_us()
-                pt = self._pulse()
+                pt = await self._pulse()
                 b = time.ticks_us()
                 if pt > 175:  # ~3cm, sensor minimum distance, often read although other problems
                     val.append(pt)
