@@ -4,7 +4,7 @@ import uasyncio as asyncio
 from pysmartnode.utils.sys_vars import getDeviceID
 import network
 
-__updated__ = "2021-05-03"
+__updated__ = "2021-05-24"
 
 try:
     s = network.WLAN(network.STA_IF)
@@ -18,15 +18,11 @@ if config.RTC_SYNC_ACTIVE:
     asyncio.create_task(sync())
     gc.collect()
 
-if hasattr(config, "FTP_ACTIVE") and config.FTP_ACTIVE is True:
-    if config.WEBREPL_ACTIVE is True:
-        try:
-            import _thread
-        except:
-            import pysmartnode.libraries.ftpserver.uftpd
-        else:
-            print("FTP-Server active")
-            import pysmartnode.libraries.ftpserver.ftp_thread
-    else:
-        print("FTP-Server active")
+if config.FTP_ACTIVE is True:
+    if config.FTP_THREADED:
         import pysmartnode.libraries.ftpserver.ftp_thread
+        print("Threaded-FTP-Server active")
+    else:
+        import pysmartnode.libraries.ftpserver.uftpd
+        print("UFTP-Server active")
+

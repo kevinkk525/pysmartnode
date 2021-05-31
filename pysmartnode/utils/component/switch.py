@@ -24,6 +24,9 @@ class ComponentSwitch(ComponentBase):
                  instance_name=None, wait_for_lock=True, restore_state=True,
                  friendly_name=None, initial_state=None, allow_retrigger: bool = True, **kwargs):
         """
+        :param component_name: name of the component
+        :param version: version of the component class (only for logging)
+        :param unit_index: increasing index of object so different objects of the same component can be distinguished
         :param mqtt_topic: topic of subclass which controls the switch state. optional. If not ending with "/set", it will be added as the command_topic is being stored.
         :param instance_name: name of the instance. If not provided will get composed of component_name<count>
         :param wait_for_lock: if True then every request waits for the lock to become available,
