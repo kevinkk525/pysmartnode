@@ -52,8 +52,8 @@ and ADC v_max used in .machine.ADC class.
 Also the cell constant "k" should be calibrated for the plug you use.
 """
 
-__updated__ = "2020-04-03"
-__version__ = "1.9"
+__updated__ = "2021-05-26"
+__version__ = "2.0"
 
 from pysmartnode import config
 from pysmartnode import logging
@@ -88,9 +88,10 @@ _unit_index = -1
 class EC(ComponentSensor):
     DEBUG = True
 
-    def __init__(self, r1, ra, rg, adc, power_pin, ground_pin, ppm_conversion, temp_coef, k,
-                 temp_sensor: ComponentSensor, read_timeout=400, iterations=1, precision_ec=3,
-                 friendly_name_ec=None, friendly_name_ppm=None, **kwargs):
+    def __init__(self, arduino=None, adc=None, power_pin=None, ground_pin=None,
+                 r1=300, ra=25, rg=25, ppm_conversion=0.5, temp_coef=0.019, k=2.88,
+                 temp_sensor: ComponentSensor = None, read_timeout=400, iterations=1,
+                 precision_ec=3, vcc=3.3, friendly_name_ec=None, friendly_name_ppm=None, **kwargs):
         # This makes it possible to use multiple instances of MySensor
         global _unit_index
         _unit_index += 1
@@ -101,10 +102,11 @@ class EC(ComponentSensor):
                             friendly_name_ec or "EC", self._topic, DISCOVERY_EC)
         self._addSensorType("ppm", 0, 0, VALUE_TEMPLATE_JSON.format("ppm|int"), "ppm",
                             friendly_name_ppm or "PPM", self._topic, DISCOVERY_PPM)
-
-        self._adc = ADC(adc)
-        self._ppin = Pin(power_pin, machine.Pin.IN)  # changing to OUTPUT GND when needed
-        self._gpin = Pin(ground_pin, machine.Pin.IN)  # changing to OUTPUT GND when needed
+        self._ard=arduino
+        if not arduino:
+            self._adc = ADC(adc)
+            self._ppin = Pin(power_pin, machine.Pin.IN)  # changing to OUTPUT GND when needed
+            self._gpin = Pin(ground_pin, machine.Pin.IN)  # changing to OUTPUT GND when needed
         self._r1 = r1
         self._ra = ra
         self._rg = rg
@@ -113,9 +115,10 @@ class EC(ComponentSensor):
         self._k = k
         self._to = read_timeout
         self._iters = iterations
+        self._vcc = vcc
         gc.collect()
 
-    @micropython.native
+    # @micropython.native
     @staticmethod
     def _read_sync(_gpin_init, _ppin_init, _ppin_value, _adc_read, _in, ticks, ticks_diff):
         a = ticks()
@@ -127,6 +130,18 @@ class EC(ComponentSensor):
         _gpin_init(_in)
         _ppin_init(_in)
         return vol, ticks_diff(b, a)
+
+    async def _read_arduino(self):
+        a = time.ticks_us()
+        try:
+            adc = await self._ard.read("ec", int, timeout=1000)
+        except OSError as e:
+            print(e)
+            adc=1023 # not connected
+        b = time.ticks_us()
+        vol = adc/1023*self._ard.getVoltage()
+        diff=b-a
+        return adc, diff, vol
 
     async def _read(self):
         temp = await self._temp.getValue(SENSOR_TEMPERATURE)
@@ -140,12 +155,15 @@ class EC(ComponentSensor):
         diffs = []
         adcs = []
         for _ in range(self._iters):
-            self._gpin.init(machine.Pin.OUT, value=0)
-            self._ppin.init(machine.Pin.OUT, value=0)
-            adc, diff = self._read_sync(self._gpin.init, self._ppin.init, self._ppin.value,
-                                        self._adc.read, machine.Pin.IN, time.ticks_us,
-                                        time.ticks_diff)
-            vol = self._adc.convertToVoltage(adc)
+            if self._ard:
+                adc, diff, vol = await self._read_arduino()
+            else:
+                self._gpin.init(machine.Pin.OUT, value=0)
+                self._ppin.init(machine.Pin.OUT, value=0)
+                adc, diff = self._read_sync(self._gpin.init, self._ppin.init, self._ppin.value,
+                                            self._adc.read, machine.Pin.IN, time.ticks_us,
+                                            time.ticks_diff)
+                vol = self._adc.convertToVoltage(adc)
             vols.append(vol)
             adcs.append(adc)
             diffs.append(diff)
@@ -155,7 +173,7 @@ class EC(ComponentSensor):
         for i, diff in enumerate(diffs):
             if diff > self._to:
                 r.append(i)
-            elif vols[i] >= self._adc.maxVoltage():
+            elif vols[i] >= self._vcc*0.95:
                 r.append(i)
         if len(r) == len(diffs):
             vol = vols[0]
@@ -177,7 +195,7 @@ class EC(ComponentSensor):
             print("Vols", vols)
             print("adcs", adcs)
             print("diffs", diffs)
-        if vol >= self._adc.maxVoltage():
+        if vol >= self._vcc*0.9:
             await self._setValue("ec", None, log_error=False)
             await self._setValue("ppm", None, log_error=False)
             await _log.asyncLog("warn", "Cable not in fluid")
@@ -187,7 +205,7 @@ class EC(ComponentSensor):
                 await self._setValue("ec", None, log_error=False)
                 await self._setValue("ppm", None, log_error=False)
                 return
-            rc = (vol * (self._r1 + self._ra)) / (3.3 - vol)
+            rc = (vol * (self._r1 + self._ra)) / (self._vcc - vol)
             rc = rc - self._rg
             ec = 1000 / (rc * self._k)
             ec25 = ec / (1 + self._temp_coef * (temp - 25.0))
